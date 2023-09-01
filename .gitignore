@@ -1,0 +1,5 @@
+data/
+output/
+.vscode/
+__pycache__
+.git_backup
