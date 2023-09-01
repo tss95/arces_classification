@@ -1,0 +1,38 @@
+paths:
+  data_path: /staff/tord/Workspace/arces_classification/data
+  #data_path: /nobackup/tord/gpu-test-tord/data
+  labels: ["explosion", "noise", "earthquake"]
+  output_folder: /staff/tord/Workspace/arces_classification/output
+  data_csv: /staff/tord/Workspace/arces_classification/output/data.csv
+  model_save_folder: /staff/tord/Workspace/arces_classification/output/models
+  logs_folder: /staff/tord/Workspace/arces_classification/output/logs
+  predictions_folder: /staff/tord/Workspace/arces_classification/output/folder
+  plots_folder: /staff/tord/Workspace/arces_classification/output/plots
+
+  loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/
+  
+
+data:
+  what_to_load: ["train", "val"]
+  train_prop: 0.8
+  val_prop: 0.6
+  first_date: "1998-10-01"
+
+filters:
+  use_filters: True
+  detrend: True
+  taper: True
+  taper_max_percentage: 0.05
+  highpass_or_bandpass: bandpass
+  band_kwargs:
+    min: 2
+    max: 8
+  high_kwargs:
+    high_freq: 1.0
+
+scaling:
+  scaler_type: minmax
+  per_channel: False
+  global_or_local: global
+
+

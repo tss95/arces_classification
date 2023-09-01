@@ -1,0 +1,13 @@
+tqdm
+wandb
+scipy
+timm
+scikit-learn
+hydra-core
+numpy   
+debugpy
+tensorflow
+ipykernel
+colorlog
+pandas
+obspy
