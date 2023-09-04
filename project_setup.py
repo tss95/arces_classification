@@ -11,18 +11,19 @@ def dict_to_namespace(d):
     return SimpleNamespace(**d)
 
 def update_paths(d):
-    for k, v in d.items():
-        if isinstance(v, str) and v.startswith('/staff/tord/Workspace'):
-            d[k] = v.replace('/staff/tord/Workspace', '/tf')
-        elif isinstance(v, dict):
-            update_paths(v)
+    pass
+    #for k, v in d.items():
+    #    if isinstance(v, str) and v.startswith('/staff/tord/Workspace'):
+    #        d[k] = v.replace('/staff/tord/Workspace', '/tf')
+    #    elif isinstance(v, dict):
+    #        update_paths(v)
 
 def get_config_dir():
     hostname = socket.gethostname()
-    if hostname == 'saturn.norsar.no':
-        return "/staff/tord/Workspace/arces_classification/config"
-    else:
-        return "/tf/config"
+    #if hostname == 'saturn.norsar.no':
+    return "/staff/tord/Workspace/arces_classification/config"
+    #else:
+    #    return "/tf/config"
 
 def setup_config_and_logging():
     # Your LOGGING_CONFIG presumably comes from another file. Import it here.

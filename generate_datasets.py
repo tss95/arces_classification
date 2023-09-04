@@ -7,6 +7,7 @@ import json
 from tqdm import tqdm
 import os
 import h5py
+import pickle
 
 # Paths
 data_csv_path = cfg.paths.data_csv

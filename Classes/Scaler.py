@@ -1,12 +1,11 @@
 # Your existing imports and setup here
 from global_config import logger, cfg
-import pandas as pd
 import numpy as np
 
 
 class Scaler:
     
-    def __init__(self)
+    def __init__(self):
         self.global_or_local = cfg.scaling.global_or_local
         self.per_channel = cfg.scaling.per_channel
         self.scaler_type = cfg.scaling.scaler_type
@@ -132,8 +131,8 @@ class RobustScaler(Scaler):
                 self.medians = np.array([median_1, median_2, median_3])
                 self.iqrs = np.array([iqr_1, iqr_2, iqr_3])
             else:
-                self.medians = np.array([median_1, median_2, median_3]).median()
-                self.iqrs = np.array([iqr_1, iqr_2, iqr_3]).median()
+                self.medians = np.median(np.array([median_1, median_2, median_3]))
+                self.iqrs = np.median(np.array([iqr_1, iqr_2, iqr_3]))
         if self.global_or_local == "local":
             logger.info("Local robust; skipping fit")
 
