@@ -1,3 +1,6 @@
+
+model: "cnn_2_dense"
+
 paths:
   data_path: /staff/tord/Workspace/arces_classification/data
   #data_path: /nobackup/tord/gpu-test-tord/data
@@ -8,11 +11,11 @@ paths:
   logs_folder: /staff/tord/Workspace/arces_classification/output/logs
   predictions_folder: /staff/tord/Workspace/arces_classification/output/folder
   plots_folder: /staff/tord/Workspace/arces_classification/output/plots
-
   loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/
   
 
 data:
+  num_classes: 3
   what_to_load: ["train", "val"]
   train_prop: 0.8
   val_prop: 0.6
@@ -30,9 +33,40 @@ filters:
   high_kwargs:
     high_freq: 1.0
 
+callbacks:
+  early_stopping_patience: 7
+  umap_interval: 5
+
 scaling:
   scaler_type: minmax
   per_channel: False
   global_or_local: global
+
+augment:
+  zero_channel: True
+  zero_channel_kwargs:
+    prob: 0.1
+  add_gap: True
+  add_gap_kwargs:
+    probs: 0.1
+    max_size: 0.01
+  add_noise: True
+  add_noise_kwargs:
+    prob: 0.1
+    noise_std: 0.1
+  taper: True
+  taper_kwargs:
+    prob: 1
+    alpha: 0.04
+
+optimizer:
+  max_epochs: 150
+  optimizer: adam
+  optimizer_kwargs:
+    lr: 0.001
+    weight_decay: 0.0001
+
+
+
 
 

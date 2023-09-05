@@ -1,0 +1,10 @@
+filters: [78, 312, 624]
+activation: "relu"
+filter_size: [72, 72, 72]
+l1: 0.000
+l2: 0.001
+dropout: 0.001
+pool_type: "max"
+dense_units: [254, 254]
+initializer: "glorot_uniform"
+conv_type: "not_seperable"

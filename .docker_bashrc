@@ -1,0 +1,46 @@
+########################################################################
+# User specific aliases and functions
+       
+alias s='source ~/.bashrc'
+alias df='df -h'
+alias du='du -h'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias grep='grep --color'                     # show differences in colour
+alias mv='mv -i'
+alias ....='cd /tf'
+alias ls='/bin/ls -Xhp --color=auto'          # classify files in colour
+alias dir='/bin/ls -d --color=auto .*/ */'
+alias ll='clear;pwd;/bin/ls -oXh --color=auto' 
+alias la='ls -A'                              # all but . and ..
+alias l='ls -CF'                              #
+alias .g='cd /nobackup2/tord'
+
+##################################################################
+PS1='\[\e]0;\h:\w\a\]\n\[\e[01;32m\]\h:\[\e[91m\]\w\n\[\e[00;32m\]\u\[\e[0m\] > '
+PS1='\[\e]0;\h:\w\a\]\n\[\e[01;32m\]\h:\[\e[91m\]\w\n\[\e[1;33m\]\A \[\e[00;1m\]\u\[\e[0m\] >  '
+
+
+export PS1
+##################################################################
+
+# Set the size of the history list.
+export HISTSIZE=5000
+export HISTTIMEFORMAT='%F %T  '
+history -r    #Read  the  contents  of the history file and use them as the current history.
+
+#allow file globbing, such as ls **/*.txt
+shopt -s globstar
+
+# Change the color of folders.
+# Check for existence of .dircolors file and source it
+if [ -r ~/.dircolors ]; then
+    eval "$(dircolors -b ~/.dircolors)"
+else
+    eval "$(dircolors -b)"
+fi
+
+#################################################################
+export TF_CPP_MIN_LOG_LEVEL=2
+
+cd /tf

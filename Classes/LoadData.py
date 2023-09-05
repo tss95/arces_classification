@@ -68,7 +68,7 @@ class LoadData:
         traces, label, metadata = None, None, None
         traces = np.load(os.path.join(cfg.paths.loaded_path, f'{data_description}_traces.npy'), allow_pickle=True)
         label = np.load(os.path.join(cfg.paths.loaded_path, f'{data_description}_labels.npy'), allow_pickle=True)
-        with open(os.path.join(cfg.paths.output_folder, f'{data_description}_metadata.pkl'), 'rb') as f:
+        with open(os.path.join(cfg.paths.loaded_path, f'{data_description}_metadata.pkl'), 'rb') as f:
             metadata = pickle.load(f)
         return traces, label, metadata
     

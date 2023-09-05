@@ -1,39 +1,40 @@
 from global_config import logger, cfg
 import numpy as np
 import tensorflow as tf
+from sklearn.pipeline import Pipeline
+from Classes.Augment import augment_pipeline
 
 class Generator:
 
-    def __init__(self, dataset):
-        self.data = dataset[0]
-        self.labels = dataset[1]
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.indexes = np.arange(len(self.data))
-        self.on_epoch_end()
+    def __init__(self, tf_dataset, shuffle=False):
+        self.tf_dataset = tf_dataset.batch(cfg.optimizer.batch_size)
+        if shuffle:
+            self.tf_dataset = self.tf_dataset.shuffle(buffer_size=1000)  # Adjust buffer_size as needed
+        self.tf_dataset = self.tf_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     def __len__(self):
-        return int(np.ceil(len(self.data) / self.batch_size))
+        return tf.data.experimental.cardinality(self.tf_dataset).numpy()
 
-    def __getitem__(self, index):
-        start_idx = index * self.batch_size
-        end_idx = (index + 1) * self.batch_size
-
-        batch_indexes = self.indexes[start_idx:end_idx]
-        
-        X = np.array([self.data[i] for i in batch_indexes])
-        y = np.array([self.labels[i] for i in batch_indexes])
-
-        return X, y
-
-    def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.indexes)
+    def __iter__(self):
+        return iter(self.tf_dataset)
 
 class TrainGenerator(Generator):
 
-    def __init__(self, dataset):
-        super
+    def __init__(self, tf_dataset):
+        super().__init__(tf_dataset, shuffle=True)
+        self.tf_dataset = self.tf_dataset.map(lambda x, y: (self.__augment_batch(x), y))
+
+    def __augment_batch(self, batch):
+        return augment_pipeline(batch)
+
+class ValGenerator(Generator):
+
+    def __init__(self, tf_dataset):
+        super().__init__(tf_dataset, shuffle=False)
+
+        
+        
+        
 
 
         
