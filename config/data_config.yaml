@@ -1,5 +1,5 @@
 
-model: "cnn_2_dense"
+model: "cnn_dense"
 
 paths:
   data_path: /staff/tord/Workspace/arces_classification/data
@@ -16,6 +16,7 @@ paths:
 
 data:
   num_classes: 3
+  load_filtered: True
   what_to_load: ["train", "val"]
   train_prop: 0.8
   val_prop: 0.6
@@ -61,6 +62,7 @@ augment:
 
 optimizer:
   max_epochs: 150
+  batch_size: 32
   optimizer: adam
   optimizer_kwargs:
     lr: 0.001

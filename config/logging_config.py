@@ -7,7 +7,7 @@ LOGGING_CONFIG = {
     'formatters': {
         'customFormatter': {
             '()': 'colorlog.ColoredFormatter',
-            'format': '%(log_color)sSSL - %(filename)s:%(lineno)d - %(funcName)s - %(levelname)s: %(message)s',
+            'format': '%(log_color)sARCES - %(filename)s:%(lineno)d - %(funcName)s - %(levelname)s: %(message)s',
             'log_colors': {
                 'DEBUG': 'blue',
                 'INFO': 'green',
@@ -26,7 +26,7 @@ LOGGING_CONFIG = {
         }
     },
     'loggers': {
-        'SSL': {
+        'ARCES': {
             'level': 'DEBUG',
             'handlers': ['consoleHandler'],
             'propagate': False

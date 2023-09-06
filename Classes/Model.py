@@ -5,14 +5,16 @@ import tensorflow.keras.layers as tfl
 import tensorflow.keras.backend as K
 
 
-def get_model():
+def get_model(num_classes):
     if cfg.model == "cnn_dense":
-        return CNN_dense()
+        return CNN_dense(num_classes)
     else:
         raise ValueError("Model not found.")
 
 class CNN_dense(tf.keras.Model):
-    def __init__(self):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes = num_classes
         self.initializer = self.get_initializer(model_cfg.initializer)
         if model_cfg.conv_type == "seperable":
             self.conv_layer = tfl.SeparableConv1D
@@ -30,12 +32,12 @@ class CNN_dense(tf.keras.Model):
         for i in range(len(model_cfg.filters)):
             if i == 0:
                 x = self.conv_layer(model_cfg.filters[i], 
-                                    model_cfg.kernel_size[i], 
+                                    model_cfg.filter_size[i], 
                                     activation=None,
                                     kernel_initializer = self.initializer,
                                     kernel_regularizer = regularizer)(inputs)
             else:
-                x = self.conv_layer(model_cfg.filters[i], model_cfg.kernel_size[i], activation=None)(x)
+                x = self.conv_layer(model_cfg.filters[i], model_cfg.filter_size[i], activation=None)(x)
             x = tfl.BatchNormalization()(x)
             x = tfl.Activation(model_cfg.activation)(x)
             x = tfl.Dropout(model_cfg.dropout)(x)
@@ -44,19 +46,19 @@ class CNN_dense(tf.keras.Model):
         for i in range(len(model_cfg.dense_units)):
             x = tfl.Dense(model_cfg.dense_units[i], activation=model_cfg.activation)(x)
             x = tfl.Dropout(model_cfg.dropout)(x)
-        outputs = tfl.Dense(cfg.data.num_classes, activation="softmax" if model_cfg.num_classes > 2 else "sigmoid")(x)
+        outputs = tfl.Dense(self.num_classes, activation="softmax" if self.num_classes > 2 else "sigmoid")(x)
         self.model = tf.keras.Model(inputs=inputs, outputs=outputs)
             
     
     def get_initializer(self, initializer):
         if initializer == "glorot_uniform":
-            return tfl.initializers.glorot_uniform()
+            return tf.initializers.glorot_uniform()
         elif initializer == "glorot_normal":
-            return tfl.initializers.glorot_normal()
+            return tf.initializers.glorot_normal()
         elif initializer == "he_uniform":
-            return tfl.initializers.he_uniform()
+            return tf.initializers.he_uniform()
         elif initializer == "he_normal":
-            return tfl.initializers.he_normal()
+            return tf.initializers.he_normal()
         else:
             raise ValueError("Initializer not found.")
         

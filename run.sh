@@ -9,7 +9,7 @@ CONFIG_MAIN=$CONFIG_PATH/data_config.yaml
 CONFIG_MODEL=$CONFIG_PATH/model_config.yaml
 SCRIPT_NAME=train.py
 PROJECTNAME=arces_classification
-MODEL_CONFIG=cnn_2_dense.yaml
+MODEL_CONFIG=cnn_dense.yaml
 SCRIPT_LOCATION=$PROJECT_PATH
 REQUIREMENTS=$PROJECT_PATH/requirements.txt
 
@@ -47,8 +47,9 @@ cp $SCRIPT_LOCATION/$SCRIPT_NAME $BASE_DIR/run_script.py
 rsync -ahr $GLOBAL_CONFIG $BASE_DIR/global_config.py
 rsync -ahr $PROJECT_SETUP $BASE_DIR/project_setup.py
 rsync -ahr $LOGGER $BASE_DIR/config/logging_config.py
+rsync -agr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
 rsync -ahr $PROJECT_PATH/config/models/$MODEL_CONFIG $BASE_DIR/config/models/$MODEL_CONFIG
-rsync -ahr $PROJECT_PATH/Classes $BASE_DIR
+cp -r $PROJECT_PATH/Classes $BASE_DIR
 #rsync -ahr $DATA_PATH/* $BASE_DIR/data
 rsync -ahr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
 rsync -ahr $REQUIREMENTS $BASE_DIR/requirements.txt

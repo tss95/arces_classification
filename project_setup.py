@@ -1,5 +1,6 @@
 import socket
 import logging.config
+import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
 
@@ -28,7 +29,8 @@ def setup_config_and_logging():
     from config.logging_config import LOGGING_CONFIG
 
     logging.config.dictConfig(LOGGING_CONFIG)
-    logger = logging.getLogger('ARCES Classification')
+    logger = logging.getLogger('ARCES')
+    logger.setLevel(logging.DEBUG)
 
     config_dir = get_config_dir()
     args = OmegaConf.load(f'{config_dir}/data_config.yaml')
