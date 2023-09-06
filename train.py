@@ -1,13 +1,11 @@
 from global_config import logger, cfg, model_cfg
 import numpy as np
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from Classes.LoadData import LoadData
 from Classes.Scaler import Scaler
-from tensorflow.data import Dataset
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from datetime import datetime
@@ -15,7 +13,7 @@ from datetime import datetime
 from Classes.Generator import TrainGenerator
 from Classes.Generator import ValGenerator
 from Classes.Model import get_model
-from Classes.Metrics import get_metrics
+from Classes.Metrics import get_least_frequent_class_metrics
 from Classes.UMAPCallback import UMAPCallback
 from Classes.Analysis import Analysis
 import socket
@@ -57,6 +55,10 @@ logger.info("Train data shape after transpose: " + str(train_data.shape))
 val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
 val_data = np.transpose(val_data, (0,2,1))
 
+train_labels = np.where(np.char.find(train_labels, 'earthquake') >= 0, 'earthquake', train_labels)
+val_labels = np.where(np.char.find(val_labels, 'earthquake') >= 0, 'earthquake', val_labels)
+
+
 scaler = Scaler()
 scaler.fit(train_data)
 train_data = scaler.transform(train_data)
@@ -73,15 +75,25 @@ val_labels_onehot = to_categorical(val_labels_encoded)
 # Step 2: Create a translational dictionary for label strings
 label_map = {index: label for index, label in enumerate(label_encoder.classes_)}
 
+# Calculate class weights
+class_weights = compute_class_weight('balanced', classes=np.unique(train_labels_encoded), y=train_labels_encoded)
+
+# Create a dictionary to pass it to the training configuration
+class_weight_dict = {i: class_weights[i] for i in range(len(class_weights))}
+
+
 train_gen = TrainGenerator(train_data, train_labels_onehot)
 val_gen = ValGenerator(val_data, val_labels_onehot)
 
-metrics = get_metrics(train_labels_onehot, label_map, ['accuracy', 'f1_score', 'recall', 'precision'])
-
+metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
+                                           sample_weight = class_weights, 
+                                           metrics_list = ['accuracy','f1_score', 'precision', 'recall'])
 input_shape = train_data.shape[1:]
-model = get_model(num_classes = 4)
-model.build(input_shape = input_shape)
-model.compile(optimizer = cfg.optimizer.optimizer, loss = CategoricalCrossentropy(), metrics = metrics)
+logger.info("Input shape to the model: " + str(input_shape))
+model = get_model(num_classes = 3)
+model.build(input_shape=(None, *input_shape))  # Explicitly building the model here
+opt = Adam(learning_rate=cfg.optimizer.optimizer_kwargs.lr, weight_decay=cfg.optimizer.optimizer_kwargs.weight_decay)
+model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), metrics=list(metrics.values()))
 model.summary()
 # Callbacks
 callbacks = []
@@ -109,11 +121,7 @@ if socket.gethostname() != 'saturn.norsar.no':
     wandbCallback = WandbCallback()
     callbacks.append(wandbCallback)
 
-# Calculate class weights
-class_weights = compute_class_weight('balanced', classes=np.unique(train_labels_encoded), y=train_labels_encoded)
 
-# Create a dictionary to pass it to the training configuration
-class_weight_dict = {i: class_weights[i] for i in range(len(class_weights))}
 
 print("Class weights dictionary:", class_weight_dict)
 
@@ -126,7 +134,3 @@ model.fit(
 )
 
 Analysis(model, val_data, val_labels_onehot, label_map, date_and_time).main()
-
-
-
-

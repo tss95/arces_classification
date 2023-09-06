@@ -35,12 +35,12 @@ class Scaler:
             raise Exception(f"Invalid value for global_or_local ({self.global_or_local}). Must be one of {str(valid_global_or_local)}")
 
     def fit(self, X):
-        logger.info("Fitting sclaer")
+        logger.info("Fitting scaler.")
         self.scaler.fit(X)
-        logger.info("Scaler fitted")
+        logger.info("Scaler fitted.")
 
     def transform(self, X):
-        logger.info("Transforming data")
+        logger.info("Transforming data.")
         return self.scaler.transform(X)
 
 

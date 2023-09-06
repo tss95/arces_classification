@@ -3,6 +3,8 @@ import logging.config
 import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def dict_to_namespace(d):
     for k, v in d.items():
