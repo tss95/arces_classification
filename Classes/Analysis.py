@@ -3,6 +3,9 @@ from global_config import logger, cfg, model_cfg
 import csv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_recall_curve, PrecisionRecallDisplay
 import numpy as np
+import os
+import matplotlib.pyplot as plt
+from obspy import Stream, Trace
 
 class Analysis:
     def __init__(self, model, val_data, val_labels_onehot, label_map, date_and_time):
@@ -11,6 +14,73 @@ class Analysis:
         self.val_labels_onehot = val_labels_onehot
         self.label_map = label_map
         self.date_and_time = date_and_time
+
+
+
+
+    def collect_and_plot_samples(self, generator, metadata, num_samples=3):
+        # Initialize a dictionary to hold the samples for each class based on label_map keys
+        class_samples = {key: [] for key in self.label_map.keys()}
+        used_indices = []
+        
+        # Iterate through the generator to collect samples
+        for index in range(len(generator)):
+            batch_data, batch_labels, original_indices = generator.get_item_with_index(index)
+            for idx, (data, label_tensor) in enumerate(zip(batch_data, batch_labels)):
+                label = np.argmax(label_tensor.numpy())  # Extract the class index
+                if len(class_samples[label]) < num_samples:
+                    data = data.numpy()
+                    # logger.info(f"Found sample candidate of shape: {data.shape}")
+                    # logger.info(f"Sample has min and max: ({np.min(data)}, {np.max(data)})")
+                    class_samples[label].append(data)  # Assuming data is also a tensor
+                    used_indices.append(original_indices[idx])
+
+            # Check if we've collected enough samples for each class
+            if all(len(samples) >= num_samples for samples in class_samples.values()):
+                break
+                
+        for label in list(self.label_map.keys()):
+            for sample_idx, sample in enumerate(class_samples[label]):
+                relevant_metadata = metadata[used_indices[sample_idx]]
+                trace_stream = self.get_trace_stream(sample, relevant_metadata)
+                
+                # Create a new plot for each time series
+                fig, ax = plt.subplots(figsize=(15, 5))
+                
+                trace_stream.plot(handle=True, axes=ax)
+                ax.set_title(f'Label: {label}')
+                
+                # Save plot with an appropriate name
+                plot_name = f"collected_sample_{label}_{sample_idx}.png"
+                plot_path = os.path.join(cfg.paths.plots_folder, plot_name)
+                # logger.info(f"Sample plot {plot_name} generated")
+                plt.savefig(plot_path)
+                plt.close(fig)
+        
+        generator.on_epoch_end()
+
+    def get_trace_stream(self, traces, metadata):
+        traces = np.array(traces).T
+        logger.info(f"Trace input shape {traces.shape}")
+        starttime = metadata['trace_stats']['starttime']
+        station = metadata['trace_stats']['station']
+        channels = metadata['trace_stats']['channels']
+        sampl_rate = metadata['trace_stats']['sampling_rate']
+        trace_BHE = Trace(data=traces[0], header ={'station' : station,
+                                            'channel' : channels[0],
+                                            'sampling_rate' : sampl_rate,
+                                            'starttime' : starttime})
+        trace_BHN = Trace(data=traces[1], header ={'station' : station,
+                                                'channel' : channels[1],
+                                                'sampling_rate' : sampl_rate,
+                                                'starttime' : starttime})
+        trace_BHZ = Trace(data=traces[2], header ={'station' : station,
+                                                'channel' : channels[2],
+                                                'sampling_rate' : sampl_rate,
+                                                'starttime' : starttime})
+        stream = Stream([trace_BHE, trace_BHN, trace_BHZ])
+        return stream
+
 
     def main(self):
         self.plot_confusion_matrix()

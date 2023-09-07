@@ -16,13 +16,16 @@ from Classes.Model import get_model
 from Classes.Metrics import get_least_frequent_class_metrics
 from Classes.UMAPCallback import UMAPCallback
 from Classes.Analysis import Analysis
+from Classes.MetricsCallback import MetricsCallback
 import socket
 
 import wandb 
-from wandb.keras import WandbCallback
+from wandb.keras import WandbMetricsLogger
 
 from tensorflow.keras import mixed_precision
 from tensorflow.config.experimental import list_physical_devices, set_memory_growth
+
+
 
 gpus = list_physical_devices('GPU')
 if gpus:
@@ -41,6 +44,13 @@ if socket.gethostname() != 'saturn.norsar.no':
     for key, value in vars(cfg).items():
         config_dict[key] = value
     wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
+    from tensorflow.keras.callbacks import Callback
+    import wandb
+
+    class CustomWandbLogging(Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            logs = logs or {}
+            wandb.log(logs)
 now = datetime.now()
 date_and_time = now.strftime("%Y%m%d_%H%M%S")
 
@@ -55,14 +65,33 @@ logger.info("Train data shape after transpose: " + str(train_data.shape))
 val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
 val_data = np.transpose(val_data, (0,2,1))
 
-train_labels = np.where(np.char.find(train_labels, 'earthquake') >= 0, 'earthquake', train_labels)
-val_labels = np.where(np.char.find(val_labels, 'earthquake') >= 0, 'earthquake', val_labels)
+def swap_labels(labels):
+    output = []
+    for label in labels:
+        if label == 'induced or triggered event':
+            output.append('earthquake')
+        else:
+            output.append(label)
+    return output
 
+train_labels = swap_labels(train_labels)
+val_labels = swap_labels(val_labels)
+
+print(np.unique(train_labels))
+print(np.unique(val_labels))
+
+logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
+logger.info(f"Before scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
 
 scaler = Scaler()
 scaler.fit(train_data)
 train_data = scaler.transform(train_data)
 val_data = scaler.transform(val_data)
+
+logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
+logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
+
+        
 
 # Step 1: One-hot encoding of labels
 label_encoder = LabelEncoder()
@@ -74,6 +103,7 @@ val_labels_onehot = to_categorical(val_labels_encoded)
 
 # Step 2: Create a translational dictionary for label strings
 label_map = {index: label for index, label in enumerate(label_encoder.classes_)}
+print(label_map)
 
 # Calculate class weights
 class_weights = compute_class_weight('balanced', classes=np.unique(train_labels_encoded), y=train_labels_encoded)
@@ -81,20 +111,28 @@ class_weights = compute_class_weight('balanced', classes=np.unique(train_labels_
 # Create a dictionary to pass it to the training configuration
 class_weight_dict = {i: class_weights[i] for i in range(len(class_weights))}
 
+logger.info(f"First one hot train label is: {train_labels_onehot[0]}")
+logger.info(f"First one hot val label is: {val_labels_onehot[0]}") 
+
 
 train_gen = TrainGenerator(train_data, train_labels_onehot)
 val_gen = ValGenerator(val_data, val_labels_onehot)
 
-metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
-                                           sample_weight = class_weights, 
-                                           metrics_list = ['accuracy','f1_score', 'precision', 'recall'])
+#metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
+#                                           sample_weight = class_weights, 
+#                                           metrics_list = ['accuracy','f1_score', 'precision', 'recall'])
 input_shape = train_data.shape[1:]
 logger.info("Input shape to the model: " + str(input_shape))
 model = get_model(num_classes = 3)
 model.build(input_shape=(None, *input_shape))  # Explicitly building the model here
 opt = Adam(learning_rate=cfg.optimizer.optimizer_kwargs.lr, weight_decay=cfg.optimizer.optimizer_kwargs.weight_decay)
-model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), metrics=list(metrics.values()))
+model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), metrics='accuracy')
 model.summary()
+
+analysis = Analysis(model, val_data, val_labels_onehot, label_map, date_and_time)
+analysis.collect_and_plot_samples(train_gen, train_meta)
+
+
 # Callbacks
 callbacks = []
 early_stopping = EarlyStopping(
@@ -117,9 +155,12 @@ umap_callback = UMAPCallback(val_data,
                              interval=cfg.callbacks.umap_interval
                              )
 callbacks.append(umap_callback)
-if socket.gethostname() != 'saturn.norsar.no':
-    wandbCallback = WandbCallback()
-    callbacks.append(wandbCallback)
+metrics_callback = MetricsCallback(val_labels_onehot, label_map)
+callbacks.append(metrics_callback)
+
+#if socket.gethostname() != 'saturn.norsar.no':
+#    wandbCallback = WandbMetricsLogger(list(metrics.keys()))
+#    callbacks.append(wandbCallback)
 
 
 
@@ -133,4 +174,4 @@ model.fit(
     class_weight=class_weight_dict
 )
 
-Analysis(model, val_data, val_labels_onehot, label_map, date_and_time).main()
+analysis.main()

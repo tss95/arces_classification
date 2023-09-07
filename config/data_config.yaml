@@ -10,7 +10,7 @@ paths:
   model_save_folder: /staff/tord/Workspace/arces_classification/output/models
   logs_folder: /staff/tord/Workspace/arces_classification/output/logs
   predictions_folder: /staff/tord/Workspace/arces_classification/output/folder
-  plots_folder: /staff/tord/Workspace/arces_classification/output/plots
+  plots_folder: /staff/tord/Workspace/arces_classification/output
   loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/
   
 
@@ -41,7 +41,7 @@ callbacks:
 scaling:
   scaler_type: minmax
   per_channel: False
-  global_or_local: global
+  global_or_local: local
 
 augment:
   zero_channel: True
@@ -55,7 +55,7 @@ augment:
   add_noise_kwargs:
     prob: 0.1
     noise_std: 0.1
-  taper: True
+  taper: False
   taper_kwargs:
     prob: 1
     alpha: 0.04

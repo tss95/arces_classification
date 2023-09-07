@@ -1,8 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-# Define the function
-def get_least_frequent_class_metrics(one_hot_labels, label_map=None, sample_weight = None, metrics_list=['f1_score', 'precision', 'recall']):
+def get_least_frequent_class_metrics(one_hot_labels, label_map=None, sample_weight=None, metrics_list=['f1_score', 'precision', 'recall', 'accuracy']):
     class_counts = np.sum(one_hot_labels, axis=0)
     min_class_id = np.argmin(class_counts)
     
@@ -25,6 +24,8 @@ def get_least_frequent_class_metrics(one_hot_labels, label_map=None, sample_weig
                 elif metric_name == 'f1_score':
                     self.precision = tf.keras.metrics.Precision()
                     self.recall = tf.keras.metrics.Recall()
+                elif metric_name == 'accuracy':
+                    self.accuracy = tf.keras.metrics.Accuracy(name=f"accuracy")
 
             def update_state(self, y_true, y_pred, sample_weight=None):
                 y_true = tf.cast(y_true[:, self.class_id], tf.float32)
@@ -44,6 +45,9 @@ def get_least_frequent_class_metrics(one_hot_labels, label_map=None, sample_weig
                 if self.metric_name == 'f1_score':
                     self.precision.update_state(y_true, y_pred, sample_weight=sample_weight)
                     self.recall.update_state(y_true, y_pred, sample_weight=sample_weight)
+                
+                if self.metric_name == 'accuracy':
+                    self.accuracy.update_state(y_true, y_pred, sample_weight=sample_weight)
 
             def result(self):
                 if self.metric_name == 'precision':
@@ -56,19 +60,23 @@ def get_least_frequent_class_metrics(one_hot_labels, label_map=None, sample_weig
                     precision = self.precision.result()
                     recall = self.recall.result()
                     return 2 * ((precision * recall) / (precision + recall + 1e-5))
+                
+                if self.metric_name == 'accuracy':
+                    return self.accuracy.result()
 
             def reset_states(self):
                 if self.metric_name in ['precision', 'f1_score']:
                     self.precision.reset_states()
                 if self.metric_name in ['recall', 'f1_score']:
                     self.recall.reset_states()
-                    
+                if self.metric_name == 'accuracy':
+                    self.accuracy.reset_states()
+
         metrics_dict[metric_name] = LeastFrequentClassMetrics()
-    
+
     return metrics_dict
 
 if __name__ == '__main__':
-    print("Running main")
     # Simulated one-hot encoded labels and predictions
     y_true = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0]])
     y_pred = np.array([[0.8, 0.1, 0.1], [0.2, 0.6, 0.2], [0.1, 0.2, 0.7], [0.9, 0.05, 0.05], [0.1, 0.8, 0.1]])

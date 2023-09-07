@@ -94,7 +94,7 @@ fi
 wandb_api_key=aeb7c08e886c823c11e185436e5391546de850d0
 # '"device=0"' uses only one, '"device=0,1"' will use both
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
-docker run -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf $PROJECTNAME:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
+docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf $PROJECTNAME:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      python /tf/run_script.py &&

@@ -66,6 +66,7 @@ class MinMaxScaler(Scaler):
             logger.info("Local minmax; skipping fit")
 
     def transform(self, X):
+        X = X.astype(float)
         if cfg.scaling.global_or_local == "global":
             if cfg.scaling.per_channel:
                 X[:,:,0] = (X[:,:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0])
@@ -74,13 +75,14 @@ class MinMaxScaler(Scaler):
             else:
                 X = (X - self.mins) / (self.maxs - self.mins)
         if cfg.scaling.global_or_local == "local":
-            for x in X:
+            for idx, x in enumerate(X):
                 if cfg.scaling.per_channel:
-                    x[:,0] = (x[:,0] - np.min(x[:,0])) / (np.max(x[:,0]) - np.min(x[:,0]))
-                    x[:,1] = (x[:,1] - np.min(x[:,1])) / (np.max(x[:,1]) - np.min(x[:,1]))
-                    x[:,2] = (x[:,2] - np.min(x[:,2])) / (np.max(x[:,2]) - np.min(x[:,2]))
+                    X[idx,:,0] = (x[:,0] - np.min(x[:,0])) / (np.max(x[:,0]) - np.min(x[:,0]))
+                    X[idx,:,1] = (x[:,1] - np.min(x[:,1])) / (np.max(x[:,1]) - np.min(x[:,1]))
+                    X[idx,:,2] = (x[:,2] - np.min(x[:,2])) / (np.max(x[:,2]) - np.min(x[:,2]))
                 else:
-                    x = (x - np.min(x)) / (np.max(x) - np.min(x))
+                    X[idx] = (x - np.min(x)) / (np.max(x) - np.min(x))
+        logger.info("Data has been minmaxed")
         return X
 
 class StandardScaler(Scaler):
@@ -101,10 +103,11 @@ class StandardScaler(Scaler):
             else:
                 self.means = np.array([mean_1, mean_2, mean_3]).mean()
                 self.stds = np.array([std_1, std_2, std_3]).mean()
-        if cfg.scalingelf.global_or_local == "local":
+        if cfg.scaling.global_or_local == "local":
             logger.info("Local standard; skipping fit")
 
     def transform(self, X):
+        X = X.astype(float)
         if cfg.scaling.global_or_local == "global":
             if cfg.scaling.per_channel:
                 X[:,:,0] = (X[:,:,0] - self.means[0]) / self.stds[0]
@@ -113,13 +116,14 @@ class StandardScaler(Scaler):
             else:
                 X = (X - self.means) / self.stds
         if cfg.scaling.global_or_local == "local":
-            for x in X:
+            for idx, x in enumerate(X):
                 if cfg.scaling.per_channel:
-                    x[:,0] = (x[:,0] - np.mean(x[:,0])) / np.std(x[:,0])
-                    x[:,1] = (x[:,1] - np.mean(x[:,1])) / np.std(x[:,1])
-                    x[:,2] = (x[:,2] - np.mean(x[:,2])) / np.std(x[:,2])
+                    X[idx,:,0] = (x[:,0] - np.mean(x[:,0])) / np.std(x[:,0])
+                    X[idx,:,1] = (x[:,1] - np.mean(x[:,1])) / np.std(x[:,1])
+                    X[idx,:,2] = (x[:,2] - np.mean(x[:,2])) / np.std(x[:,2])
                 else:
-                    x = (x - np.mean(x)) / np.std(x)
+                    X[idx] = (x - np.mean(x)) / np.std(x)
+        logger.info("Data has been standard scaled")
         return X
 
 class RobustScaler(Scaler):
@@ -129,9 +133,9 @@ class RobustScaler(Scaler):
 
     def fit(self, X):
         if cfg.scaling.global_or_local == "global":
-            x1 = X[:,:,0]
-            x2 = X[:,:,1]
-            x3 = X[:,:,2]
+            x1 = X[:,0]
+            x2 = X[:,1]
+            x3 = X[:,2]
             median_1, median_2, median_3 = np.median(x1), np.median(x2), np.median(x3)
             iqr_1, iqr_2, iqr_3 = np.subtract(*np.percentile(x1, [75, 25])), np.subtract(*np.percentile(x2, [75, 25])), np.subtract(*np.percentile(x3, [75, 25]))
 
@@ -145,6 +149,7 @@ class RobustScaler(Scaler):
             logger.info("Local robust; skipping fit")
 
     def transform(self, X):
+        X = X.astype(float)
         if cfg.scaling.global_or_local == "global":
             if self.per_channel:
                 X[:,:,0] = (X[:,:,0] - self.medians[0]) / self.iqrs[0]
@@ -153,13 +158,14 @@ class RobustScaler(Scaler):
             else:
                 X = (X - self.medians) / self.iqrs
         if cfg.scaling.global_or_local == "local":
-            for x in X:
+            for idx, x in enumerate(X):
                 if cfg.scaling.per_channel:
-                    x[:,0] = (x[:,0] - np.median(x[:,0])) / np.subtract(*np.percentile(x[:,0], [75, 25]))
-                    x[:,1] = (x[:,1] - np.median(x[:,1])) / np.subtract(*np.percentile(x[:,1], [75, 25]))
-                    x[:,2] = (x[:,2] - np.median(x[:,2])) / np.subtract(*np.percentile(x[:,2], [75, 25]))
+                    X[idx,:,0] = (x[:,0] - np.median(x[:,0])) / np.subtract(*np.percentile(x[:,0], [75, 25]))
+                    X[idx,:,1] = (x[:,1] - np.median(x[:,1])) / np.subtract(*np.percentile(x[:,1], [75, 25]))
+                    X[idx,:,2] = (x[:,2] - np.median(x[:,2])) / np.subtract(*np.percentile(x[:,2], [75, 25]))
                 else:
-                    x = (x - np.median(x)) / np.subtract(*np.percentile(x, [75, 25]))
+                    X[idx] = (x - np.median(x)) / np.subtract(*np.percentile(x, [75, 25]))
+        logger.info("Data has been robust scaled")
         return X
 
 class LogScaler(Scaler):
@@ -171,4 +177,5 @@ class LogScaler(Scaler):
         return X
 
     def transform(self, X):
+        logger.info("Data has been log scaled")
         return np.log(X)
