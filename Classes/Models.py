@@ -6,9 +6,11 @@ import tensorflow.keras.layers as tfl
 import tensorflow.keras.backend as K
 
 
-def get_model(num_classes):
+def get_model(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
+              detector_class_weights, classifier_class_weights):
     if cfg.model == "cnn_dense":
-        return CNN_dense(num_classes)
+        return CNN_dense(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
+                         detector_class_weights, classifier_class_weights)
     else:
         raise ValueError("Model not found.")
 

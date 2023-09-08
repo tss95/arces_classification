@@ -17,6 +17,26 @@ class MetricsPipeline:
                 self.metrics.append(tf.keras.metrics.F1Score(num_classes=1, threshold=0.5))
             # Add more metrics as needed
 
+    def fit(self, train_generator, val_generator=None, epochs=1):
+        for epoch in range(epochs):
+            print(f"Starting epoch {epoch+1}/{epochs}")
+            # Initialize progress bar
+            progbar = Progbar(target=len(train_generator))
+            # Training loop
+            for i, (x_batch, y_batch) in enumerate(train_generator):
+                train_metrics = self.train_step((x_batch, y_batch))
+                # Update progress bar
+                progbar.update(i+1)
+            print("Epoch completed")
+            # Validation loop
+            if val_generator is not None:
+                for x_val_batch, y_val_batch in val_generator:
+                    val_metrics = self.test_step((x_val_batch, y_val_batch))
+            # Log metrics (can be replaced with more advanced logging or callbacks)
+            print(f"Train Metrics: {train_metrics}")
+            if val_generator is not None:
+                print(f"Validation Metrics: {val_metrics}")
+
     def update_state(self, y_true, y_pred):
         """
         Update the state of each metric.
@@ -71,7 +91,7 @@ class Loop(tf.keras.Model):
             y_pred = self.model(x, training=True)
 
             # Compute loss for detector and apply class weights
-            loss_detector = tf.keras.losses.binary_crossentropy(y['detector'], y_pred['detector'])
+            loss_detector = tf.keras.losses.binary_crossentropy(y['detector'], y_pred['detector'], from_logits = True)
             loss_detector *= self.detector_class_weights
             
             # Create a mask to isolate 'not_noise' events
@@ -82,7 +102,7 @@ class Loop(tf.keras.Model):
             y_pred_classifier = tf.boolean_mask(y_pred['classifier'], mask_not_noise)
             
             # Compute loss for classifier and apply class weights
-            loss_classifier = tf.keras.losses.binary_crossentropy(y_true_classifier, y_pred_classifier)
+            loss_classifier = tf.keras.losses.binary_crossentropy(y_true_classifier, y_pred_classifier, from_logits = True)
             loss_classifier *= self.classifier_class_weights
             
             # Total loss

@@ -36,7 +36,8 @@ class Generator(Sequence):
         return math.floor(total_samples / cfg.optimizer.batch_size)
 
     def __getitem__(self, index):
-        return next(self.iterator)
+        batch_data, batch_labels = next(self.iterator)
+        return batch_data, {'detector': batch_labels[..., 0], 'classifier': batch_labels[..., 1]}
 
     def get_item_with_index(self, index):
         data, labels = self.__getitem__(index)

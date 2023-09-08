@@ -6,10 +6,10 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
-from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from datetime import datetime
 
+from Classes.Utils import prepare_labels, swap_labels
 from Classes.Generator import TrainGenerator
 from Classes.Generator import ValGenerator
 from Classes.Model import get_model
@@ -44,13 +44,7 @@ if socket.gethostname() != 'saturn.norsar.no':
     for key, value in vars(cfg).items():
         config_dict[key] = value
     wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
-    from tensorflow.keras.callbacks import Callback
-    import wandb
 
-    class CustomWandbLogging(Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            logs = logs or {}
-            wandb.log(logs)
 now = datetime.now()
 date_and_time = now.strftime("%Y%m%d_%H%M%S")
 
@@ -65,14 +59,7 @@ logger.info("Train data shape after transpose: " + str(train_data.shape))
 val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
 val_data = np.transpose(val_data, (0,2,1))
 
-def swap_labels(labels):
-    output = []
-    for label in labels:
-        if label == 'induced or triggered event':
-            output.append('earthquake')
-        else:
-            output.append(label)
-    return output
+
 
 train_labels = swap_labels(train_labels)
 val_labels = swap_labels(val_labels)
@@ -93,30 +80,32 @@ logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max
 
         
 
-# Step 1: One-hot encoding of labels
-label_encoder = LabelEncoder()
-train_labels_encoded = label_encoder.fit_transform(train_labels)
-val_labels_encoded = label_encoder.transform(val_labels)
+# Prepare labels for training data
+train_detector_labels_onehot, train_classifier_labels_onehot, label_encoder = prepare_labels(train_labels)
 
-train_labels_onehot = to_categorical(train_labels_encoded)
-val_labels_onehot = to_categorical(val_labels_encoded)
+# Prepare labels for validation data using the same label_encoder
+val_detector_labels_onehot, val_classifier_labels_onehot, _ = prepare_labels(val_labels, label_encoder=label_encoder)
 
-# Step 2: Create a translational dictionary for label strings
-label_map = {index: label for index, label in enumerate(label_encoder.classes_)}
-print(label_map)
+# Create a translational dictionary for label strings based on training data
+detector_label_map = {index: label for index, label in enumerate(label_encoder['detector'].classes_)}
+classifier_label_map = {index: label for index, label in enumerate(label_encoder['classifier'].classes_)}
 
-# Calculate class weights
-class_weights = compute_class_weight('balanced', classes=np.unique(train_labels_encoded), y=train_labels_encoded)
+# Calculate class weights for detector and classifier based on training data
+detector_class_weights = compute_class_weight('balanced', classes=np.unique(label_encoder['detector'].classes_), y=label_encoder['detector'].transform(detector_labels))
+classifier_class_weights = compute_class_weight('balanced', classes=np.unique(label_encoder['classifier'].classes_), y=label_encoder['classifier'].transform(classifier_labels))
 
-# Create a dictionary to pass it to the training configuration
-class_weight_dict = {i: class_weights[i] for i in range(len(class_weights))}
+detector_class_weight_dict = {i: detector_class_weights[i] for i in range(len(detector_class_weights))}
+classifier_class_weight_dict = {i: classifier_class_weights[i] for i in range(len(classifier_class_weights))}
 
-logger.info(f"First one hot train label is: {train_labels_onehot[0]}")
-logger.info(f"First one hot val label is: {val_labels_onehot[0]}") 
+# Combining the detector and classifier labels into a single array
+train_labels_combined = np.stack([train_labels_detector, train_labels_classifier], axis=-1)
+
+# Similarly for validation data
+val_labels_combined = np.stack([val_labels_detector, val_labels_classifier], axis=-1)
 
 
-train_gen = TrainGenerator(train_data, train_labels_onehot)
-val_gen = ValGenerator(val_data, val_labels_onehot)
+train_gen = TrainGenerator(train_data, train_labels_combined)
+val_gen = ValGenerator(val_data, val_labels_combined)
 
 #metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
 #                                           sample_weight = class_weights, 
