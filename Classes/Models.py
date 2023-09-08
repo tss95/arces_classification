@@ -1,4 +1,5 @@
 from global_config import cfg, model_cfg
+from Classes.Loop import Loop
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as tfl 
@@ -11,10 +12,9 @@ def get_model(num_classes):
     else:
         raise ValueError("Model not found.")
 
-class CNN_dense(tf.keras.Model):
-    def __init__(self, num_classes):
-        super(CNN_dense, self).__init__()
-        self.num_classes = num_classes
+class CNN_dense(Loop):
+    def __init__(self, least_frequent_class, label_map):
+        super(CNN_dense, self).__init__(least_frequent_class, label_map)
         self.initializer = self.get_initializer("glorot_uniform")  # Replace with your initializer
         self.conv_layers = []
         self.pool_layers = []

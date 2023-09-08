@@ -68,4 +68,42 @@ class MetricsCallback(Callback):
         self.recall.reset_states()
         self.accuracy.reset_states()
 
+    def on_train_batch_end(self, batch, logs=None):
+        if batch % cfg.callbacks.wandb_n_batches_per_update == 0:
+            x_train, y_train = self.model.train_function.inputs[0], self.model.train_function.targets[0]
+            y_pred = self.model.predict(x_train)
+            
+            if not self.is_binary:
+                y_true_least = tf.gather(y_train, [self.min_class_id], axis=1)
+                y_pred_least = tf.argmax(y_pred, axis=-1)
+                y_pred_least = tf.cast(tf.equal(y_pred_least, self.min_class_id), dtype=tf.float32)
+            else:
+                y_true_least = y_train
+                y_pred_least = tf.cast(y_pred > 0.5, dtype=tf.float32)
+            
+            # Update states
+            self.precision.update_state(y_true_least, y_pred_least)
+            self.recall.update_state(y_true_least, y_pred_least)
+            self.accuracy.update_state(y_train, y_pred)
+            
+            # Compute metrics
+            precision_result = self.precision.result().numpy()
+            recall_result = self.recall.result().numpy()
+            accuracy_result = self.accuracy.result().numpy()
+            f1_score_result = 2 * ((precision_result * recall_result) / (precision_result + recall_result + 1e-5))
+
+            # Log metrics to wandb
+            wandb_metrics = {
+                f'train_precision_{self.label_name}': precision_result,
+                f'train_recall_{self.label_name}': recall_result,
+                f'train_f1_score_{self.label_name}': f1_score_result,
+                'train_accuracy': accuracy_result
+            }
+            wandb.log(wandb_metrics, step=batch)
+            
+            # Reset metrics
+            self.precision.reset_states()
+            self.recall.reset_states()
+            self.accuracy.reset_states()
+
 

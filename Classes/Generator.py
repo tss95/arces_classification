@@ -4,6 +4,7 @@ import numpy as np
 from Classes.Augment import augment_pipeline
 from tensorflow.keras.utils import Sequence
 from functools import reduce
+import math
 
 class Generator(Sequence):
 
@@ -31,7 +32,8 @@ class Generator(Sequence):
         self.iterator = iter(self.tf_dataset)
 
     def __len__(self):
-        return tf.data.experimental.cardinality(self.tf_dataset).numpy()
+        total_samples = tf.data.experimental.cardinality(self.tf_dataset).numpy()
+        return math.floor(total_samples / cfg.optimizer.batch_size)
 
     def __getitem__(self, index):
         return next(self.iterator)
