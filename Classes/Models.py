@@ -13,9 +13,11 @@ def get_model(num_classes):
         raise ValueError("Model not found.")
 
 class CNN_dense(Loop):
-    def __init__(self, least_frequent_class, label_map):
-        super(CNN_dense, self).__init__(least_frequent_class, label_map)
-        self.initializer = self.get_initializer("glorot_uniform")  # Replace with your initializer
+    def __init__(self, label_map_detector, label_map_classifier, detector_metrics, classifier_metrics, 
+                 detector_class_weights, classifier_class_weights):
+        super(CNN_dense, self).__init__(label_map_detector, label_map_classifier, detector_metrics, 
+                                        classifier_metrics, detector_class_weights, classifier_class_weights)
+        self.initializer = self.get_initializer("glorot_uniform")
         self.conv_layers = []
         self.pool_layers = []
         self.dense_layers = []
@@ -41,7 +43,9 @@ class CNN_dense(Loop):
             self.dense_layers.append(tfl.Dense(units, activation=model_cfg.activation))
             self.dense_layers.append(tfl.Dropout(model_cfg.dropout))
         
-        self.final_dense = tfl.Dense(self.num_classes, activation=None)
+        self.final_dense_detector = tfl.Dense(1, activation=None)  # Binary output for detector
+        self.final_dense_classifier = tfl.Dense(1, activation=None)  # Binary output for classifier
+
 
     def call(self, inputs, training=False):
         x = inputs
@@ -56,7 +60,10 @@ class CNN_dense(Loop):
         for layer in self.dense_layers:
             x = layer(x, training=training)
         
-        return self.final_dense(x)
+        output_detector = self.final_dense_detector(x)
+        output_classifier = self.final_dense_classifier(x)
+
+        return {'detector': output_detector, 'classifier': output_classifier}
 
     def get_initializer(self, initializer):
         if initializer == "glorot_uniform":
