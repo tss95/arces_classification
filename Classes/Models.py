@@ -2,6 +2,7 @@ from global_config import cfg, model_cfg
 from Classes.Loop import Loop
 import numpy as np
 import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
 import tensorflow.keras.layers as tfl 
 import tensorflow.keras.backend as K
 

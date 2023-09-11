@@ -2,10 +2,11 @@ from global_config import logger, cfg, model_cfg
 import numpy as np
 from Classes.LoadData import LoadData
 from Classes.Scaler import Scaler
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.losses import CategoricalCrossentropy
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.keras.optimizers import Adam
+import tensorflow as tf
+from tf.keras.utils import to_categorical
+from tf.keras.losses import CategoricalCrossentropy
+from tf.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tf.keras.optimizers import Adam
 from sklearn.utils.class_weight import compute_class_weight
 from datetime import datetime
 
@@ -22,8 +23,8 @@ import socket
 import wandb 
 from wandb.keras import WandbMetricsLogger
 
-from tensorflow.keras import mixed_precision
-from tensorflow.config.experimental import list_physical_devices, set_memory_growth
+from tf.keras import mixed_precision
+from tf.config.experimental import list_physical_devices, set_memory_growth
 
 
 
@@ -102,16 +103,26 @@ logger.info(f"Classifier label map: {classifier_label_map}")
 logger.info(f"Detector class weights: {detector_class_weight_dict}")
 logger.info(f"Classifier class weights: {classifier_class_weight_dict}")
 
-# Convert nested dictionaries to NumPy arrays
-detector_labels_array_train = np.array([nested_label_dict_train[i]['detector'] for i in range(len(nested_label_dict_train))])
-classifier_labels_array_train = np.array([nested_label_dict_train[i]['classifier'] for i in range(len(nested_label_dict_train))])
 
-detector_labels_array_val = np.array([nested_label_dict_val[i]['detector'] for i in range(len(nested_label_dict_val))])
-classifier_labels_array_val = np.array([nested_label_dict_val[i]['classifier'] for i in range(len(nested_label_dict_val))])
+
+# Convert nested dictionaries to NumPy arrays
+detector_labels_array_train = np.argmax(np.array([nested_label_dict_train[i]['detector'] for i in range(len(nested_label_dict_train))]), axis=1)
+classifier_labels_array_train = np.argmax(np.array([nested_label_dict_train[i]['classifier'] for i in range(len(nested_label_dict_train))]), axis=1)
+
+detector_labels_array_val = np.argmax(np.array([nested_label_dict_val[i]['detector'] for i in range(len(nested_label_dict_val))]), axis=1)
+classifier_labels_array_val = np.argmax(np.array([nested_label_dict_val[i]['classifier'] for i in range(len(nested_label_dict_val))]), axis=1)
+
+
+
+train_labels_dict = {'detector': detector_labels_array_train[:, np.newaxis], 'classifier': classifier_labels_array_train[:, np.newaxis]}
+val_labels_dict = {'detector': detector_labels_array_val[:, np.newaxis], 'classifier': classifier_labels_array_val[:, np.newaxis]}
+
+logger.info(f"3 first classifier labels: {val_labels_dict['classifier'][:3]}")
+logger.info(f"3 first detector labels: {val_labels_dict['detector'][:3]}")
 
 # Now, use these arrays to create your data generators
-train_gen = TrainGenerator(train_data, {'detector': detector_labels_array_train, 'classifier': classifier_labels_array_train})
-val_gen = ValGenerator(val_data, {'detector': detector_labels_array_val, 'classifier': classifier_labels_array_val})
+train_gen = TrainGenerator(train_data, train_labels_dict)
+val_gen = ValGenerator(val_data, val_labels_dict)
 
 #metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
 #                                           sample_weight = class_weights, 
@@ -171,4 +182,6 @@ model.fit(
     callbacks=callbacks, 
 )
 
-#analysis.main()
+analysis = Analysis(model, val_gen, val_labels_dict, date_and_time)
+
+analysis.main()

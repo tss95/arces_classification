@@ -36,12 +36,16 @@ class Generator(Sequence):
 
 
     def __len__(self):
-        total_samples = tf.data.experimental.cardinality(self.tf_dataset).numpy()
-        return math.floor(total_samples / cfg.optimizer.batch_size)
+        return math.floor(len(self.indices) / cfg.optimizer.batch_size)
 
     def __getitem__(self, index):
-        batch_data, batch_labels = next(self.iterator)
-        return batch_data, {'detector': batch_labels[..., 0], 'classifier': batch_labels[..., 1]}
+        try:
+            batch_data, batch_labels = next(self.iterator)
+            return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
+        except StopIteration:
+            self.iterator = iter(self.tf_dataset)  # Reset iterator
+            batch_data, batch_labels = next(self.iterator)  # Fetch next batch after reset
+            return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
 
     def get_item_with_index(self, index):
         data, labels = self.__getitem__(index)

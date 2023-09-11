@@ -27,7 +27,7 @@ LOGGING_CONFIG = {
     },
     'loggers': {
         'ARCES': {
-            'level': 'DEBUG',
+            'level': 'ERROR',
             'handlers': ['consoleHandler'],
             'propagate': False
         }

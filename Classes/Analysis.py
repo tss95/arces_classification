@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from global_config import logger, cfg, model_cfg
+from global_config import logger, cfg
 import csv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_recall_curve, PrecisionRecallDisplay
 import numpy as np
@@ -8,11 +8,10 @@ import matplotlib.pyplot as plt
 from obspy import Stream, Trace
 
 class Analysis:
-    def __init__(self, model, val_data, val_labels_onehot, label_map, date_and_time):
+    def __init__(self, model, val_gen, label_maps_dict, date_and_time):
         self.model = model
-        self.val_data = val_data
-        self.val_labels_onehot = val_labels_onehot
-        self.label_map = label_map
+        self.val_gen = val_gen
+        self.label_maps = label_maps_dict
         self.date_and_time = date_and_time
 
 
@@ -20,8 +19,9 @@ class Analysis:
 
     def collect_and_plot_samples(self, generator, metadata, num_samples=3):
         # Initialize a dictionary to hold the samples for each class based on label_map keys
-        class_samples = {key: [] for key in self.label_map.keys()}
+        class_samples = {key: [] for key in self.label_maps.keys()}
         used_indices = []
+        # TODO: This function no longer works.
         
         # Iterate through the generator to collect samples
         for index in range(len(generator)):
@@ -39,7 +39,7 @@ class Analysis:
             if all(len(samples) >= num_samples for samples in class_samples.values()):
                 break
                 
-        for label in list(self.label_map.keys()):
+        for label in list(self.label_maps.keys()):
             for sample_idx, sample in enumerate(class_samples[label]):
                 relevant_metadata = metadata[used_indices[sample_idx]]
                 trace_stream = self.get_trace_stream(sample, relevant_metadata)
@@ -86,63 +86,121 @@ class Analysis:
         self.plot_confusion_matrix()
         self.plot_precision_recall_curve()
         self.incorrect_predictions_overview()
-    
+
+    def plot_precision_recall_curve(self):
+        final_true_labels = []
+        final_pred_probs = []
+
+        for batch_data, batch_labels in self.val_gen:
+            # Get predictions and true labels
+            pred_probs = self.model.predict(batch_data)
+            pred_probs_classifier = pred_probs['classifier'][:, 1]  # assuming 1 is "not_noise"
+
+            true_labels = np.argmax(batch_labels['classifier'], axis=1)
+
+            # Logic to append only when the detector is "not_noise"
+            mask_not_noise = (np.argmax(batch_labels['detector'], axis=1) == 1)  # assuming 1 is "not_noise"
+            true_labels = true_labels[mask_not_noise]
+            pred_probs_classifier = pred_probs_classifier[mask_not_noise]
+
+            final_pred_probs.extend(pred_probs_classifier)
+            final_true_labels.extend(true_labels)
+
+        # Compute precision-recall curve
+        precision, recall, _ = precision_recall_curve(final_true_labels, final_pred_probs)
+
+        # Plotting
+        plt.figure()
+        disp = PrecisionRecallDisplay(precision=precision, recall=recall)
+        disp.plot()
+
+        # Save the plot
+        plt.savefig(f"{cfg.paths.plots_folder}/prc_{cfg.model}_{self.date_and_time}.png")
+        plt.close()
+
+        
     def plot_confusion_matrix(self):
-        # Get predictions
-        pred_probs = self.model.predict(self.val_data)
-        pred_labels = np.argmax(pred_probs, axis=1)
+        final_pred_labels = []
+        final_true_labels = []
         
-        # Get true labels
-        true_labels = np.argmax(self.val_labels_onehot, axis=1)
-        
+        for batch_data, batch_labels in self.val_gen:
+            # Get predictions for both detector and classifier
+            pred_probs = self.model.predict(batch_data)
+            pred_labels_detector = np.argmax(pred_probs['detector'], axis=1)
+            pred_labels_classifier = np.argmax(pred_probs['classifier'], axis=1)
+
+            # Get true labels for both
+            true_labels_detector = np.argmax(batch_labels['detector'], axis=1)
+            true_labels_classifier = np.argmax(batch_labels['classifier'], axis=1)
+
+            # Logic to combine detector and classifier predictions
+            for i in range(len(pred_labels_detector)):
+                if pred_labels_detector[i] == self.label_map['detector']['noise']:
+                    final_pred_labels.append(self.label_map['final']['noise'])
+                else:
+                    final_pred_labels.append(self.label_map['final'][self.label_map['classifier'][pred_labels_classifier[i]]])
+
+                if true_labels_detector[i] == self.label_map['detector']['noise']:
+                    final_true_labels.append(self.label_map['final']['noise'])
+                else:
+                    final_true_labels.append(self.label_map['final'][self.label_map['classifier'][true_labels_classifier[i]]])
+
+        # Convert lists to numpy arrays for sklearn functions
+        final_pred_labels = np.array(final_pred_labels)
+        final_true_labels = np.array(final_true_labels)
+
         # Compute confusion matrix
-        cm = confusion_matrix(true_labels, pred_labels)
+        cm = confusion_matrix(final_true_labels, final_pred_labels)
         
         # Plotting
         plt.figure()
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.label_map.values())
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.label_map['final'].values())
         disp.plot(cmap=plt.cm.Blues)
         
         # Save the plot
         plt.savefig(f"{cfg.paths.plots_folder}/conf_{cfg.model}_{self.date_and_time}.png")
         plt.close()
-
-    def plot_precision_recall_curve(self):
-        # Find the least frequent class
-        class_counts = np.sum(self.val_labels_onehot, axis=0)
-        least_frequent_class = np.argmin(class_counts)
-        
-        # Get predictions for least frequent class
-        pred_probs = self.model.predict(self.val_data)[:, least_frequent_class]
-        true_labels = self.val_labels_onehot[:, least_frequent_class]
-        
-        # Compute precision-recall curve
-        precision, recall, _ = precision_recall_curve(true_labels, pred_probs)
-        
-        # Plotting
-        plt.figure()
-        disp = PrecisionRecallDisplay(precision=precision, recall=recall)
-        disp.plot()
-        
-        # Save the plot
-        plt.savefig(f"{cfg.paths.plots_folder}/prc_{cfg.model}_{self.date_and_time}.png")
-        plt.close()
+        self.val_gen.on_epoch_end()
 
     def incorrect_predictions_overview(self):
-        # Get predictions
-        pred_probs = self.model.predict(self.val_data)
-        pred_labels = np.argmax(pred_probs, axis=1)
-        
-        # Get true labels
-        true_labels = np.argmax(self.val_labels_onehot, axis=1)
-        
-        incorrect_indices = np.where(pred_labels != true_labels)[0]
-        
+        final_pred_labels = []
+        final_true_labels = []
+        incorrect_indices = []
+
+        for batch_idx, (batch_data, batch_labels) in enumerate(self.val_generator):
+            pred_probs = self.model.predict(batch_data)
+            
+            pred_labels_detector = np.argmax(pred_probs['detector'], axis=1)
+            pred_labels_classifier = np.argmax(pred_probs['classifier'], axis=1)
+            
+            true_labels_detector = np.argmax(batch_labels['detector'], axis=1)
+            true_labels_classifier = np.argmax(batch_labels['classifier'], axis=1)
+
+            batch_size = len(pred_labels_detector)
+            
+            for i in range(batch_size):
+                if pred_labels_detector[i] in self.label_map_detector:
+                    final_pred_labels.append(self.label_map_detector[pred_labels_detector[i]])
+                else:
+                    # Fallback if label is not in map
+                    final_pred_labels.append(str(pred_labels_detector[i]))
+
+                if true_labels_detector[i] in self.label_map_detector:
+                    final_true_labels.append(self.label_map_detector[true_labels_detector[i]])
+                else:
+                    # Fallback if label is not in map
+                    final_true_labels.append(str(true_labels_detector[i]))
+                
+                # Check for incorrect prediction
+                if final_pred_labels[-1] != final_true_labels[-1]:
+                    incorrect_indices.append(batch_idx * batch_size + i)
+
         csv_file_path = f"{cfg.paths.predictions_folder}/{cfg.model}_wrong_predictions_{self.date_and_time}.csv"
-        
+
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['Index', 'Predicted', 'True'])
             
             for idx in incorrect_indices:
-                writer.writerow([idx, self.label_map[pred_labels[idx]], self.label_map[true_labels[idx]]])
+                writer.writerow([idx, final_pred_labels[idx], final_true_labels[idx]])
+        self.val_generator.on_epoch_end()
