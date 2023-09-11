@@ -36,6 +36,7 @@ filters:
 
 callbacks:
   early_stopping_patience: 7
+  umap: False
   umap_interval: 5
   wandb_n_batches_per_update: 50
 

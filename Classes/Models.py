@@ -17,36 +17,42 @@ def get_model(label_map_detector, label_map_classifier, detector_metrics, classi
 class CNN_dense(Loop):
     def __init__(self, label_map_detector, label_map_classifier, detector_metrics, classifier_metrics, 
                  detector_class_weights, classifier_class_weights):
-        super(CNN_dense, self).__init__(label_map_detector, label_map_classifier, detector_metrics, 
-                                        classifier_metrics, detector_class_weights, classifier_class_weights)
-        self.initializer = self.get_initializer("glorot_uniform")
+        # Fixed super call
+        super(CNN_dense, self).__init__(label_map_detector, label_map_classifier, 
+                                        detector_metrics, classifier_metrics, 
+                                        detector_class_weights, classifier_class_weights)
+        # Using the initializer
+        self.initializer = self.get_initializer(model_cfg.initializer)
         self.conv_layers = []
         self.pool_layers = []
         self.dense_layers = []
 
-        for i in range(len(model_cfg.filters)):
+        for i, (filter_, filter_size) in enumerate(zip(model_cfg.filters, model_cfg.filter_size)):
+            # Setting layer names
+            block_name = f"conv_block_{i}"
             if model_cfg.conv_type == "separable":
-                self.conv_layers.append(tfl.SeparableConv1D(model_cfg.filters[i], model_cfg.filter_size[i], activation=None))
+                self.conv_layers.append(tfl.SeparableConv1D(filter_, filter_size, activation=None, kernel_initializer=self.initializer, name=f"{block_name}_sepconv"))
             else:
-                self.conv_layers.append(tfl.Conv1D(model_cfg.filters[i], model_cfg.filter_size[i], activation=None))
+                self.conv_layers.append(tfl.Conv1D(filter_, filter_size, activation=None, kernel_initializer=self.initializer, name=f"{block_name}_conv"))
             
-            self.conv_layers.append(tfl.BatchNormalization())
-            self.conv_layers.append(tfl.Activation(model_cfg.activation))
-            self.conv_layers.append(tfl.Dropout(model_cfg.dropout))
+            self.conv_layers.append(tfl.BatchNormalization(name=f"{block_name}_bn"))
+            self.conv_layers.append(tfl.Activation(model_cfg.activation, name=f"{block_name}_act"))
+            self.conv_layers.append(tfl.Dropout(model_cfg.dropout, name=f"{block_name}_drop"))
             
             if model_cfg.pool_type == "max":
-                self.pool_layers.append(tfl.MaxPool1D())
+                self.pool_layers.append(tfl.MaxPool1D(name=f"{block_name}_maxpool"))
             else:
-                self.pool_layers.append(tfl.AveragePooling1D())
+                self.pool_layers.append(tfl.AveragePooling1D(name=f"{block_name}_avgpool"))
 
-        self.flatten = tfl.Flatten()
+        self.flatten = tfl.Flatten(name="flatten")
         
-        for units in model_cfg.dense_units:
-            self.dense_layers.append(tfl.Dense(units, activation=model_cfg.activation))
-            self.dense_layers.append(tfl.Dropout(model_cfg.dropout))
+        for i, units in enumerate(model_cfg.dense_units):
+            dense_name = f"dense_{i}"
+            self.dense_layers.append(tfl.Dense(units, activation=model_cfg.activation, kernel_initializer=self.initializer, name=dense_name))
+            self.dense_layers.append(tfl.Dropout(model_cfg.dropout, name=f"{dense_name}_drop"))
         
-        self.final_dense_detector = tfl.Dense(1, activation=None)  # Binary output for detector
-        self.final_dense_classifier = tfl.Dense(1, activation=None)  # Binary output for classifier
+        self.final_dense_detector = tfl.Dense(1, activation=None, kernel_initializer=self.initializer, name="final_dense_detector")  
+        self.final_dense_classifier = tfl.Dense(1, activation=None, kernel_initializer=self.initializer, name="final_dense_classifier")
 
 
     def call(self, inputs, training=False):

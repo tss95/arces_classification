@@ -17,7 +17,10 @@ class Generator(Sequence):
             # Initialize list to hold chunk datasets
             chunk_datasets = []
             for i in range(0, len(data), chunk_size):
-                chunk = tf.data.Dataset.from_tensor_slices((data[i:i+chunk_size], labels[i:i+chunk_size]))
+                data_chunk = data[i:i+chunk_size]
+                labels_chunk = {key: value[i:i+chunk_size] for key, value in labels.items()}
+                
+                chunk = tf.data.Dataset.from_tensor_slices((data_chunk, labels_chunk))
                 chunk_datasets.append(chunk)
 
             # Use functools.reduce to concatenate all chunk datasets
@@ -30,6 +33,7 @@ class Generator(Sequence):
             self.tf_dataset = self.tf_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         
         self.iterator = iter(self.tf_dataset)
+
 
     def __len__(self):
         total_samples = tf.data.experimental.cardinality(self.tf_dataset).numpy()

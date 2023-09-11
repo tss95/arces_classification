@@ -9,10 +9,10 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.utils.class_weight import compute_class_weight
 from datetime import datetime
 
-from Classes.Utils import prepare_labels, swap_labels
+from Classes.Utils import prepare_labels_and_weights, swap_labels
 from Classes.Generator import TrainGenerator
 from Classes.Generator import ValGenerator
-from Classes.Model import get_model
+from Classes.Models import get_model
 from Classes.Metrics import get_least_frequent_class_metrics
 from Classes.UMAPCallback import UMAPCallback
 from Classes.Analysis import Analysis
@@ -80,46 +80,55 @@ logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max
 
         
 
-# Prepare labels for training data
-train_detector_labels_onehot, train_classifier_labels_onehot, label_encoder = prepare_labels(train_labels)
+# Prepare labels for training and validation data
+nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
+nested_label_dict_val, _, _, _, _, _ = prepare_labels_and_weights(val_labels, label_encoder=label_encoder_train)
 
-# Prepare labels for validation data using the same label_encoder
-val_detector_labels_onehot, val_classifier_labels_onehot, _ = prepare_labels(val_labels, label_encoder=label_encoder)
+logger.info(f"Label encoder:{label_encoder_train}")
 
 # Create a translational dictionary for label strings based on training data
-detector_label_map = {index: label for index, label in enumerate(label_encoder['detector'].classes_)}
-classifier_label_map = {index: label for index, label in enumerate(label_encoder['classifier'].classes_)}
+detector_label_map = {index: label for index, label in enumerate(label_encoder_train['detector'].classes_)}
+classifier_label_map = {index: label for index, label in enumerate(label_encoder_train['classifier'].classes_)}
 
-# Calculate class weights for detector and classifier based on training data
-detector_class_weights = compute_class_weight('balanced', classes=np.unique(label_encoder['detector'].classes_), y=label_encoder['detector'].transform(detector_labels))
-classifier_class_weights = compute_class_weight('balanced', classes=np.unique(label_encoder['classifier'].classes_), y=label_encoder['classifier'].transform(classifier_labels))
+# Convert class weights to dictionaries
+detector_class_weight_dict = {i: detector_class_weights_train[i] for i in range(len(detector_class_weights_train))}
+classifier_class_weight_dict = {i: classifier_class_weights_train[i] for i in range(len(classifier_class_weights_train))}
 
-detector_class_weight_dict = {i: detector_class_weights[i] for i in range(len(detector_class_weights))}
-classifier_class_weight_dict = {i: classifier_class_weights[i] for i in range(len(classifier_class_weights))}
+# Combine the detector and classifier labels into single nested dictionaries
+# This should already be done by prepare_labels_and_weights as it returns nested_label_dict_train and nested_label_dict_val
 
-# Combining the detector and classifier labels into a single array
-train_labels_combined = np.stack([train_labels_detector, train_labels_classifier], axis=-1)
+logger.info(f"Detector label map: {detector_label_map}")
+logger.info(f"Classifier label map: {classifier_label_map}")
+logger.info(f"Detector class weights: {detector_class_weight_dict}")
+logger.info(f"Classifier class weights: {classifier_class_weight_dict}")
 
-# Similarly for validation data
-val_labels_combined = np.stack([val_labels_detector, val_labels_classifier], axis=-1)
+# Convert nested dictionaries to NumPy arrays
+detector_labels_array_train = np.array([nested_label_dict_train[i]['detector'] for i in range(len(nested_label_dict_train))])
+classifier_labels_array_train = np.array([nested_label_dict_train[i]['classifier'] for i in range(len(nested_label_dict_train))])
 
+detector_labels_array_val = np.array([nested_label_dict_val[i]['detector'] for i in range(len(nested_label_dict_val))])
+classifier_labels_array_val = np.array([nested_label_dict_val[i]['classifier'] for i in range(len(nested_label_dict_val))])
 
-train_gen = TrainGenerator(train_data, train_labels_combined)
-val_gen = ValGenerator(val_data, val_labels_combined)
+# Now, use these arrays to create your data generators
+train_gen = TrainGenerator(train_data, {'detector': detector_labels_array_train, 'classifier': classifier_labels_array_train})
+val_gen = ValGenerator(val_data, {'detector': detector_labels_array_val, 'classifier': classifier_labels_array_val})
 
 #metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
 #                                           sample_weight = class_weights, 
 #                                           metrics_list = ['accuracy','f1_score', 'precision', 'recall'])
 input_shape = train_data.shape[1:]
 logger.info("Input shape to the model: " + str(input_shape))
-model = get_model(num_classes = 3)
+classifier_metrics = ["f1_score", "precision", "recall", "accuracy"]
+detector_metrics = ["accuracy"]
+model = get_model(detector_label_map, classifier_label_map, detector_metrics, classifier_metrics, 
+                  detector_class_weight_dict, classifier_class_weight_dict)
 model.build(input_shape=(None, *input_shape))  # Explicitly building the model here
 opt = Adam(learning_rate=cfg.optimizer.optimizer_kwargs.lr, weight_decay=cfg.optimizer.optimizer_kwargs.weight_decay)
 model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), metrics='accuracy')
 model.summary()
 
-analysis = Analysis(model, val_data, val_labels_onehot, label_map, date_and_time)
-analysis.collect_and_plot_samples(train_gen, train_meta)
+#analysis = Analysis(model, val_data, val_labels_onehot, label_map, date_and_time)
+#analysis.collect_and_plot_samples(train_gen, train_meta)
 
 
 # Callbacks
@@ -138,14 +147,15 @@ model_checkpoint = ModelCheckpoint(
     )
 callbacks.append(model_checkpoint)
 
-umap_callback = UMAPCallback(val_data, 
-                             val_labels_onehot, 
-                             label_map, 
-                             interval=cfg.callbacks.umap_interval
-                             )
-callbacks.append(umap_callback)
-metrics_callback = MetricsCallback(val_labels_onehot, label_map)
-callbacks.append(metrics_callback)
+if cfg.callbacks.umap:
+    umap_callback = UMAPCallback(val_data, 
+                                val_labels_onehot, 
+                                label_map, 
+                                interval=cfg.callbacks.umap_interval
+                                )
+    callbacks.append(umap_callback)
+#metrics_callback = MetricsCallback(val_labels_onehot, label_map)
+#callbacks.append(metrics_callback)
 
 #if socket.gethostname() != 'saturn.norsar.no':
 #    wandbCallback = WandbMetricsLogger(list(metrics.keys()))
@@ -153,14 +163,12 @@ callbacks.append(metrics_callback)
 
 
 
-print("Class weights dictionary:", class_weight_dict)
 
 model.fit(
     train_gen, 
     epochs=cfg.optimizer.max_epochs, 
-    validation_data=val_gen, 
+    val_generator=val_gen, 
     callbacks=callbacks, 
-    class_weight=class_weight_dict
 )
 
-analysis.main()
+#analysis.main()
