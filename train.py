@@ -3,10 +3,10 @@ import numpy as np
 from Classes.LoadData import LoadData
 from Classes.Scaler import Scaler
 import tensorflow as tf
-from tf.keras.utils import to_categorical
-from tf.keras.losses import CategoricalCrossentropy
-from tf.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tf.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.losses import CategoricalCrossentropy
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adam
 from sklearn.utils.class_weight import compute_class_weight
 from datetime import datetime
 
@@ -23,8 +23,8 @@ import socket
 import wandb 
 from wandb.keras import WandbMetricsLogger
 
-from tf.keras import mixed_precision
-from tf.config.experimental import list_physical_devices, set_memory_growth
+from tensorflow.keras import mixed_precision
+from tensorflow.config.experimental import list_physical_devices, set_memory_growth
 
 
 
@@ -68,6 +68,52 @@ val_labels = swap_labels(val_labels)
 print(np.unique(train_labels))
 print(np.unique(val_labels))
 
+if cfg.data.debug:
+    def downsample_data_labels(data, labels, p=10):
+        data = np.array(data)
+        labels = np.array(labels)
+        n = len(data)
+        size = int((p / 100) * n)
+        indices = np.random.choice(np.arange(n), size=size, replace=False)
+        print(f"Type of data: {type(data)}, Type of labels: {type(labels)}, Type of indices: {type(indices)}")  # Debug line
+        
+        downsampled_data = data[indices]
+        downsampled_labels = labels[indices]
+        
+        return downsampled_data, downsampled_labels
+
+    train_data, train_labels = downsample_data_labels(train_data, train_labels, 5)
+    val_data, val_labels = downsample_data_labels(val_data, val_labels, 5)
+
+
+# Ensure train_data and train_labels are NumPy arrays
+train_data = np.array(train_data)
+train_labels = np.array(train_labels)
+
+# Your existing code to get label counts before oversampling
+pre_oversample = len(train_labels)
+logger.info(f"Label distribution pre-oversample: {np.unique(train_labels, return_counts=True)}")
+
+
+# Find the indices of the earthquake samples
+earthquake_indices = np.where(train_labels == 'earthquake')[0]
+
+# Repeat the earthquake samples 3 times
+oversampled_earthquake_indices = np.repeat(earthquake_indices, 3)
+
+# Combine the original indices with the oversampled earthquake indices
+all_indices = np.concatenate([np.arange(len(train_labels)), oversampled_earthquake_indices])
+
+# Perform the oversampling in both data and labels
+train_data = train_data[all_indices]
+train_labels = train_labels[all_indices]
+
+# Your existing code to get label counts after oversampling
+post_oversample = len(train_labels)
+logger.info(f"Before oversampling: {pre_oversample}, after oversampling: {post_oversample}")
+logger.info(f"Label distribution post-oversample: {np.unique(train_labels, return_counts=True)}")
+logger.info(f"Label distribution validation: {np.unique(val_labels, return_counts=True)}")
+
 logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
 logger.info(f"Before scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
 
@@ -78,8 +124,6 @@ val_data = scaler.transform(val_data)
 
 logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
 logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
-
-        
 
 # Prepare labels for training and validation data
 nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
@@ -119,6 +163,11 @@ val_labels_dict = {'detector': detector_labels_array_val[:, np.newaxis], 'classi
 
 logger.info(f"3 first classifier labels: {val_labels_dict['classifier'][:3]}")
 logger.info(f"3 first detector labels: {val_labels_dict['detector'][:3]}")
+# Log the class distribution for training and validation sets
+logger.info(f"Training Detector Class Distribution: {np.unique(train_labels_dict['detector'], return_counts=True)}")
+logger.info(f"Training Classifier Class Distribution: {np.unique(train_labels_dict['classifier'], return_counts=True)}")
+logger.info(f"Validation Detector Class Distribution: {np.unique(val_labels_dict['detector'], return_counts=True)}")
+logger.info(f"Validation Classifier Class Distribution: {np.unique(val_labels_dict['classifier'], return_counts=True)}")
 
 # Now, use these arrays to create your data generators
 train_gen = TrainGenerator(train_data, train_labels_dict)
@@ -145,7 +194,7 @@ model.summary()
 # Callbacks
 callbacks = []
 early_stopping = EarlyStopping(
-    monitor='f1_score', 
+    monitor='val_loss_total', 
     patience=cfg.callbacks.early_stopping_patience,  # number of epochs with no improvement after which training will be stopped
     restore_best_weights=True  # restore the best weights saved when stopping
 )
@@ -153,7 +202,7 @@ callbacks.append(early_stopping)
 
 model_checkpoint = ModelCheckpoint(
     filepath=f'{cfg.paths.model_save_folder}/{model}_{date_and_time}.h5', 
-    monitor='f1_score',
+    monitor='val_total_loss',
     save_best_only=True  # only save the best model
     )
 callbacks.append(model_checkpoint)
@@ -179,9 +228,55 @@ model.fit(
     train_gen, 
     epochs=cfg.optimizer.max_epochs, 
     val_generator=val_gen, 
-    callbacks=callbacks, 
+    callbacks=callbacks
 )
+val_gen.on_epoch_end()
 
-analysis = Analysis(model, val_gen, val_labels_dict, date_and_time)
+def check_valgen(val_gen, model):
+    counts = 0
+    for batch_data, batch_labels in val_gen:
+        pred_probs = model.predict(batch_data)
+        
+        # Counts for detector labels
+        unique, counts_detector = np.unique(np.argmax(pred_probs["detector"], axis=1), return_counts=True)
+        detector_dist = dict(zip(unique, counts_detector))
+        
+        # Counts for classifier labels
+        unique, counts_classifier = np.unique(np.argmax(pred_probs["classifier"], axis=1), return_counts=True)
+        classifier_dist = dict(zip(unique, counts_classifier))
+        
+        n_nn = len(pred_probs["detector"])
+        n_ee = len(pred_probs["classifier"])
+        
+        print(f"n_nn {n_nn}, n_ee {n_ee}")
+        print(f"Detector label distribution per batch: {detector_dist}")
+        print(f"Classifier label distribution per batch: {classifier_dist}")
+        
+        # Counts for true labels in the batch
+        unique, counts_true_detector = np.unique(np.argmax(batch_labels['detector'], axis=1), return_counts=True)
+        true_detector_dist = dict(zip(unique, counts_true_detector))
+        
+        unique, counts_true_classifier = np.unique(np.argmax(batch_labels['classifier'], axis=1), return_counts=True)
+        true_classifier_dist = dict(zip(unique, counts_true_classifier))
+        
+        print(f"True Detector label distribution per batch: {true_detector_dist}")
+        print(f"True Classifier label distribution per batch: {true_classifier_dist}")
+        
+        counts += n_nn
+
+    print(f"Total number of predictions from val_gen: {counts}")
+
+if cfg.data.debug:
+    check_valgen(val_gen, model)
+
+
+
+logger.info(f"Length of val gen: {len(val_gen)}")
+label_map = {
+    'detector': detector_label_map,
+    'classifier': classifier_label_map
+}
+
+analysis = Analysis(model, val_gen, label_map, date_and_time)
 
 analysis.main()

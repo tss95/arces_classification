@@ -97,15 +97,13 @@ echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
 docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf $PROJECTNAME:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
-                                                                                                     python /tf/run_script.py &&
-                                                                                                     bash"
+                                                                                                     python /tf/run_script.py"
 
 # docker run -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf tensorflow/tensorflow:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
 #                                                                                                               source /root/.bashrc &&
 #                                                                                                               find /tf/data -name 'Thumbs.db' -type f -delete &&
 #                                                                                                               pip install -r /tf/requirements.txt &&
-#                                                                                                               python /tf/run_script.py &&
-#                                                                                                               bash"
+#                                                                                                               python /tf/run_script.py"
 
 
 GPU_OUTPUT_DIR=$BASE_DIR/output

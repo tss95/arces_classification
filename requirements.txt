@@ -13,3 +13,4 @@ pandas
 obspy
 umap-learn
 omegaconf
+imblearn

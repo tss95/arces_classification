@@ -51,5 +51,10 @@ def setup_config_and_logging():
     model_args = OmegaConf.create(model_args_dict)
     OmegaConf.set_struct(model_args, False)
     model_cfg = dict_to_namespace(model_args)
+
+    if cfg.data.debug:
+        logger.setLevel("DEBUG")
+    else:
+        logger.setLevel("INFO")
     
     return logger, cfg, model_cfg

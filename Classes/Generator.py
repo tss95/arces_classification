@@ -1,4 +1,4 @@
-from global_config import cfg
+from global_config import cfg, logger
 import tensorflow as tf
 import numpy as np
 from Classes.Augment import augment_pipeline
@@ -9,6 +9,15 @@ import math
 class Generator(Sequence):
 
     def __init__(self, data, labels, shuffle=False, chunk_size=10000):
+        unique_det, counts_true_detector = np.unique(labels['detector'], return_counts=True)
+        unique_cls, counts_true_cls = np.unique(labels['classifier'], return_counts=True)
+
+        true_detector_dist = dict(zip(unique_det, counts_true_detector))
+        true_cls_dist = dict(zip(unique_cls, counts_true_cls))
+
+        logger.debug(f"generator input det dist: {true_detector_dist}")
+        logger.debug(f"generator input cls dist: {true_cls_dist}")
+
         self.indices = np.arange(len(data))
         if shuffle:
             np.random.shuffle(self.indices)
@@ -29,23 +38,19 @@ class Generator(Sequence):
             # Batch, shuffle, and prefetch
             self.tf_dataset = self.tf_dataset.batch(cfg.optimizer.batch_size)
             if shuffle:
-                self.tf_dataset = self.tf_dataset.shuffle(buffer_size=1000)
+                self.tf_dataset = self.tf_dataset.shuffle(buffer_size=10000)
             self.tf_dataset = self.tf_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        
+            self.tf_dataset = self.tf_dataset.repeat()  # Makes the dataset cycle indefinitely
         self.iterator = iter(self.tf_dataset)
-
 
     def __len__(self):
         return math.floor(len(self.indices) / cfg.optimizer.batch_size)
 
     def __getitem__(self, index):
-        try:
-            batch_data, batch_labels = next(self.iterator)
-            return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
-        except StopIteration:
-            self.iterator = iter(self.tf_dataset)  # Reset iterator
-            batch_data, batch_labels = next(self.iterator)  # Fetch next batch after reset
-            return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
+        batch_data, batch_labels = next(self.iterator)
+        unique, counts = np.unique(batch_labels['detector'], return_counts=True)
+        logger.debug(f"__getitem__ batch_labels['detector'] distribution: {dict(zip(unique, counts))}")
+        return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
 
     def get_item_with_index(self, index):
         data, labels = self.__getitem__(index)

@@ -85,3 +85,4 @@ class CNN_dense(Loop):
             return tf.initializers.he_normal()
         else:
             raise ValueError("Initializer not found.")
+        

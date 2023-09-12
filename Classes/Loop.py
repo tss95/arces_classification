@@ -93,7 +93,9 @@ class Loop(tf.keras.Model):
                     callback.on_batch_begin(i, logs)
                 train_metrics = self.train_step((x_batch, y_batch))
                 train_metrics_list.append(train_metrics)
-                progbar.update(i+1)
+                progbar.update(i+1,values=[("total_loss", train_metrics['train_total_loss']),
+                                           ("loss_detector", train_metrics['train_detector_loss']),
+                                           ("loss_classification", train_metrics['train_classification_loss'])])
                 logs = {'batch': i, **train_metrics}
                 for callback in callbacks:
                     callback.on_batch_end(i, logs)
@@ -136,61 +138,71 @@ class Loop(tf.keras.Model):
 
     @tf.function
     def train_step(self, data):
-        x, y = data  # Unpack data
+        x, y = data
         with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)
-
-            # Compute loss for detector and apply class weights
-            loss_detector = tf.keras.losses.binary_crossentropy(y['detector'], y_pred['detector'], from_logits = True)
-            # Map the labels to their corresponding weights for the detector
-            # Map the labels to their corresponding weights for the detector
-            detector_weights = tf.gather(self.detector_class_weights, y['detector'])
-            detector_weights = tf.cast(detector_weights, dtype=loss_detector.dtype)  # Casting dtype
-            loss_detector *= detector_weights
-            
-            # Create a mask to isolate 'not_noise' events
-            mask_not_noise = tf.math.not_equal(y['detector'], self.label_map_detector['noise'])
-            
-            # Apply mask to pre-filter labels and predictions for classifier
-            y_true_classifier = tf.boolean_mask(y['classifier'], mask_not_noise)
-            y_pred_classifier = tf.boolean_mask(y_pred['classifier'], mask_not_noise)
-            
-            # Compute loss for classifier and apply class weights
-            loss_classifier = tf.keras.losses.binary_crossentropy(y_true_classifier, y_pred_classifier, from_logits = True)
-            # Map the labels to their corresponding weights for the classifier
-            classifier_weights = tf.gather(self.classifier_class_weights, y_true_classifier)
-            classifier_weights = tf.cast(classifier_weights, dtype=loss_classifier.dtype)  # Casting dtype
-            loss_classifier *= classifier_weights
-            
-            # Total loss
-            total_loss = tf.reduce_sum(loss_detector) + tf.reduce_sum(loss_classifier)
-
+            total_loss, loss_detector, loss_classifier, y_pred = self.calculate_loss(x, y, training=True)
         # Compute and apply gradients
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-
         # Update metrics
         self._shared_step(y, y_pred)
 
-        results = {}
+        results = {"train_total_loss": total_loss,
+                   "train_detector_loss": loss_detector,
+                   "train_classification_loss": loss_classifier}
         results.update({"train_detector_" + k: v for k, v in self.detector_metrics.result().items()})
         results.update({"train_classifier_" + k: v for k, v in self.classifier_metrics.result().items()})
+
 
         return results
 
     @tf.function
     def test_step(self, data):
         x, y = data  # Unpack data
-        y_pred = self(x, training=False)  # Forward pass
-
+        total_loss, loss_detector, loss_classifier, y_pred = self.calculate_loss(x, y, training=False)
         # Update metrics
         self._shared_step(y, y_pred)
 
-        results = {}
+        results = {"val_total_loss": total_loss,
+                   "val_detector_loss": loss_detector,
+                   "val_classification_loss": loss_classifier}
         results.update({"test_detector_" + k: v for k, v in self.detector_metrics.result().items()})
         results.update({"test_classifier_" + k: v for k, v in self.classifier_metrics.result().items()})
 
 
         return results
+
+
+    @tf.function
+    def calculate_loss(self, x, y, training=True):
+        y_pred = self(x, training=training)
+        # Compute loss for detector and apply class weights
+        loss_detector = tf.keras.losses.binary_crossentropy(y['detector'], y_pred['detector'], from_logits = True)
+        # Map the labels to their corresponding weights for the detector
+        detector_weights = tf.gather(self.detector_class_weights, y['detector'])
+        detector_weights = tf.cast(detector_weights, dtype=loss_detector.dtype)  # Casting dtype
+        loss_detector *= detector_weights
+        
+        # Create a mask to isolate 'not_noise' events
+        mask_not_noise = tf.math.not_equal(y['detector'], self.label_map_detector['noise'])
+        
+        # Apply mask to pre-filter labels and predictions for classifier
+        y_true_classifier = tf.boolean_mask(y['classifier'], mask_not_noise)
+        y_pred_classifier = tf.boolean_mask(y_pred['classifier'], mask_not_noise)
+        
+        # Compute loss for classifier and apply class weights
+        loss_classifier = tf.keras.losses.binary_crossentropy(y_true_classifier, y_pred_classifier, from_logits = True)
+        # Map the labels to their corresponding weights for the classifier
+        classifier_weights = tf.gather(self.classifier_class_weights, y_true_classifier)
+        classifier_weights = tf.cast(classifier_weights, dtype=loss_classifier.dtype)  # Casting dtype
+        loss_classifier *= classifier_weights
+        
+        # Total loss
+
+        loss_detector = tf.reduce_mean(loss_detector)
+        loss_classifier = tf.reduce_mean(loss_classifier)
+
+        total_loss = loss_detector + loss_classifier
+        return total_loss, loss_detector, loss_classifier, y_pred
 
