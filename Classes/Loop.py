@@ -74,31 +74,26 @@ class Loop(tf.keras.Model):
         wandb.log({k: v for k, v in avg_val_metrics.items()})
 
     def fit(self, train_generator, val_generator=None, epochs=1, callbacks=None):
-        callbacks = callbacks or []
-        for callback in callbacks:
-            callback.set_model(self)
+        callbacks = tf.keras.callbacks.CallbackList(callbacks, add_history=True, model=self) or []
         logs = {}
-        for callback in callbacks:
-            callback.on_train_begin(logs)
+        callbacks.on_train_begin(logs=logs)
         for epoch in range(epochs):
             logs = {'epoch': epoch}
-            for callback in callbacks:
-                callback.on_epoch_begin(epoch, logs)
+            callbacks.on_epoch_begin(epoch, logs=logs)
             print(f"Starting epoch {epoch+1}/{epochs}")
             progbar = Progbar(target=len(train_generator))
             train_metrics_list = []
             for i, (x_batch, y_batch) in enumerate(train_generator):
                 logs = {'batch': i}
-                for callback in callbacks:
-                    callback.on_batch_begin(i, logs)
+                callbacks.on_train_batch_begin(i, logs)
                 train_metrics = self.train_step((x_batch, y_batch))
                 train_metrics_list.append(train_metrics)
                 progbar.update(i+1,values=[("total_loss", train_metrics['train_total_loss']),
                                            ("loss_detector", train_metrics['train_detector_loss']),
                                            ("loss_classification", train_metrics['train_classification_loss'])])
                 logs = {'batch': i, **train_metrics}
-                for callback in callbacks:
-                    callback.on_batch_end(i, logs)
+                callbacks.on_train_batch_end(i, logs)
+
             self.on_train_epoch_end(train_metrics_list)
             print("Epoch completed")
             if val_generator is not None:
@@ -108,13 +103,12 @@ class Loop(tf.keras.Model):
                     val_metrics_list.append(val_metrics)
                 self.on_val_epoch_end(val_metrics_list)
             logs = {'epoch': epoch, **train_metrics}
-            for callback in callbacks:
-                epoch_logs = {k: logs[k] for k in logs if k != 'epoch'}  # Exclude 'epoch' from logs
-                callback.on_epoch_end(epoch, epoch_logs)
+            #for callback in callbacks:
+            #    epoch_logs = {k: logs[k] for k in logs if k != 'epoch'}  # Exclude 'epoch' from logs
+            callbacks.on_epoch_end(epoch, logs=logs)
 
         logs = {}
-        for callback in callbacks:
-            callback.on_train_end(logs)
+        callbacks.on_train_end(logs)
 
     @tf.function
     def _shared_step(self, y_true, y_pred):
