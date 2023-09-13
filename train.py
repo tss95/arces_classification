@@ -194,18 +194,14 @@ model.summary()
 # Callbacks
 callbacks = []
 early_stopping = EarlyStopping(
-    monitor='val_loss_total', 
+    monitor='val_total_loss', 
+    verbose = True,
+    mode="min",
     patience=cfg.callbacks.early_stopping_patience,  # number of epochs with no improvement after which training will be stopped
     restore_best_weights=True  # restore the best weights saved when stopping
 )
 callbacks.append(early_stopping)
 
-model_checkpoint = ModelCheckpoint(
-    filepath=f'{cfg.paths.model_save_folder}/{model}_{date_and_time}.h5', 
-    monitor='val_total_loss',
-    save_best_only=True  # only save the best model
-    )
-callbacks.append(model_checkpoint)
 
 if cfg.callbacks.umap:
     umap_callback = UMAPCallback(val_data, 
@@ -214,20 +210,20 @@ if cfg.callbacks.umap:
                                 interval=cfg.callbacks.umap_interval
                                 )
     callbacks.append(umap_callback)
-#metrics_callback = MetricsCallback(val_labels_onehot, label_map)
-#callbacks.append(metrics_callback)
 
-#if socket.gethostname() != 'saturn.norsar.no':
-#    wandbCallback = WandbMetricsLogger(list(metrics.keys()))
-#    callbacks.append(wandbCallback)
-
+reduceLR = ReduceLROnPlateau(monitor ='val_total_loss',
+                            factor = 0.1,
+                            verbose = True,
+                            patience = cfg.callbacks.reduce_lr_patience,
+                            mode='min')
+callbacks.append(reduceLR)
 
 
 
 model.fit(
     train_gen, 
     epochs=cfg.optimizer.max_epochs, 
-    val_generator=val_gen, 
+    validation_data=val_gen, 
     callbacks=callbacks
 )
 val_gen.on_epoch_end()

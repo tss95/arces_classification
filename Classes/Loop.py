@@ -66,6 +66,14 @@ class Loop(tf.keras.Model):
         for metric in self.classifier_metrics.metrics:
             metric.reset_states()
 
+    #def metrics(self):
+    #    avg_train_metrics = {
+    #    k: np.mean([m[k].numpy() for m in train_metrics_list]) 
+    #    for k in train_metrics_list[0].keys()
+    #    }
+    #    wandb.log({k: v for k, v in avg_train_metrics.items()})
+    #    return [*self.detector_metrics.metrics, *self.classifier_metrics.metrics]
+
     def on_val_epoch_end(self, val_metrics_list):
         avg_val_metrics = {
         k: np.mean([m[k].numpy() for m in val_metrics_list]) 
@@ -73,42 +81,55 @@ class Loop(tf.keras.Model):
     }
         wandb.log({k: v for k, v in avg_val_metrics.items()})
 
-    def fit(self, train_generator, val_generator=None, epochs=1, callbacks=None):
-        callbacks = tf.keras.callbacks.CallbackList(callbacks, add_history=True, model=self) or []
-        logs = {}
-        callbacks.on_train_begin(logs=logs)
-        for epoch in range(epochs):
-            logs = {'epoch': epoch}
-            callbacks.on_epoch_begin(epoch, logs=logs)
-            print(f"Starting epoch {epoch+1}/{epochs}")
-            progbar = Progbar(target=len(train_generator))
-            train_metrics_list = []
-            for i, (x_batch, y_batch) in enumerate(train_generator):
-                logs = {'batch': i}
-                callbacks.on_train_batch_begin(i, logs)
-                train_metrics = self.train_step((x_batch, y_batch))
-                train_metrics_list.append(train_metrics)
-                progbar.update(i+1,values=[("total_loss", train_metrics['train_total_loss']),
-                                           ("loss_detector", train_metrics['train_detector_loss']),
-                                           ("loss_classification", train_metrics['train_classification_loss'])])
-                logs = {'batch': i, **train_metrics}
-                callbacks.on_train_batch_end(i, logs)
+    # def fit(self, train_generator, val_generator=None, epochs=1, callbacks=None):
+    #     logs = {}  # Overall logs for the entire training process
+    #     callbacks = tf.keras.callbacks.CallbackList(callbacks, add_history=True, model=self) if callbacks is not None else None
+    #     callbacks.on_train_begin(logs=logs)
 
-            self.on_train_epoch_end(train_metrics_list)
-            print("Epoch completed")
-            if val_generator is not None:
-                val_metrics_list = []
-                for x_val_batch, y_val_batch in val_generator:
-                    val_metrics = self.test_step((x_val_batch, y_val_batch))
-                    val_metrics_list.append(val_metrics)
-                self.on_val_epoch_end(val_metrics_list)
-            logs = {'epoch': epoch, **train_metrics}
-            #for callback in callbacks:
-            #    epoch_logs = {k: logs[k] for k in logs if k != 'epoch'}  # Exclude 'epoch' from logs
-            callbacks.on_epoch_end(epoch, logs=logs)
+    #     for epoch in range(epochs):
+    #         epoch_logs = {'epoch': epoch}
+    #         callbacks.on_epoch_begin(epoch, logs=epoch_logs)
+    #         print(f"Starting epoch {epoch+1}/{epochs}")
+    #         progbar = Progbar(target=len(train_generator))
+    #         train_metrics_list = []
+    #         for i, (x_batch, y_batch) in enumerate(train_generator):
+    #             batch_logs = {'batch': i}
+    #             callbacks.on_train_batch_begin(i, logs=batch_logs)
+    #             train_metrics = self.train_step((x_batch, y_batch))
+    #             train_metrics_list.append(train_metrics)
+    #             progbar.update(i+1,values=[("total_loss", train_metrics['train_total_loss']),
+    #                                        ("loss_detector", train_metrics['train_detector_loss']),
+    #                                        ("loss_classification", train_metrics['train_classification_loss'])])
+            
+    #             batch_logs.update(train_metrics)
+    #             callbacks.on_train_batch_end(i, logs=batch_logs)
 
-        logs = {}
-        callbacks.on_train_end(logs)
+    #         # Calculate average training metrics for the epoch and update epoch_logs
+    #         avg_train_metrics = {key: np.mean([m[key] for m in train_metrics_list]) for key in train_metrics_list[0].keys()}
+    #         epoch_logs.update(avg_train_metrics)
+
+    #         if val_generator is not None:
+    #             val_metrics_list = []
+    #             for i, (x_val_batch, y_val_batch) in enumerate(val_generator):
+    #                 batch_val_logs = {'batch': i}
+    #                 callbacks.on_test_batch_begin(i, logs=batch_val_logs)
+    #                 val_metrics = self.test_step((x_val_batch, y_val_batch))
+    #                 val_metrics_list.append(val_metrics)
+    #                 batch_val_logs.update(val_metrics)
+    #                 callbacks.on_test_batch_end(i, logs=batch_val_logs)
+    #             # Calculate average validation metrics for the epoch and update epoch_logs
+    #             avg_val_metrics = {key: np.mean([m[key] for m in val_metrics_list]) for key in val_metrics_list[0].keys()}
+    #             callbacks.on_test_end(logs=avg_val_metrics)
+    #             self.on_val_epoch_end(val_metrics_list)
+
+
+    #         # Update overall logs with metrics from the latest epoch
+    #         logs.update(epoch_logs)
+    #         callbacks.on_epoch_end(epoch, logs=epoch_logs)
+
+    #     # Finally, pass the accumulated logs to on_train_end
+    #     callbacks.on_train_end(logs=logs)
+
 
     @tf.function
     def _shared_step(self, y_true, y_pred):
