@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 from obspy import Stream, Trace
 import tensorflow as tf
+from Classes.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred
 
 class Analysis:
     def __init__(self, model, val_gen, label_maps_dict, date_and_time):
@@ -88,55 +89,10 @@ class Analysis:
         #self.plot_precision_recall_curve()
         self.incorrect_predictions_overview()
 
-    def get_final_labels(self, pred_probs, label_map):
-        """
-        Given the predicted probabilities from the model, return the final label.
-        
-        Parameters:
-        pred_probs (dict): A dictionary containing the predicted probabilities for both 'detector' and 'classifier'.
-        label_map (dict): A dictionary containing mappings from label indices to their string representations.
-        
-        Returns:
-        list: A list of final labels.
-        """
-        final_labels = []
-        pred_probs_detector = tf.sigmoid(tf.cast(pred_probs['detector'], tf.float32)).numpy()       
-        pred_labels_detector = self.apply_threshold(pred_probs_detector)
 
-        pred_probs_classifier = tf.sigmoid(tf.cast(pred_probs['classifier'], tf.float32)).numpy()
-        pred_labels_classifier = self.apply_threshold(pred_probs_classifier)
-
-        final_labels = self.translate_labels(pred_labels_detector, pred_labels_classifier, label_map)
-        return final_labels, {"detector": pred_probs_detector, "classifier": pred_probs_classifier}
-            
-
-    def translate_labels(self, labels_detector, labels_classifier, label_map):
-        final_labels = []
-        for det, cls in zip(labels_detector, labels_classifier):
-            det = int(det[0]) if isinstance(det, np.ndarray) else det
-            cls = int(cls[0]) if isinstance(cls, np.ndarray) else cls
-
-
-            if label_map["detector"][det] == "noise":
-                final_labels.append("noise")
-            else:
-                final_labels.append(label_map["classifier"][cls])
-            
-            logger.info(f"chosen label: {final_labels[-1]}")
-        
-        return final_labels
-
-    def apply_threshold(self, pred_probs):
-        out = []
-        for prob in pred_probs:
-            if prob <= cfg.data.model_threshold:
-                out.append(0)
-            else:
-                out.append(1)
-        return out
 
     def plot_precision_recall_curve(self):
-        final_true_labels, _, final_pred_probs = self.get_y_and_ypred(self.val_gen)
+        final_true_labels, _, final_pred_probs = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
         # Compute precision-recall curve
         precision, recall, _ = precision_recall_curve(final_true_labels, final_pred_probs)
 
@@ -150,22 +106,8 @@ class Analysis:
         plt.close()
         self.val_gen.on_epoch_end()
 
-    def get_y_and_ypred(self, val_gen):
-        final_pred_labels = []
-        final_true_labels = []
-        final_pred_probs = []
-        
-        for batch_data, batch_labels in val_gen:
-            pred_probs = self.model.predict(batch_data)
-            labels, pred_probs = self.get_final_labels(pred_probs, self.label_maps)
-            final_pred_labels.extend(labels)
-            final_pred_probs.extend(pred_probs)
-            final_true_labels.extend(self.translate_labels(batch_labels["detector"].numpy().astype(int), 
-                                                           batch_labels["classifier"].numpy().astype(int), self.label_maps))
-        return final_true_labels, final_pred_labels, final_pred_probs
-
     def plot_confusion_matrix(self):
-        final_true_labels, final_pred_labels, _ = self.get_y_and_ypred(self.val_gen)
+        final_true_labels, final_pred_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
         # Convert lists to numpy arrays for sklearn functions
         final_pred_labels = np.array(final_pred_labels)
         final_true_labels = np.array(final_true_labels)
@@ -189,7 +131,7 @@ class Analysis:
 
     def incorrect_predictions_overview(self):
         incorrect_indices = []
-        final_true_labels, final_pred_labels, _ = self.get_y_and_ypred(self.val_gen)
+        final_true_labels, final_pred_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
 
         for i in range(len(final_pred_labels)):
             if final_pred_labels != final_true_labels:

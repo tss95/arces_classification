@@ -1,0 +1,84 @@
+method: bayes
+metric:
+  goal: maximize
+  name: val_total_loss
+name: Hyperparameter Optimization
+parameters:
+  activation:
+    values:
+    - relu
+    - elu
+  add_gap:
+    values:
+    - true
+    - false
+  add_noise:
+    values:
+    - true
+    - false
+  batch_size:
+    values:
+    - 64
+    - 128
+    - 256
+  conv_type:
+    values:
+    - normal
+    - separable
+  dropout:
+    max: 0.5
+    min: 0.0
+  filter_size:
+    values:
+    - - 3
+      - 3
+    - - 7
+      - 7
+    - - 5
+      - 5
+    - - 11
+      - 11
+    - - 15
+      - 15
+    - - 21
+      - 21
+    - - 9
+      - 9
+    - - 11
+      - 11
+    - - 13
+      - 13
+  filters:
+    values:
+    - - 32
+      - 64
+    - - 32
+      - 128
+    - - 64
+      - 128
+  initializer:
+    values:
+    - glorot_uniform
+    - glorot_normal
+    - he_uniform
+    - he_normal
+  l1:
+    max: 0.01
+    min: 0.0
+  l2:
+    max: 0.01
+    min: 0.0
+  lr:
+    max: 0.01
+    min: 1.0e-05
+  taper:
+    values:
+    - true
+    - false
+  weight_decay:
+    max: 0.001
+    min: 1.0e-05
+  zero_channel:
+    values:
+    - true
+    - false

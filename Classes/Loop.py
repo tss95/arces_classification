@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 tf.get_logger().setLevel('ERROR')
 import wandb
-from tensorflow.keras.utils import Progbar
 # Pseudo-code to illustrate handling class weights and flexible metrics within the Loop class
 
 class MetricsPipeline:
@@ -55,80 +54,18 @@ class Loop(tf.keras.Model):
         self.detector_metrics = MetricsPipeline(detector_metrics)
         self.classifier_metrics = MetricsPipeline(classifier_metrics)
 
-    def on_train_epoch_end(self, train_metrics_list):
-        avg_train_metrics = {
-        k: np.mean([m[k].numpy() for m in train_metrics_list]) 
-        for k in train_metrics_list[0].keys()
-        }
-        wandb.log({k: v for k, v in avg_train_metrics.items()})
-        for metric in self.detector_metrics.metrics:
-            metric.reset_states()
-        for metric in self.classifier_metrics.metrics:
-            metric.reset_states()
-
-    #def metrics(self):
-    #    avg_train_metrics = {
-    #    k: np.mean([m[k].numpy() for m in train_metrics_list]) 
-    #    for k in train_metrics_list[0].keys()
-    #    }
-    #    wandb.log({k: v for k, v in avg_train_metrics.items()})
-    #    return [*self.detector_metrics.metrics, *self.classifier_metrics.metrics]
-
-    def on_val_epoch_end(self, val_metrics_list):
-        avg_val_metrics = {
-        k: np.mean([m[k].numpy() for m in val_metrics_list]) 
-        for k in val_metrics_list[0].keys()
-    }
-        wandb.log({k: v for k, v in avg_val_metrics.items()})
-
-    # def fit(self, train_generator, val_generator=None, epochs=1, callbacks=None):
-    #     logs = {}  # Overall logs for the entire training process
-    #     callbacks = tf.keras.callbacks.CallbackList(callbacks, add_history=True, model=self) if callbacks is not None else None
-    #     callbacks.on_train_begin(logs=logs)
-
-    #     for epoch in range(epochs):
-    #         epoch_logs = {'epoch': epoch}
-    #         callbacks.on_epoch_begin(epoch, logs=epoch_logs)
-    #         print(f"Starting epoch {epoch+1}/{epochs}")
-    #         progbar = Progbar(target=len(train_generator))
-    #         train_metrics_list = []
-    #         for i, (x_batch, y_batch) in enumerate(train_generator):
-    #             batch_logs = {'batch': i}
-    #             callbacks.on_train_batch_begin(i, logs=batch_logs)
-    #             train_metrics = self.train_step((x_batch, y_batch))
-    #             train_metrics_list.append(train_metrics)
-    #             progbar.update(i+1,values=[("total_loss", train_metrics['train_total_loss']),
-    #                                        ("loss_detector", train_metrics['train_detector_loss']),
-    #                                        ("loss_classification", train_metrics['train_classification_loss'])])
+    def on_epoch_end(self, epoch, logs=None):
+        #if logs is not None:
+            # Filter training and validation metrics from logs
+            #train_metrics = {k: logs[k] for k in logs if not k.startswith('val_')}
+            #val_metrics = {k: logs[k] for k in logs if k.startswith('val_')}
             
-    #             batch_logs.update(train_metrics)
-    #             callbacks.on_train_batch_end(i, logs=batch_logs)
-
-    #         # Calculate average training metrics for the epoch and update epoch_logs
-    #         avg_train_metrics = {key: np.mean([m[key] for m in train_metrics_list]) for key in train_metrics_list[0].keys()}
-    #         epoch_logs.update(avg_train_metrics)
-
-    #         if val_generator is not None:
-    #             val_metrics_list = []
-    #             for i, (x_val_batch, y_val_batch) in enumerate(val_generator):
-    #                 batch_val_logs = {'batch': i}
-    #                 callbacks.on_test_batch_begin(i, logs=batch_val_logs)
-    #                 val_metrics = self.test_step((x_val_batch, y_val_batch))
-    #                 val_metrics_list.append(val_metrics)
-    #                 batch_val_logs.update(val_metrics)
-    #                 callbacks.on_test_batch_end(i, logs=batch_val_logs)
-    #             # Calculate average validation metrics for the epoch and update epoch_logs
-    #             avg_val_metrics = {key: np.mean([m[key] for m in val_metrics_list]) for key in val_metrics_list[0].keys()}
-    #             callbacks.on_test_end(logs=avg_val_metrics)
-    #             self.on_val_epoch_end(val_metrics_list)
-
-
-    #         # Update overall logs with metrics from the latest epoch
-    #         logs.update(epoch_logs)
-    #         callbacks.on_epoch_end(epoch, logs=epoch_logs)
-
-    #     # Finally, pass the accumulated logs to on_train_end
-    #     callbacks.on_train_end(logs=logs)
+            # Log metrics to wandb
+            #wandb.log({"epoch": epoch, **train_metrics, **val_metrics})
+            
+        # Call the superclass method to preserve any base class functionality,
+        # including potentially resetting metric states.
+        super().on_epoch_end(epoch, logs)
 
 
     @tf.function
@@ -182,8 +119,8 @@ class Loop(tf.keras.Model):
         results = {"val_total_loss": total_loss,
                    "val_detector_loss": loss_detector,
                    "val_classification_loss": loss_classifier}
-        results.update({"test_detector_" + k: v for k, v in self.detector_metrics.result().items()})
-        results.update({"test_classifier_" + k: v for k, v in self.classifier_metrics.result().items()})
+        results.update({"val_detector_" + k: v for k, v in self.detector_metrics.result().items()})
+        results.update({"val_classifier_" + k: v for k, v in self.classifier_metrics.result().items()})
 
 
         return results

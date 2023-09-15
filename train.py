@@ -1,16 +1,15 @@
 from global_config import logger, cfg, model_cfg
 import numpy as np
-from Classes.LoadData import LoadData
-from Classes.Scaler import Scaler
+
 import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
 from sklearn.utils.class_weight import compute_class_weight
-from datetime import datetime
 
-from Classes.Utils import prepare_labels_and_weights, swap_labels
+from Classes.Utils import prepare_labels_and_weights, swap_labels, prep_data
 from Classes.Generator import TrainGenerator
 from Classes.Generator import ValGenerator
 from Classes.Models import get_model
@@ -18,6 +17,7 @@ from Classes.Metrics import get_least_frequent_class_metrics
 from Classes.UMAPCallback import UMAPCallback
 from Classes.Analysis import Analysis
 from Classes.MetricsCallback import MetricsCallback
+from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
 import socket
 
 import wandb 
@@ -46,129 +46,7 @@ if socket.gethostname() != 'saturn.norsar.no':
         config_dict[key] = value
     wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
 
-now = datetime.now()
-date_and_time = now.strftime("%Y%m%d_%H%M%S")
-
-loadData = LoadData()
-train_dataset = loadData.get_train_dataset()
-val_dataset = loadData.get_val_dataset()
-
-train_data, train_labels, train_meta = train_dataset[0],train_dataset[1],train_dataset[2]
-logger.info("Train data shape: " + str(train_data.shape))
-train_data = np.transpose(train_data, (0,2,1))
-logger.info("Train data shape after transpose: " + str(train_data.shape))
-val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
-val_data = np.transpose(val_data, (0,2,1))
-
-
-
-train_labels = swap_labels(train_labels)
-val_labels = swap_labels(val_labels)
-
-print(np.unique(train_labels))
-print(np.unique(val_labels))
-
-if cfg.data.debug:
-    def downsample_data_labels(data, labels, p=10):
-        data = np.array(data)
-        labels = np.array(labels)
-        n = len(data)
-        size = int((p / 100) * n)
-        indices = np.random.choice(np.arange(n), size=size, replace=False)
-        print(f"Type of data: {type(data)}, Type of labels: {type(labels)}, Type of indices: {type(indices)}")  # Debug line
-        
-        downsampled_data = data[indices]
-        downsampled_labels = labels[indices]
-        
-        return downsampled_data, downsampled_labels
-
-    train_data, train_labels = downsample_data_labels(train_data, train_labels, 5)
-    val_data, val_labels = downsample_data_labels(val_data, val_labels, 5)
-
-
-# Ensure train_data and train_labels are NumPy arrays
-train_data = np.array(train_data)
-train_labels = np.array(train_labels)
-
-# Your existing code to get label counts before oversampling
-pre_oversample = len(train_labels)
-logger.info(f"Label distribution pre-oversample: {np.unique(train_labels, return_counts=True)}")
-
-
-# Find the indices of the earthquake samples
-earthquake_indices = np.where(train_labels == 'earthquake')[0]
-
-# Repeat the earthquake samples 3 times
-oversampled_earthquake_indices = np.repeat(earthquake_indices, 3)
-
-# Combine the original indices with the oversampled earthquake indices
-all_indices = np.concatenate([np.arange(len(train_labels)), oversampled_earthquake_indices])
-
-# Perform the oversampling in both data and labels
-train_data = train_data[all_indices]
-train_labels = train_labels[all_indices]
-
-# Your existing code to get label counts after oversampling
-post_oversample = len(train_labels)
-logger.info(f"Before oversampling: {pre_oversample}, after oversampling: {post_oversample}")
-logger.info(f"Label distribution post-oversample: {np.unique(train_labels, return_counts=True)}")
-logger.info(f"Label distribution validation: {np.unique(val_labels, return_counts=True)}")
-
-logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
-logger.info(f"Before scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
-
-scaler = Scaler()
-scaler.fit(train_data)
-train_data = scaler.transform(train_data)
-val_data = scaler.transform(val_data)
-
-logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
-logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
-
-# Prepare labels for training and validation data
-nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
-nested_label_dict_val, _, _, _, _, _ = prepare_labels_and_weights(val_labels, label_encoder=label_encoder_train)
-
-logger.info(f"Label encoder:{label_encoder_train}")
-
-# Create a translational dictionary for label strings based on training data
-detector_label_map = {index: label for index, label in enumerate(label_encoder_train['detector'].classes_)}
-classifier_label_map = {index: label for index, label in enumerate(label_encoder_train['classifier'].classes_)}
-
-# Convert class weights to dictionaries
-detector_class_weight_dict = {i: detector_class_weights_train[i] for i in range(len(detector_class_weights_train))}
-classifier_class_weight_dict = {i: classifier_class_weights_train[i] for i in range(len(classifier_class_weights_train))}
-
-# Combine the detector and classifier labels into single nested dictionaries
-# This should already be done by prepare_labels_and_weights as it returns nested_label_dict_train and nested_label_dict_val
-
-logger.info(f"Detector label map: {detector_label_map}")
-logger.info(f"Classifier label map: {classifier_label_map}")
-logger.info(f"Detector class weights: {detector_class_weight_dict}")
-logger.info(f"Classifier class weights: {classifier_class_weight_dict}")
-
-
-
-# Convert nested dictionaries to NumPy arrays
-detector_labels_array_train = np.argmax(np.array([nested_label_dict_train[i]['detector'] for i in range(len(nested_label_dict_train))]), axis=1)
-classifier_labels_array_train = np.argmax(np.array([nested_label_dict_train[i]['classifier'] for i in range(len(nested_label_dict_train))]), axis=1)
-
-detector_labels_array_val = np.argmax(np.array([nested_label_dict_val[i]['detector'] for i in range(len(nested_label_dict_val))]), axis=1)
-classifier_labels_array_val = np.argmax(np.array([nested_label_dict_val[i]['classifier'] for i in range(len(nested_label_dict_val))]), axis=1)
-
-
-
-train_labels_dict = {'detector': detector_labels_array_train[:, np.newaxis], 'classifier': classifier_labels_array_train[:, np.newaxis]}
-val_labels_dict = {'detector': detector_labels_array_val[:, np.newaxis], 'classifier': classifier_labels_array_val[:, np.newaxis]}
-
-logger.info(f"3 first classifier labels: {val_labels_dict['classifier'][:3]}")
-logger.info(f"3 first detector labels: {val_labels_dict['detector'][:3]}")
-# Log the class distribution for training and validation sets
-logger.info(f"Training Detector Class Distribution: {np.unique(train_labels_dict['detector'], return_counts=True)}")
-logger.info(f"Training Classifier Class Distribution: {np.unique(train_labels_dict['classifier'], return_counts=True)}")
-logger.info(f"Validation Detector Class Distribution: {np.unique(val_labels_dict['detector'], return_counts=True)}")
-logger.info(f"Validation Classifier Class Distribution: {np.unique(val_labels_dict['classifier'], return_counts=True)}")
-
+train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta = prep_data()
 # Now, use these arrays to create your data generators
 train_gen = TrainGenerator(train_data, train_labels_dict)
 val_gen = ValGenerator(val_data, val_labels_dict)
@@ -188,8 +66,6 @@ model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), m
 model.summary()
 
 #analysis = Analysis(model, val_data, val_labels_onehot, label_map, date_and_time)
-#analysis.collect_and_plot_samples(train_gen, train_meta)
-
 
 # Callbacks
 callbacks = []
@@ -205,7 +81,7 @@ callbacks.append(early_stopping)
 
 if cfg.callbacks.umap:
     umap_callback = UMAPCallback(val_data, 
-                                val_labels_onehot, 
+                                val_labels_dict, 
                                 label_map, 
                                 interval=cfg.callbacks.umap_interval
                                 )
@@ -218,12 +94,18 @@ reduceLR = ReduceLROnPlateau(monitor ='val_total_loss',
                             mode='min')
 callbacks.append(reduceLR)
 
+valConfCallback = ValidationConfusionMatrixCallback(val_gen, label_map)
+callbacks.append(valConfCallback)
+callbacks.append(InPlaceProgressCallback())
+callbacks.append(WandbLoggingCallback())
+
 
 
 model.fit(
     train_gen, 
     epochs=cfg.optimizer.max_epochs, 
     validation_data=val_gen, 
+    verbose=0,
     callbacks=callbacks
 )
 val_gen.on_epoch_end()
@@ -268,11 +150,9 @@ if cfg.data.debug:
 
 
 logger.info(f"Length of val gen: {len(val_gen)}")
-label_map = {
-    'detector': detector_label_map,
-    'classifier': classifier_label_map
-}
+
 
 analysis = Analysis(model, val_gen, label_map, date_and_time)
 
 analysis.main()
+analysis.collect_and_plot_samples(val_gen, val_meta)

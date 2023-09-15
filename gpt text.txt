@@ -1,0 +1,25 @@
+okay now that i can read them better it appears as if most of these functions do not do what i want them to do. The augment_pipeline is supposed to apply the appropriate augmentations to the data prior to being returned. Each I think the order of operations will be important here. 
+
+augment:
+  zero_channel: False
+  zero_channel_kwargs:
+    prob: 0.1
+  add_gap: False
+  add_gap_kwargs:
+    prob: 0.1
+    max_size: 0.01
+  add_noise: False
+  add_noise_kwargs:
+    prob: 0.1
+    noise_std: 0.1
+  taper: False
+  taper_kwargs:
+    prob: 1
+    alpha: 0.04
+
+Above you can see parts of my config file relating to the augmentation parameters. This can be accessed through the code by for example cfg.augment.taper.
+
+
+The first augmentation to consider for the pipeline is cfg.augement.add_noise. This should apply random (but parameterized) noise to each channel of my data independently. The shape of my data is this: (batch_size, timesteps, n_cannels) typically (128, 9603, 3). The batches will have the same shape every time during training. This noise will not apply the same noise to each channel, but random noise to each channel. 
+
+Then we should do the cfg.augment_taper. This function will taper the ends of the waveforms.  
