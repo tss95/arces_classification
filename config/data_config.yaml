@@ -51,14 +51,14 @@ scaling:
 augment:
   zero_channel: True
   zero_channel_kwargs:
-    prob: 0.2
-  add_gap: True
+    prob: 1
+  add_gap: False
   add_gap_kwargs:
-    prob: 0.2
+    prob: 1
     max_size: 0.01
   add_noise: True
   add_noise_kwargs:
-    prob: 0.5
+    prob: 1
     noise_std: 0.1
   taper: True
   taper_kwargs:

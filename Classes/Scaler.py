@@ -1,6 +1,7 @@
 # Your existing imports and setup here
 from global_config import logger, cfg
 import numpy as np
+import tensorflow as tf
 
 
 class Scaler:
@@ -40,7 +41,6 @@ class Scaler:
         logger.info("Scaler fitted.")
 
     def transform(self, X):
-        logger.info("Transforming data.")
         return self.scaler.transform(X)
 
 
@@ -66,24 +66,35 @@ class MinMaxScaler(Scaler):
             logger.info("Local minmax; skipping fit")
 
     def transform(self, X):
-        X = X.astype(float)
+        X = tf.cast(X, tf.float32)
+        transformed_X = tf.identity(X)  # Create a new tensor with the same values as X
+
         if cfg.scaling.global_or_local == "global":
             if cfg.scaling.per_channel:
-                X[:,:,0] = (X[:,:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0])
-                X[:,:,1] = (X[:,:,1] - self.mins[1]) / (self.maxs[1] - self.mins[1])
-                X[:,:,2] = (X[:,:,2] - self.mins[2]) / (self.maxs[2] - self.mins[2])
+                transformed_X = tf.stack([
+                    (X[:,:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0]),
+                    (X[:,:,1] - self.mins[1]) / (self.maxs[1] - self.mins[1]),
+                    (X[:,:,2] - self.mins[2]) / (self.maxs[2] - self.mins[2])
+                ], axis=-1)
             else:
-                X = (X - self.mins) / (self.maxs - self.mins)
+                transformed_X = (X - self.mins) / (self.maxs - self.mins)
+
         if cfg.scaling.global_or_local == "local":
-            for idx, x in enumerate(X):
+            transformed_list = []
+            for idx in tf.range(tf.shape(X)[0]):
+                x = X[idx]
                 if cfg.scaling.per_channel:
-                    X[idx,:,0] = (x[:,0] - np.min(x[:,0])) / (np.max(x[:,0]) - np.min(x[:,0]))
-                    X[idx,:,1] = (x[:,1] - np.min(x[:,1])) / (np.max(x[:,1]) - np.min(x[:,1]))
-                    X[idx,:,2] = (x[:,2] - np.min(x[:,2])) / (np.max(x[:,2]) - np.min(x[:,2]))
+                    transformed_x = tf.stack([
+                        (x[:,0] - tf.reduce_min(x[:,0])) / (tf.reduce_max(x[:,0]) - tf.reduce_min(x[:,0])),
+                        (x[:,1] - tf.reduce_min(x[:,1])) / (tf.reduce_max(x[:,1]) - tf.reduce_min(x[:,1])),
+                        (x[:,2] - tf.reduce_min(x[:,2])) / (tf.reduce_max(x[:,2]) - tf.reduce_min(x[:,2]))
+                    ], axis=-1)
                 else:
-                    X[idx] = (x - np.min(x)) / (np.max(x) - np.min(x))
-        logger.info("Data has been minmaxed")
-        return X
+                    transformed_x = (x - tf.reduce_min(x)) / (tf.reduce_max(x) - tf.reduce_min(x))
+                transformed_list.append(transformed_x)
+            transformed_X = tf.stack(transformed_list, axis=0)
+
+        return transformed_X
 
 class StandardScaler(Scaler):
     def __init__(self):

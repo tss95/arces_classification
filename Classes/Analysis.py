@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from obspy import Stream, Trace
 import tensorflow as tf
 from Classes.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred
+from Classes.Augment import augment_pipeline
 
 class Analysis:
     def __init__(self, model, val_gen, label_maps_dict, date_and_time):
@@ -21,44 +22,58 @@ class Analysis:
 
     def collect_and_plot_samples(self, generator, metadata, num_samples=3):
         # Initialize a dictionary to hold the samples for each class based on label_map keys
-        class_samples = {key: [] for key in self.label_maps.keys()}
-        used_indices = []
-        # TODO: This function no longer works.
+        real_labels = []
+        eq_samples, ex_samples, no_samples = [], [], []
         
         # Iterate through the generator to collect samples
         for index in range(len(generator)):
-            batch_data, batch_labels, original_indices = generator.get_item_with_index(index)
-            for idx, (data, label_tensor) in enumerate(zip(batch_data, batch_labels)):
-                label = np.argmax(label_tensor.numpy())  # Extract the class index
-                if len(class_samples[label]) < num_samples:
-                    data = data.numpy()
-                    # logger.info(f"Found sample candidate of shape: {data.shape}")
-                    # logger.info(f"Sample has min and max: ({np.min(data)}, {np.max(data)})")
-                    class_samples[label].append(data)  # Assuming data is also a tensor
-                    used_indices.append(original_indices[idx])
-
-            # Check if we've collected enough samples for each class
-            if all(len(samples) >= num_samples for samples in class_samples.values()):
+            if len(eq_samples) >= num_samples and len(ex_samples) >= num_samples and len(no_samples) >= num_samples:
                 break
-                
-        for label in list(self.label_maps.keys()):
-            for sample_idx, sample in enumerate(class_samples[label]):
-                relevant_metadata = metadata[used_indices[sample_idx]]
+            print(f"Iterating at index: {index} / {num_samples - 1}")
+            batch_data, batch_labels, original_indices = generator.get_item_with_index(index)
+            #batch_data, batch_labels = augment_pipeline(batch_data, batch_labels)
+            string_labels = translate_labels(list(batch_labels["detector"]), list(batch_labels["classifier"]), self.label_maps)
+            for idx, label in enumerate(string_labels):
+                if len(eq_samples) < num_samples:
+                    if label == "earthquake":
+                        eq_samples.append((batch_data[idx], original_indices[idx]))
+                        real_labels.append(label)
+                if len(ex_samples) < num_samples:
+                    if label == "explosion":
+                        ex_samples.append((batch_data[idx], original_indices[idx]))
+                        real_labels.append(label)
+                if len(no_samples) < num_samples:
+                    if label == "noise":
+                        no_samples.append((batch_data[idx], original_indices[idx]))
+                        real_labels.append(label)
+
+        # Create a dictionary to map samples
+        class_samples = {
+            "earthquake": eq_samples,
+            "explosion": ex_samples,
+            "noise": no_samples
+        }
+        
+        # Plotting
+        for label, samples in class_samples.items():
+            for sample_idx, (sample, original_idx) in enumerate(samples):
+                relevant_metadata = metadata[original_idx]
                 trace_stream = self.get_trace_stream(sample, relevant_metadata)
                 
                 # Create a new plot for each time series
                 fig, ax = plt.subplots(figsize=(15, 5))
-                
-                trace_stream.plot(handle=True, axes=ax)
+                if trace_stream:
+                    trace_stream.plot(handle=True, axes=ax)  # Assuming trace_stream has a plot method
                 ax.set_title(f'Label: {label}')
                 
                 # Save plot with an appropriate name
                 plot_name = f"collected_sample_{label}_{sample_idx}.png"
                 plot_path = os.path.join(cfg.paths.plots_folder, plot_name)
-                # logger.info(f"Sample plot {plot_name} generated")
+                print(f"Sample plot {plot_name} generated")
                 plt.savefig(plot_path)
                 plt.close(fig)
         
+        # Assuming the generator has an on_epoch_end method
         generator.on_epoch_end()
 
     def get_trace_stream(self, traces, metadata):

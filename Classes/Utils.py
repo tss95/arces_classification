@@ -214,11 +214,11 @@ def prep_data():
 
     scaler = Scaler()
     scaler.fit(train_data)
-    train_data = scaler.transform(train_data)
-    val_data = scaler.transform(val_data)
+    #train_data = scaler.transform(train_data)
+    #val_data = scaler.transform(val_data)
 
-    logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
-    logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
+    #logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
+    #logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
 
     # Prepare labels for training and validation data
     nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
@@ -268,4 +268,4 @@ def prep_data():
         'detector': detector_label_map,
         'classifier': classifier_label_map
     }
-    return train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta
+    return train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler

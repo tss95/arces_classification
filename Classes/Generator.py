@@ -8,7 +8,10 @@ import math
 
 class Generator(Sequence):
 
-    def __init__(self, data, labels, shuffle=False, chunk_size=10000):
+    def __init__(self, data, labels, scaler, shuffle=False, chunk_size=10000):
+        self.data = data
+        self.labels = labels
+        self.scaler = scaler
         unique_det, counts_true_detector = np.unique(labels['detector'], return_counts=True)
         unique_cls, counts_true_cls = np.unique(labels['classifier'], return_counts=True)
 
@@ -45,48 +48,67 @@ class Generator(Sequence):
 
     def __len__(self):
         return math.floor(len(self.indices) / cfg.optimizer.batch_size)
+    
+    def augment_batch(self, batch_data, batch_labels):
+        return augment_pipeline(batch_data, batch_labels)
+
 
     def __getitem__(self, index):
         batch_data, batch_labels = next(self.iterator)
-        unique, counts = np.unique(batch_labels['detector'], return_counts=True)
-        logger.debug(f"__getitem__ batch_labels['detector'] distribution: {dict(zip(unique, counts))}")
+        logger.debug(f"__getitem__ batch_labels['detector'] distribution: {dict(zip(*np.unique(batch_labels['detector'], return_counts=True)))}")
         return batch_data, {'detector': batch_labels['detector'], 'classifier': batch_labels['classifier']}
 
-    def get_item_with_index(self, index):
-        data, labels = self.__getitem__(index)
-        start_idx = index * cfg.optimizer.batch_size
-        end_idx = start_idx + len(data)
-        original_indices = self.indices[start_idx:end_idx]
-        return data, labels, original_indices
 
+    def get_item_with_index(self, index):
+        # Calculate the start and end index for the specific batch
+        start_idx = index * cfg.optimizer.batch_size
+        end_idx = start_idx + cfg.optimizer.batch_size
+
+        # Slice the data and labels based on the calculated indices
+        data_slice = self.data[start_idx:end_idx]
+        labels_slice = {key: value[start_idx:end_idx] for key, value in self.labels.items()}
+
+        # Extract the original indices
+        original_indices = self.indices[start_idx:end_idx]
+
+        return data_slice, {'detector': labels_slice['detector'], 'classifier': labels_slice['classifier']}, original_indices
 
 class TrainGenerator(Generator):
 
-    def __init__(self, data, labels):
-        super().__init__(data, labels, shuffle=True)
+    def __init__(self, data, labels, scaler):
+        super().__init__(data, labels, scaler, shuffle=True)
 
     def __getitem__(self, index):
         batch_data, batch_labels = super().__getitem__(index)
-        batch_data, batch_labels = self.__augment_batch(batch_data, batch_labels)
-        return batch_data, batch_labels
+        batch_data, batch_labels = self.augment_batch(batch_data, batch_labels)
+        transformed_batch_data = self.scaler.transform(batch_data)
+        return transformed_batch_data, batch_labels
 
     def get_item_with_index(self, index):
         batch_data, batch_labels, original_indices = super().get_item_with_index(index)
-        batch_data, batch_labels = self.__augment_batch(batch_data, batch_labels)
-        return batch_data, batch_labels, original_indices
-
-
-    def __augment_batch(self, batch_data, batch_labels):
-        return augment_pipeline(batch_data, batch_labels)
+        batch_data, batch_labels = self.augment_batch(batch_data, batch_labels)
+        transformed_batch_data = self.scaler.transform(batch_data)
+        return transformed_batch_data, batch_labels, original_indices
 
     def on_epoch_end(self):
         self.iterator = iter(self.tf_dataset)  # Reset the iterator
-
 
 class ValGenerator(Generator):
 
-    def __init__(self, data, labels):
-        super().__init__(data, labels, shuffle=False)
+    def __init__(self, data, labels, scaler):
+        super().__init__(data, labels, scaler, shuffle=False)
 
     def on_epoch_end(self):
         self.iterator = iter(self.tf_dataset)  # Reset the iterator
+
+    def __getitem__(self, index):
+        batch_data, batch_labels = super().__getitem__(index)
+        transformed_batch_data = self.scaler.transform(batch_data)
+        return transformed_batch_data, batch_labels
+    
+    def get_item_with_index(self, index):
+        batch_data, batch_labels, original_indices = super().get_item_with_index(index)
+        # Careful about the augmentations being applied here:
+        batch_data, batch_labels = self.augment_batch(batch_data, batch_labels)
+        transformed_batch_data = self.scaler.transform(batch_data)
+        return transformed_batch_data, batch_labels, original_indices

@@ -46,10 +46,10 @@ if socket.gethostname() != 'saturn.norsar.no':
         config_dict[key] = value
     wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
 
-train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta = prep_data()
+train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler = prep_data()
 # Now, use these arrays to create your data generators
-train_gen = TrainGenerator(train_data, train_labels_dict)
-val_gen = ValGenerator(val_data, val_labels_dict)
+train_gen = TrainGenerator(train_data, train_labels_dict, scaler)
+val_gen = ValGenerator(val_data, val_labels_dict, scaler)
 
 #metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
 #                                           sample_weight = class_weights, 
