@@ -73,6 +73,7 @@ class Generator(Sequence):
 
         return data_slice, {'detector': labels_slice['detector'], 'classifier': labels_slice['classifier']}, original_indices
 
+
 class TrainGenerator(Generator):
 
     def __init__(self, data, labels, scaler):

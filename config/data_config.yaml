@@ -15,7 +15,7 @@ paths:
   sweep_config: /staff/tord/Workspace/arces_classification/config/sweep_config.yaml
 
 data:
-  debug: True
+  debug: False
   num_classes: 3
   load_filtered: True
   what_to_load: ["train", "val"]
@@ -51,22 +51,22 @@ scaling:
 augment:
   zero_channel: True
   zero_channel_kwargs:
-    prob: 1
+    prob: 0.3
   add_gap: False
   add_gap_kwargs:
     prob: 1
     max_size: 0.01
   add_noise: True
   add_noise_kwargs:
-    prob: 1
-    noise_std: 0.1
+    prob: 0.2
+    noise_std: 0.2
   taper: True
   taper_kwargs:
     prob: 1
     alpha: 0.04
 
 optimizer:
-  max_epochs: 1
+  max_epochs: 100
   batch_size: 128
   optimizer: adam
   optimizer_kwargs:

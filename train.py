@@ -2,7 +2,7 @@ from global_config import logger, cfg, model_cfg
 import numpy as np
 
 import tensorflow as tf
-tf.get_logger().setLevel('ERROR')
+tf.get_logger().setLevel('DEBUG')
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau

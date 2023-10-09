@@ -62,9 +62,8 @@ def taper_tf(x, prob, alpha=0.04):
     x = tf.tensor_scatter_nd_update(x, tf.expand_dims(indices, axis=-1), updated_x)
     return x
 
-
 def add_gap_tf(x, prob, max_size):
-    dtype = x.dtype  # Capture the data type of the input tensor
+    dtype = x.dtype
     batch_size, timesteps, n_channels = tf.shape(x)
     
     # Number of batches to select for introducing gaps
@@ -73,36 +72,51 @@ def add_gap_tf(x, prob, max_size):
     # Randomly select batch indices
     selected_batches = tf.random.shuffle(tf.range(batch_size))[:num_to_select]
     
-    # Initialize full mask with ones for the selected batches
-    full_mask = tf.ones([num_to_select, timesteps, n_channels], dtype=dtype)
+    # Randomly select a starting point for the gap
+    gap_start_max = tf.cast(tf.floor((1 - max_size) * tf.cast(timesteps, tf.float32)), tf.int32)
+    gap_start = tf.random.uniform(
+        shape=[num_to_select], minval=0, 
+        maxval=gap_start_max, 
+        dtype=tf.int32
+    )
     
-    for i in tf.range(num_to_select):
-        # Randomly select a starting point for the gap
-        gap_start_max = tf.cast((1 - max_size) * tf.cast(timesteps, tf.float32), tf.int32)
-        gap_start = tf.random.uniform(shape=[], minval=0, maxval=gap_start_max, dtype=tf.int32)
-        
-        # Randomly select an ending point for the gap
-        gap_end = gap_start + tf.random.uniform(shape=[], minval=1, maxval=tf.cast(max_size * tf.cast(timesteps, tf.float32), tf.int32), dtype=tf.int32)
-        
-        # Randomly select a channel
-        channel = tf.random.uniform(shape=[], minval=0, maxval=n_channels, dtype=tf.int32)
-        
-        # Create the mask with a gap
-        mask = tf.ones([timesteps, n_channels], dtype=dtype)
-        mask_with_gap = tf.concat([
-            mask[:gap_start, :],
-            tf.zeros([gap_end - gap_start, n_channels], dtype=dtype),
-            mask[gap_end:, :]
-        ], axis=0)
-        
-        mask_with_gap = mask_with_gap * tf.one_hot(channel, n_channels, dtype=dtype)
-        
-        # Apply the mask to the selected batch
-        full_mask = full_mask * mask_with_gap
+    # Randomly select an ending point for the gap
+    gap_end = gap_start + tf.random.uniform(
+        shape=[num_to_select], minval=1, 
+        maxval=gap_start_max, 
+        dtype=tf.int32
+    )
     
-    # Apply the full mask to only the selected batches in the data tensor
-    updated_x = tf.gather(x, selected_batches) * full_mask
-    x = tf.tensor_scatter_nd_update(x, tf.expand_dims(selected_batches, axis=-1), updated_x)
+    # Create the mask with gaps
+    full_indices = tf.range(timesteps)
+    mask = tf.math.logical_or(
+        full_indices[None, :] < gap_start[:, None], 
+        full_indices[None, :] >= gap_end[:, None]
+    )
+    logger.info(f"mask shape: {mask.shape}")
+    
+    # Apply the mask to the data tensor
+    selected_data = tf.gather(x, selected_batches)
+    mask = tf.cast(mask, dtype=dtype)  # Cast the mask to the same dtype as x
+    masked_data = mask[:, :, None] * selected_data  # Expand dimensions and multiply
+    logger.info(f"masked_data shape: {masked_data.shape}")
+
+    
+    # Create scatter indices for the original tensor update
+    scatter_indices = tf.reshape(selected_batches, [-1, 1, 1, 1])
+    scatter_indices = tf.tile(scatter_indices, [1, timesteps, n_channels, 1])
+    logger.info(f"scatter indices shape: {scatter_indices.shape}, scatter_indices[0:10]: {scatter_indices[0:10]}")
+    
+    # Flatten and reshape for scatter update
+    scatter_indices_reshaped = tf.reshape(scatter_indices, [-1, 4])
+    masked_data_reshaped = tf.reshape(masked_data, [-1])
+
+    logger.info(f"masked_data_reshaped: {masked_data_reshaped.shape}")
+    
+    # Scatter update
+    x = tf.tensor_scatter_nd_update(x, scatter_indices_reshaped, masked_data_reshaped)
+
+    logger.info(f"x: {x.shape}")
     
     return x
 

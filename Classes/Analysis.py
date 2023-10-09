@@ -17,9 +17,6 @@ class Analysis:
         self.label_maps = label_maps_dict
         self.date_and_time = date_and_time
 
-
-
-
     def collect_and_plot_samples(self, generator, metadata, num_samples=3):
         # Initialize a dictionary to hold the samples for each class based on label_map keys
         real_labels = []
@@ -103,8 +100,6 @@ class Analysis:
         self.plot_confusion_matrix()
         #self.plot_precision_recall_curve()
         self.incorrect_predictions_overview()
-
-
 
     def plot_precision_recall_curve(self):
         final_true_labels, _, final_pred_probs = get_y_and_ypred(self.model, self.val_gen, self.label_maps)

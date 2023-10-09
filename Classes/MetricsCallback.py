@@ -9,24 +9,14 @@ class MetricsCallback(Callback):
     def __init__(self, y_train, label_map):
         super().__init__()
         y_train = np.array(y_train)
-        print(y_train)
-        # Determine if it's a binary or multi-class classification
-        self.is_binary = True if cfg.data.num_classes < 3 else False
-        
+
         # For binary classification, no need to find the least frequent class
-        if not self.is_binary:
-            class_counts = np.sum(y_train, axis=0)
-            self.min_class_id = np.argmin(class_counts)
-            if label_map:
-                self.label_name = label_map.get(self.min_class_id, str(self.min_class_id)).split(' ')[0]
-            else:
-                self.label_name = str(self.min_class_id)
-        else:
-            self.label_name = 'binary'
+
+        self.label_name = 'binary'
         
         self.precision = tf.keras.metrics.Precision(name=f"val_precision_{self.label_name}")
         self.recall = tf.keras.metrics.Recall(name=f"val_recall_{self.label_name}")
-        self.accuracy = tf.keras.metrics.CategoricalAccuracy(name="val_accuracy") if not self.is_binary else tf.keras.metrics.BinaryAccuracy(name="val_accuracy")
+        self.accuracy = tf.keras.metrics.BinaryAccuracy(name="val_accuracy")
 
     def on_epoch_end(self, epoch, logs=None):
         x_val, y_val = self.validation_data[0], self.validation_data[1]

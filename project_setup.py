@@ -4,7 +4,7 @@ import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 
 def dict_to_namespace(d):
     for k, v in d.items():
@@ -29,16 +29,17 @@ def get_config_dir():
 def setup_config_and_logging():
     # Your LOGGING_CONFIG presumably comes from another file. Import it here.
     from config.logging_config import LOGGING_CONFIG
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     logging.config.dictConfig(LOGGING_CONFIG)
     logger = logging.getLogger('ARCES')
-    logger.setLevel(logging.DEBUG)
+    #logger.setLevel(logging.DEBUG)
 
     config_dir = get_config_dir()
     args = OmegaConf.load(f'{config_dir}/data_config.yaml')
     args_dict = OmegaConf.to_container(args, resolve=True)
 
-    # Update paths if not running on 'norsar.saturn.no'
+    # Update paths if not running on 'norsar.saturn.no'x|
     if socket.gethostname() != 'saturn.norsar.no':
         update_paths(args_dict)
 
@@ -53,8 +54,8 @@ def setup_config_and_logging():
     model_cfg = dict_to_namespace(model_args)
 
     if cfg.data.debug:
-        logger.setLevel("DEBUG")
+        logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel("INFO")
+        logger.setLevel(logging.INFO)
     
     return logger, cfg, model_cfg
