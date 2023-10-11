@@ -46,7 +46,8 @@ if socket.gethostname() != 'saturn.norsar.no':
         config_dict[key] = value
     wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
 
-train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler = prep_data()
+train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler, unswapped_labels = prep_data()
+assert 'induced or triggered event' in unswapped_labels, "Oh no, induced or triggered event is not in the labels"
 # Now, use these arrays to create your data generators
 train_gen = TrainGenerator(train_data, train_labels_dict, scaler)
 val_gen = ValGenerator(val_data, val_labels_dict, scaler)
@@ -94,7 +95,7 @@ reduceLR = ReduceLROnPlateau(monitor ='val_total_loss',
                             mode='min')
 callbacks.append(reduceLR)
 
-valConfCallback = ValidationConfusionMatrixCallback(val_gen, label_map)
+valConfCallback = ValidationConfusionMatrixCallback(val_gen, label_map, unswapped_labels)
 callbacks.append(valConfCallback)
 callbacks.append(InPlaceProgressCallback())
 callbacks.append(WandbLoggingCallback())
@@ -154,5 +155,9 @@ logger.info(f"Length of val gen: {len(val_gen)}")
 
 analysis = Analysis(model, val_gen, label_map, date_and_time)
 
-analysis.main()
-analysis.collect_and_plot_samples(val_gen, val_meta)
+#analysis.main()
+#analysis.collect_and_plot_samples(val_gen, val_meta)
+analysis.explore_induced_events(val_gen, val_meta, unswapped_labels)
+analysis.explore_regular_events(val_gen, val_meta, "noise")
+analysis.explore_regular_events(val_gen, val_meta, "earthquake")
+analysis.explore_regular_events(val_gen, val_meta, "explosion")

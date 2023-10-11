@@ -3,18 +3,27 @@ import tensorflow as tf
 import wandb
 from sklearn.metrics import confusion_matrix
 import wandb
+from PIL import Image
+import io
+import matplotlib.pyplot as plt
+from collections import Counter
 from Classes.Utils import get_y_and_ypred, plot_confusion_matrix  # Assuming this is in Classes.Utils
 
 class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
-    def __init__(self, val_gen, label_maps):
+    def __init__(self, val_gen, label_maps, unswapped_labels):
         super().__init__()
         self.val_gen = val_gen
         self.label_maps = label_maps
+        self.unswapped_labels = unswapped_labels
 
     def on_epoch_end(self, epoch, logs=None):
         # Get true labels and predicted labels
-        y_true, y_pred, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        y_true, y_pred, y_prob = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        self.wandb_conf_matrix(y_true, y_pred)
+        self.explore_and_log_distributions(y_true, np.array(y_pred), y_prob)
         
+
+    def wandb_conf_matrix(self, y_true, y_pred):
         # Compute the confusion matrix
         conf_matrix = confusion_matrix(y_true, y_pred, labels=["noise", "earthquake", "explosion"])
         
@@ -29,6 +38,59 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         plt = plot_confusion_matrix(conf_matrix, conf_matrix_normalized, ["noise", "earthquake", "explosion"])
         wandb.log({"confusion_matrix": plt})
 
+
+    def explore_and_log_distributions(self, y_true, y_pred, final_pred_probs):
+        fig, axs = plt.subplots(4, 1, figsize=(10, 16))
+
+        self.explore_induced_events(axs[0], y_true, y_pred, final_pred_probs)
+        self.explore_regular_events(axs[1], y_true, y_pred, final_pred_probs, "noise")
+        self.explore_regular_events(axs[2], y_true, y_pred, final_pred_probs, "earthquake")
+        self.explore_regular_events(axs[3], y_true, y_pred, final_pred_probs, "explosion")
+
+        plt.tight_layout()
+        # Save the plot to a BytesIO object
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png')
+        img_buffer.seek(0)
+
+        # Create a wandb.Image object from the buffer
+        img = wandb.Image(Image.open(img_buffer))
+        wandb.log({"probability_distributions": img})
+
+    def explore_induced_events(self, ax, y_true, y_pred, final_pred_probs):
+        n_samples = len(y_true)
+        unswapped_labels = np.array(self.unswapped_labels)[:n_samples]
+        relevant_idx = np.where(unswapped_labels == 'induced or triggered event')[0]
+
+        predictions_on_induced_events = y_pred[relevant_idx]
+        final_pred_probs_on_induced_events = {
+            "classifier": np.array(final_pred_probs["classifier"])[relevant_idx],
+            "detector": np.array(final_pred_probs["detector"])[relevant_idx]
+        }
+
+        self.plot_prob_distributions(ax, final_pred_probs_on_induced_events, predictions_on_induced_events, "Induced Earthquakes")
+
+    def explore_regular_events(self, ax, y_true, y_pred, final_pred_probs, target_label):
+        relevant_idx = np.where(y_true == target_label)[0]
+        
+        predictions_on_target_events = y_pred[relevant_idx]
+        final_pred_probs_on_target_events = {
+            "classifier": np.array(final_pred_probs["classifier"])[relevant_idx],
+            "detector": np.array(final_pred_probs["detector"])[relevant_idx]
+        }
+
+        self.plot_prob_distributions(ax, final_pred_probs_on_target_events, predictions_on_target_events, f'{str(target_label).title()} Events')
+
+    def plot_prob_distributions(self, ax, pred_probs, final_pred_labels, title):
+        stage_names = ['detector', 'classifier']
+        for i, stage in enumerate(stage_names):
+            stage_probs = pred_probs[stage]
+            ax.hist(stage_probs, bins=np.linspace(0, 1, 50), alpha=0.5, label=f"{stage} stage")
+
+        ax.set_title(title)
+        ax.set_xlabel("Probability")
+        ax.set_ylabel("Frequency")
+        ax.legend()
 
 class InPlaceProgressCallback(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs=None):

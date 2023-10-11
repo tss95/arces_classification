@@ -104,15 +104,22 @@ def apply_threshold(pred_probs):
 def get_y_and_ypred(model, val_gen, label_maps):
     final_pred_labels = []
     final_true_labels = []
-    final_pred_probs = []
+    final_pred_probs = {"detector": [], "classifier": []}
     
     for batch_data, batch_labels in val_gen:
         pred_probs = model.predict(batch_data, verbose=0)
         labels, pred_probs = get_final_labels(pred_probs, label_maps)
         final_pred_labels.extend(labels)
-        final_pred_probs.extend(pred_probs)
+
+        # Convert NumPy arrays to scalars and extend the list for 'detector'
+        final_pred_probs["detector"].extend([x.item() for x in pred_probs["detector"]])
+
+        # Convert NumPy arrays to scalars and extend the list for 'classifier'
+        final_pred_probs["classifier"].extend([x.item() if x is not np.nan else np.nan for x in pred_probs["classifier"]])
+                
         final_true_labels.extend(translate_labels(batch_labels["detector"].numpy().astype(int), 
-                                                        batch_labels["classifier"].numpy().astype(int), label_maps))
+                                                  batch_labels["classifier"].numpy().astype(int), label_maps))
+
     return final_true_labels, final_pred_labels, final_pred_probs
 
 
@@ -158,13 +165,14 @@ def prep_data():
 
 
     train_labels = swap_labels(train_labels)
+    unswapped_labels = val_labels
     val_labels = swap_labels(val_labels)
 
     print(np.unique(train_labels))
     print(np.unique(val_labels))
 
     if cfg.data.debug:
-        def downsample_data_labels(data, labels, p=10):
+        def downsample_data_labels(data, labels, unswapped = None, p=10):
             data = np.array(data)
             labels = np.array(labels)
             n = len(data)
@@ -174,11 +182,13 @@ def prep_data():
             
             downsampled_data = data[indices]
             downsampled_labels = labels[indices]
-            
+
+            if unswapped is not None:
+                return downsampled_data, downsampled_labels, unswapped[indices]
             return downsampled_data, downsampled_labels
 
-        train_data, train_labels = downsample_data_labels(train_data, train_labels, 5)
-        val_data, val_labels = downsample_data_labels(val_data, val_labels, 5)
+        train_data, train_labels = downsample_data_labels(train_data, train_labels, unswapped = None, p = 10)
+        val_data, val_labels, unswapped_labels = downsample_data_labels(val_data, val_labels, unswapped = unswapped_labels, p = 10)
 
 
     # Ensure train_data and train_labels are NumPy arrays
@@ -268,4 +278,4 @@ def prep_data():
         'detector': detector_label_map,
         'classifier': classifier_label_map
     }
-    return train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler
+    return train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler, unswapped_labels
