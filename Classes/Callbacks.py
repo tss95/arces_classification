@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import wandb
+from global_config import logger, cfg, model_cfg
 from sklearn.metrics import confusion_matrix
 import wandb
 from PIL import Image
@@ -14,7 +15,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         super().__init__()
         self.val_gen = val_gen
         self.label_maps = label_maps
-        self.unswapped_labels = unswapped_labels
+        self.unswapped_labels = np.array(unswapped_labels)
 
     def on_epoch_end(self, epoch, logs=None):
         # Get true labels and predicted labels
@@ -40,12 +41,14 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
 
 
     def explore_and_log_distributions(self, y_true, y_pred, final_pred_probs):
-        fig, axs = plt.subplots(4, 1, figsize=(10, 16))
+        fig, axs = plt.subplots(4 if cfg.data.include_induced else 3, 1, figsize=(10, 16))
 
-        self.explore_induced_events(axs[0], y_true, y_pred, final_pred_probs)
-        self.explore_regular_events(axs[1], y_true, y_pred, final_pred_probs, "noise")
-        self.explore_regular_events(axs[2], y_true, y_pred, final_pred_probs, "earthquake")
-        self.explore_regular_events(axs[3], y_true, y_pred, final_pred_probs, "explosion")
+        self.explore_regular_events(axs[0], y_true, y_pred, final_pred_probs, "noise")
+        self.explore_regular_events(axs[1], y_true, y_pred, final_pred_probs, "earthquake")
+        self.explore_regular_events(axs[2], y_true, y_pred, final_pred_probs, "explosion")
+        if cfg.data.include_induced:
+            self.explore_induced_events(axs[3], y_true, y_pred, final_pred_probs)
+
 
         plt.tight_layout()
         # Save the plot to a BytesIO object
@@ -71,8 +74,11 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         self.plot_prob_distributions(ax, final_pred_probs_on_induced_events, predictions_on_induced_events, "Induced Earthquakes")
 
     def explore_regular_events(self, ax, y_true, y_pred, final_pred_probs, target_label):
-        relevant_idx = np.where(y_true == target_label)[0]
-        
+        n_samples = len(y_true)
+        y_pred = np.array(y_pred)
+        shortened_unswapped_labels = np.array(self.unswapped_labels)[:n_samples]
+
+        relevant_idx = np.where(shortened_unswapped_labels == target_label)[0]
         predictions_on_target_events = y_pred[relevant_idx]
         final_pred_probs_on_target_events = {
             "classifier": np.array(final_pred_probs["classifier"])[relevant_idx],
@@ -90,7 +96,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         ax.set_title(title)
         ax.set_xlabel("Probability")
         ax.set_ylabel("Frequency")
-        ax.legend()
+        ax.legend('upper center')
 
 class InPlaceProgressCallback(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs=None):

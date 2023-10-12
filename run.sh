@@ -98,7 +98,7 @@ docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus '"device=0"' -v 
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py"
+                                                                                                     python /tf/run_script.py && bash"
 
 # docker run -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf tensorflow/tensorflow:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
 #                                                                                                               source /root/.bashrc &&
@@ -112,11 +112,13 @@ rsync -ahr --progress $GPU_OUTPUT_DIR/*.png $OUTPUT/plots
 rsync -ahr --progress $GPU_OUTPUT_DIR/*.npy $OUTPUT/predictions
 rsync -ahr --progress $GPU_OUTPUT_DIR/*.pdf $OUTPUT/plots
 rsync -ahr --progress $GPU_OUTPUT_DIR/logs $OUTPUT/logs
+rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.h5 $OUTPUT/models
 
-find "$BASE_DIR" -type f -name '*.ckpt' -print0 | while IFS= read -r -d '' file
-do
-  dir_path=$(dirname "$file")
-  relative_dir="${dir_path#"$BASE_DIR"}"
-  mkdir_if_not_exist -p "$OUTPUT/models/$relative_dir"
-  rsync -av "$BASE_DIR/$relative_dir/" "$OUTPUT/models/$relative_dir"
-done
+
+#find "$BASE_DIR" -type f -name '*.h5' -print0 | while IFS= read -r -d '' file
+#do
+#  dir_path=$(dirname "$file")
+#  relative_dir="${dir_path#"$BASE_DIR"}"
+#  mkdir_if_not_exist -p "$OUTPUT/models/$relative_dir"
+#  rsync -av "$BASE_DIR/$relative_dir/" "$OUTPUT/models/$relative_dir"
+#done

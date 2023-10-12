@@ -1,5 +1,6 @@
 from global_config import logger, cfg, model_cfg
 import numpy as np
+from haikunator import Haikunator
 
 import tensorflow as tf
 tf.get_logger().setLevel('DEBUG')
@@ -37,17 +38,22 @@ if gpus:
         print(e)
     mixed_precision.set_global_policy('mixed_float16')
 
-
+haikunator = Haikunator()
+model_name = f"{cfg.model}_{haikunator.haikunate()}"
 if socket.gethostname() != 'saturn.norsar.no':
     config_dict = {}
     for key, value in vars(model_cfg).items():
         config_dict[key] = value
     for key, value in vars(cfg).items():
         config_dict[key] = value
-    wandb.init(name=cfg.model, entity="norsar_ai", project="ARCES classification", config=config_dict)
+    
+    wandb.init(name = model_name, entity="norsar_ai", project="ARCES classification", config=config_dict)
 
 train_data, train_labels_dict, val_data, val_labels_dict, label_map, detector_class_weight_dict, classifier_class_weight_dict, classifier_label_map, detector_label_map, date_and_time, train_meta, val_meta, scaler, unswapped_labels = prep_data()
-assert 'induced or triggered event' in unswapped_labels, "Oh no, induced or triggered event is not in the labels"
+if cfg.data.include_induced: 
+    assert 'induced or triggered event' in unswapped_labels, "Oh no, induced or triggered event is not in the labels"
+else:
+    assert 'induced or triggered event' not in unswapped_labels, "Oh no, induced or triggered event is in the labels"
 # Now, use these arrays to create your data generators
 train_gen = TrainGenerator(train_data, train_labels_dict, scaler)
 val_gen = ValGenerator(val_data, val_labels_dict, scaler)
@@ -100,8 +106,6 @@ callbacks.append(valConfCallback)
 callbacks.append(InPlaceProgressCallback())
 callbacks.append(WandbLoggingCallback())
 
-
-
 model.fit(
     train_gen, 
     epochs=cfg.optimizer.max_epochs, 
@@ -110,6 +114,8 @@ model.fit(
     callbacks=callbacks
 )
 val_gen.on_epoch_end()
+
+model.save_weights(f"{cfg.paths.model_save_folder}/{model_name}_{date_and_time}_model_weights.h5")
 
 def check_valgen(val_gen, model):
     counts = 0
@@ -157,7 +163,8 @@ analysis = Analysis(model, val_gen, label_map, date_and_time)
 
 #analysis.main()
 #analysis.collect_and_plot_samples(val_gen, val_meta)
-analysis.explore_induced_events(val_gen, val_meta, unswapped_labels)
+if cfg.data.include_induced:
+    analysis.explore_induced_events(val_gen, val_meta, unswapped_labels)
 analysis.explore_regular_events(val_gen, val_meta, "noise")
 analysis.explore_regular_events(val_gen, val_meta, "earthquake")
 analysis.explore_regular_events(val_gen, val_meta, "explosion")

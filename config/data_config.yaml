@@ -16,6 +16,7 @@ paths:
 
 data:
   debug: True
+  include_induced: True
   num_classes: 3
   load_filtered: True
   what_to_load: ["train", "val"]
@@ -51,7 +52,7 @@ scaling:
 augment:
   zero_channel: True
   zero_channel_kwargs:
-    prob: 0.3
+    prob: 0.1
   add_gap: False
   add_gap_kwargs:
     prob: 1
@@ -59,14 +60,14 @@ augment:
   add_noise: True
   add_noise_kwargs:
     prob: 0.2
-    noise_std: 0.2
+    noise_std: 0.1
   taper: True
   taper_kwargs:
     prob: 1
     alpha: 0.04
 
 optimizer:
-  max_epochs: 3
+  max_epochs: 2
   batch_size: 128
   optimizer: adam
   optimizer_kwargs:

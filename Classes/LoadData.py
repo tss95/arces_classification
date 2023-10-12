@@ -86,7 +86,14 @@ class LoadData:
         with open(os.path.join(cfg.paths.loaded_path, f'{data_description}_metadata.pkl'), 'rb') as f:
             metadata = pickle.load(f)
         metadata = self.change_key_to_index(metadata)
+        if not cfg.data.include_induced:
+            traces, label, metadata = self.remove_induced_events(traces, label, metadata)
         return traces, label, metadata
+    
+    def remove_induced_events(self, traces, label, metadata):
+        relevant_idx = np.where(np.array(metadata['labels']) != 'induced or triggered event')[0]
+        metadata = {k: v for k, v in metadata.items() if k in relevant_idx}
+        return traces[relevant_idx], label[relevant_idx], metadata
 
     def change_key_to_index(self, input_dict):
         output_dict = {}
