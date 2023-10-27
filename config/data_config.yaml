@@ -1,5 +1,6 @@
 
 model: "cnn_dense"
+model_name: "cnn_dense_mute-sky-7934_20231013_090836_model_weights.h5"
 
 paths:
   data_path: /staff/tord/Workspace/arces_classification/data
@@ -13,9 +14,11 @@ paths:
   plots_folder: /staff/tord/Workspace/arces_classification/output
   loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/
   sweep_config: /staff/tord/Workspace/arces_classification/config/sweep_config.yaml
+  live_test_path: /staff/tord/Workspace/arces_classification/output/live_test/
+  scaler_path: /staff/tord/workspace/arces_classification/saved_scalers/
 
 data:
-  debug: True
+  debug: False
   include_induced: True
   num_classes: 3
   load_filtered: True
@@ -24,6 +27,18 @@ data:
   val_prop: 0.6
   first_date: "1998-10-01"
   model_threshold: 0.5
+
+live:
+  live: True
+  array: "ARCES"
+  step: 10
+  sample_rate: 40
+  length: 240
+  edge: 10
+  delay: 5
+  event_buffer: 30
+  p_vel: 6.45
+  s_vel: 3.70
 
 filters:
   use_filters: True
@@ -67,7 +82,7 @@ augment:
     alpha: 0.04
 
 optimizer:
-  max_epochs: 2
+  max_epochs: 50
   batch_size: 128
   optimizer: adam
   optimizer_kwargs:

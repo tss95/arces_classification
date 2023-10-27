@@ -1,14 +1,17 @@
 from tensorflow.keras.callbacks import Callback
 from global_config import logger, cfg, model_cfg
+from Classes.Utils import get_y_and_ypred
 import numpy as np
 import wandb
 import tensorflow as tf
 
 
 class MetricsCallback(Callback):
-    def __init__(self, y_train, label_map):
+    #TODO Rewrite this class to account for the output shape
+    def __init__(self, val_gen, label_map):
         super().__init__()
-        y_train = np.array(y_train)
+        y_train = {"detector": np.array(y_train["detector"]),
+                   "classifier": np.array(y_train["classifier"])}
 
         # For binary classification, no need to find the least frequent class
 
@@ -21,6 +24,7 @@ class MetricsCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         x_val, y_val = self.validation_data[0], self.validation_data[1]
         y_pred = self.model.predict(x_val)
+
 
         if not self.is_binary:
             y_true_least = y_val[:, self.min_class_id]

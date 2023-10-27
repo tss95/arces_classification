@@ -2,7 +2,8 @@
 from global_config import logger, cfg
 import numpy as np
 import tensorflow as tf
-
+import pickle 
+import os
 
 class Scaler:
     
@@ -39,6 +40,19 @@ class Scaler:
         logger.info("Fitting scaler.")
         self.scaler.fit(X)
         logger.info("Scaler fitted.")
+
+    def load_fitted(self):
+        logger.info("Loading fitted scaler.")
+        scaler_path = os.path.join(scaler_path, f"{scaler_type}_{cfg.scaling.global_or_local}.pkl")
+        self.scaler = pickle.load(open(scaler_path, "rb"))
+        logger.info("Scaler loaded.")
+
+    def save_scaler(self):
+        logger.info("Saving fitted scaler.")
+        scaler_path = os.path.join(scaler_path, f"{scaler_type}_{cfg.scaling.global_or_local}.pkl")
+        with open(scaler_path, 'wb') as f:
+            pickle.dump(self.scaler, f)
+        logger.info(f"Scaler saved to {scaler_path}.")
 
     def transform(self, X):
         return self.scaler.transform(X)

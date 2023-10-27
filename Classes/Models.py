@@ -56,6 +56,7 @@ class CNN_dense(Loop):
         self.final_dense_classifier = tfl.Dense(1, activation=None, kernel_initializer=self.initializer, name="final_dense_classifier")
 
 
+    @tf.function
     def call(self, inputs, training=False):
         x = inputs
         for i in range(len(self.conv_layers)//4):  # Assuming each block has Conv, BN, Activation, Dropout

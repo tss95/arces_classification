@@ -7,7 +7,7 @@ DATA_PATH=$PROJECT_PATH/data/loaded
 CONFIG_PATH=$PROJECT_PATH/config
 CONFIG_MAIN=$CONFIG_PATH/data_config.yaml
 CONFIG_MODEL=$CONFIG_PATH/model_config.yaml
-SCRIPT_NAME=train.py
+SCRIPT_NAME=predict.py
 PROJECTNAME=arces_classification
 MODEL_CONFIG=cnn_dense.yaml
 SCRIPT_LOCATION=$PROJECT_PATH
@@ -98,7 +98,7 @@ docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus '"device=0"' -v 
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py && bash"
+                                                                                                     python /tf/run_script.py"
 
 # docker run -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf tensorflow/tensorflow:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
 #                                                                                                               source /root/.bashrc &&
@@ -113,8 +113,6 @@ rsync -ahr --progress $GPU_OUTPUT_DIR/*.npy $OUTPUT/predictions
 rsync -ahr --progress $GPU_OUTPUT_DIR/*.pdf $OUTPUT/plots
 rsync -ahr --progress $GPU_OUTPUT_DIR/logs $OUTPUT/logs
 rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.tf $OUTPUT/models
-rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.h5 $OUTPUT/models
-
 
 
 #find "$BASE_DIR" -type f -name '*.h5' -print0 | while IFS= read -r -d '' file

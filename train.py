@@ -105,6 +105,7 @@ valConfCallback = ValidationConfusionMatrixCallback(val_gen, label_map, unswappe
 callbacks.append(valConfCallback)
 callbacks.append(InPlaceProgressCallback())
 callbacks.append(WandbLoggingCallback())
+#callbacks.append(MetricsCallback(val_gen, label_map))
 
 model.fit(
     train_gen, 
@@ -115,7 +116,9 @@ model.fit(
 )
 val_gen.on_epoch_end()
 
-model.save_weights(f"{cfg.paths.model_save_folder}/{model_name}_{date_and_time}_model_weights.h5")
+model_save_path = f"{cfg.paths.model_save_folder}/{model_name}_{date_and_time}_model_weights.h5"
+model.save_weights(model_save_path)
+logger.info(f"Model weights stored at: {model_save_path}")
 
 def check_valgen(val_gen, model):
     counts = 0

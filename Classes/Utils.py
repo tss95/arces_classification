@@ -122,6 +122,11 @@ def get_y_and_ypred(model, val_gen, label_maps):
 
     return final_true_labels, final_pred_labels, final_pred_probs
 
+def one_prediction(model, x, label_maps):
+    pred_probs = model.predict([x])
+    labels, pred_probs = get_final_labels(pred_probs, label_maps)
+    return labels, pred_probs
+
 
 def plot_confusion_matrix(conf_matrix, conf_matrix_normalized, class_names):
     # Create a custom confusion matrix plot

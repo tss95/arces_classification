@@ -53,15 +53,16 @@ class Loop(tf.keras.Model):
         # Initialize metrics pipeline for detector and classifier
         self.detector_metrics = MetricsPipeline(detector_metrics)
         self.classifier_metrics = MetricsPipeline(classifier_metrics)
-
+    
+    @tf.function
     def on_epoch_end(self, epoch, logs=None):
-        #if logs is not None:
+        if logs is not None:
             # Filter training and validation metrics from logs
-            #train_metrics = {k: logs[k] for k in logs if not k.startswith('val_')}
-            #val_metrics = {k: logs[k] for k in logs if k.startswith('val_')}
+            train_metrics = {k: logs[k] for k in logs if not k.startswith('val_')}
+            val_metrics = {k: logs[k] for k in logs if k.startswith('val_')}
             
             # Log metrics to wandb
-            #wandb.log({"epoch": epoch, **train_metrics, **val_metrics})
+            wandb.log({"epoch": epoch, **train_metrics, **val_metrics})
             
         # Call the superclass method to preserve any base class functionality,
         # including potentially resetting metric states.

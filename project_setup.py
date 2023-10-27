@@ -52,6 +52,10 @@ def setup_config_and_logging():
     model_args = OmegaConf.create(model_args_dict)
     OmegaConf.set_struct(model_args, False)
     model_cfg = dict_to_namespace(model_args)
+    # Create live_test_path if it does not exist
+    live_test_path = os.path.join(config_dir, cfg.paths.live_test_path)
+    os.makedirs(live_test_path, exist_ok=True)
+
 
     if cfg.data.debug:
         logger.setLevel(logging.DEBUG)
