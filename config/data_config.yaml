@@ -1,6 +1,6 @@
 
 model: "cnn_dense"
-model_name: "cnn_dense_mute-sky-7934_20231013_090836_model_weights.h5"
+model_name: "cnn_dense_ancient-lake-7231_20231013_100052_model_weights.h5"
 
 paths:
   data_path: /staff/tord/Workspace/arces_classification/data
