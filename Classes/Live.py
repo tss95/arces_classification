@@ -6,16 +6,14 @@ import math
 from obspy import Trace, Stream, UTCDateTime
 from Classes.Utils import one_prediction
 from seismonpy.norsardb import Client
-from seismonpy.utils import convert_velocity_slowness, create_global_mongodb_object
-from seismonpy.array_analysis.beams import array_beam
+from seismonpy.utils import create_global_mongodb_object
 from seismonpy.io.mongodb.eventdb import MongoEventDataBase
 import warnings
 import matplotlib.pyplot as plt
-import imageio
 from skimage.transform import resize
+from imageio import get_writer
 
 from PIL import Image
-from tqdm import tqdm
 from datetime import datetime
 
 
@@ -232,6 +230,7 @@ class ClassifyGBF:
         return nested_filtered_events, inventory
 
     def transform_events_to_start_and_end_times(self, filtered_events: list):
+        # TODO Bias towards start of the event
         starttimes, endtimes = [], []
         for event in filtered_events:
             pick_times = [pick.time for pick in event]
@@ -280,16 +279,13 @@ class LiveClassifier:
         - yprobas: Individual prediction probabilities for each trace segment.
         - X: Preprocessed input features.
         """
-        print("trace shape pre t: ", trace.shape)
         trace = trace.T
-        print("trace shape post t: ", trace.shape)
         X = self.prepare_multiple_intervals(trace)
-        for x in X:
-            print("x shape: ", x.shape)
         X = [self.local_minmax(x) for x in X]
         X = np.array(X)
         # TODO: Figure out the logic for this
         yhats, yprobas, final_yhat, mean_proba = self.ensamble_predict(self.model, X)
+        logger.info(f"Mean proba: {mean_proba}")
 
         return final_yhat, mean_proba, yhats, yprobas, X
     
@@ -351,7 +347,7 @@ class LiveClassifier:
         return (trace - mmin) / (mmax - mmin)
     
 
-    def plot_predicted_event(self, intervals, event_time, yprobas, yhats, final_yhat, station='AR*'):
+    def plot_predicted_event(self, intervals, event_time, yprobas, yhats, final_yhat, mean_proba, station='AR*'):
         frames = []
         for i, interval in enumerate(intervals):
             channel_names = ['P-beam, Z', 'S-beam, T', 'S-beam, R']
@@ -362,6 +358,12 @@ class LiveClassifier:
                 tr.stats.network = cfg.live.array  
                 tr.stats.station = station
                 tr.stats.channel = channel_names[j]
+                tr.stats.sampling_rate = cfg.live.sample_rate
+                
+                # Set the start time for each Trace
+                if event_time:
+                    tr.stats.starttime = event_time + i * cfg.live.step
+                
                 stream.append(tr)
             
             # Plot the traces using ObsPy in its own figure
@@ -372,47 +374,61 @@ class LiveClassifier:
             obspy_image = obspy_image.reshape(fig1.canvas.get_width_height()[::-1] + (3,))
             plt.close(fig1)
             
-            detector_values = [np.squeeze(val) for val in yprobas['detector'][:i+1]]
-            classifier_values = [np.squeeze(val) for val in yprobas['classifier'][:i+1]]
-            model_output_image = self.plot_model_output(detector_values, classifier_values, i, final_yhat)
-
-            # Resize the model_output_image to match the width of obspy_image
+            detector_values = [np.squeeze(val) for val in yprobas['detector']]
+            classifier_values = [np.squeeze(val) for val in yprobas['classifier']]
+            model_output_image = self.plot_model_output(detector_values, classifier_values, i, final_yhat, yhats, mean_proba)
             target_width = obspy_image.shape[1]
             model_output_image_resized = resize_image(model_output_image, target_width)
-
             combined_image = np.vstack((obspy_image, model_output_image_resized))
             frames.append(combined_image)
 
         safe_event_time = sanitize_filename(str(event_time))
-        imageio.mimsave(os.path.join(cfg.paths.live_test_path, f'{safe_event_time}_{final_yhat}.gif'), frames, fps=1)
+        output_path = os.path.join(cfg.paths.live_test_path, f'{safe_event_time}_{final_yhat}.mp4')
 
-    def plot_model_output(self, detector_values, classifier_values, current_step, final_prediction):
-        fig, ax = plt.subplots(figsize=(10, 4))
-        
-        # Plot all detector and classifier values
-        ax.plot(detector_values, label='Detector', color='r')
-        ax.plot(classifier_values, label='Classifier', color='b')
-        
-        # Add grey box to indicate the current step
+        with get_writer(output_path, mode='I', fps=1, codec='libx264', pixelformat='yuv420p', format='FFMPEG') as writer:
+            for frame in frames:
+                writer.append_data(frame)
+
+    def plot_model_output(self, detector_values, classifier_values, current_step, final_prediction, yhats, mean_proba):
+        fig, ax = plt.subplots(figsize=(10, 4))  # Adjusted height
+
+        ax.plot(detector_values, label='Detector', color='r', marker='o')
+        ax.plot(classifier_values, label='Classifier', color='b', marker='o')
+
         if current_step is not None:
             ax.axvspan(current_step - 0.5, current_step + 0.5, facecolor='gray', alpha=0.5)
-
         ax.axhline(0.5, color='gray', linestyle='--')
-        ax.text(0, 0.55, 'Event', color='red')
-        ax.text(0, 0.45, 'Noise', color='red')
-        ax.text(0.2, 0.55, 'Explosion', color='blue')
-        ax.text(0.2, 0.45, 'Earthquake', color='blue')
+        ax.axhline(mean_proba['detector'][0], color='red', linestyle='--', label='Detector mean')
+        ax.axhline(mean_proba['classifier'][0], color='blue', linestyle='--', label='Classifier mean')
 
-        ax.set_ylim([0, 1])
-        
-        # Set the title to display the final prediction
+        ax.text(0.1 * len(detector_values), 0.55, 'Event', color='red')
+        ax.text(0.1 * len(detector_values), 0.45, 'Noise', color='red')
+        ax.text(0.8 * len(classifier_values), 0.55, 'Explosion', color='blue')
+        ax.text(0.8 * len(classifier_values), 0.45, 'Earthquake', color='blue')
+
+        ax.set_ylim([-0.05, 1.05])
+        ax.set_xlim([-0.05, len(detector_values) + 0.05])
         ax.set_title(f'Model Predictions - Final Prediction: {final_prediction}')
-        
+
+        ax2 = ax.twiny()
+        ax2.set_xlim(ax.get_xlim())
+        ax2.set_xticks(np.arange(len(yhats)))
+        ax2.set_xticklabels([pred[0] for pred in yhats], ha='center', rotation=45, color='green')
+        ax2.xaxis.tick_bottom()
+        ax2.xaxis.set_label_position('bottom')
+        ax2.spines['bottom'].set_position(('outward', 60))  # Adjusted distance
+        ax2.set_frame_on(False)
+
         ax.legend(loc='upper left')
         fig.canvas.draw()
-        
+
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
         image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         plt.close(fig)
         
         return image
+
+
+
+
+

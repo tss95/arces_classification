@@ -31,7 +31,7 @@ data:
 live:
   live: True
   array: "ARCES"
-  step: 10
+  step: 5
   sample_rate: 40
   length: 240
   edge: 10

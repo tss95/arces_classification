@@ -16,7 +16,9 @@ omegaconf
 imblearn
 plotly
 imageio
+imageio[ffmpeg]
 haikunator 
+ffmpeg
 scikit-image
 --extra-index-url http://wcomp2/python/ --trusted-host wcomp2 seismonpy
 --extra-index-url http://wcomp2/python/ --trusted-host wcomp2 multitaper
