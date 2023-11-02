@@ -5,7 +5,8 @@ from Classes.LoadData import LoadData
 from Classes.Scaler import Scaler
 from datetime import datetime
 
-
+import geopandas as gpd
+import math
 from tensorflow.keras.utils import to_categorical
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import LabelEncoder
@@ -101,6 +102,23 @@ def apply_threshold(pred_probs):
             out.append(1)
     return out
 
+def get_index_of_wrong_predictions(true_labels, pred_labels):
+    """
+    Given the true and predicted labels, return the indices of the wrong predictions.
+    
+    Parameters:
+    true_labels (list): A list of true labels.
+    pred_labels (list): A list of predicted labels.
+    
+    Returns:
+    list: A list of indices of the wrong predictions.
+    """
+    wrong_indices = []
+    for i, (true_label, pred_label) in enumerate(zip(true_labels, pred_labels)):
+        if true_label != pred_label:
+            wrong_indices.append(i)
+    return wrong_indices
+
 def get_y_and_ypred(model, val_gen, label_maps):
     final_pred_labels = []
     final_true_labels = []
@@ -121,6 +139,7 @@ def get_y_and_ypred(model, val_gen, label_maps):
                                                   batch_labels["classifier"].numpy().astype(int), label_maps))
 
     return final_true_labels, final_pred_labels, final_pred_probs
+
 
 def one_prediction(model, x, label_maps):
     x = np.reshape(x, (1, *x.shape))

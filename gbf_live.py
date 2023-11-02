@@ -17,7 +17,6 @@ and then takes the most common prediction.
 
 TODO: Use real P velocities and S velocities where available. Currently using default values.
 TODO: Investigate the lack of explosion predictions.
-TODO: Produce outputs that are useful beyond system insight. 
 TODO: Weight the predictions based on centrality of the event in the waveform.
 TODO: Keep model loaded in memory.
 TODO: Regenerate training data with better velocities.

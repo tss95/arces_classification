@@ -7,9 +7,11 @@ import os
 import matplotlib.pyplot as plt
 from obspy import Stream, Trace
 import tensorflow as tf
-from Classes.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred
+from Classes.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred, get_index_of_wrong_predictions
 from Classes.Augment import augment_pipeline
 from collections import Counter
+import math
+import geopandas as gpd
 
 class Analysis:
     def __init__(self, model, val_gen, label_maps_dict, date_and_time):
@@ -182,8 +184,93 @@ class Analysis:
         plt.close()
         
 
+    def plot_mistakes_by_distance(self, val_meta, bin_step=50):
+        # Get the indices of wrong predictions using your function
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        meta = {}
+        for i in range(len(true_labels)):
+            meta[i] = val_meta[i]
+        # Filter out noise by index events:
+        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
+        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
+        true_labels = np.delete(true_labels, noise_idx)
+        predicted_labels = np.delete(predicted_labels, noise_idx)
+        m = {}
+        for idx in not_noise_idx:
+            m[idx] = meta[idx]
+        val_meta = m
+        wrong_indices = get_index_of_wrong_predictions(true_labels, predicted_labels)
+        relevant_meta = val_meta[wrong_indices]
+        true_labels = np.array(true_labels)[wrong_indices]
+        predicted_labels = np.array(predicted_labels)[wrong_indices]
+        distances = [meta['dist_to_arces'] for meta in relevant_meta]
 
+        # Dynamically create distance bins based on data and desired bin step (50 or 100 km)
+        min_distance = math.floor(min(distances) / bin_step) * bin_step
+        max_distance = math.ceil(max(distances) / bin_step) * bin_step
+        distance_bins = np.arange(min_distance, max_distance + bin_step, bin_step)
+
+        # Count events in each distance bin
+        total_counts, _ = np.histogram(distances, bins=distance_bins)
+
+        # Count mistakes in each distance bin
+        mistake_distances = np.array(distances)[wrong_indices]
+        mistake_counts, _ = np.histogram(mistake_distances, bins=distance_bins)
+
+        # Calculate mistake rates
+        with np.errstate(divide='ignore', invalid='ignore'):
+            mistake_rates = mistake_counts / total_counts
+            mistake_rates[np.isnan(mistake_rates)] = 0
+
+        # Plot mistake rates
+        plt.figure()
+        plt.bar(distance_bins[:-1], mistake_rates, width=bin_step-1, align='edge', tick_label=[str(bin) for bin in distance_bins[:-1]])
+        plt.xlabel("Distance bin (km)")
+        plt.ylabel("Mistake rate")
+        plt.title(f"Mistake rate by distance to event (Bin step: {bin_step} km)")
+        plt.savefig(f"{cfg.paths.plots_folder}/mistakes_by_distance_{cfg.model}_{self.date_and_time}.png")
+        plt.close()
+        self.val_gen.on_epoch_end()
+
+    def plot_events_on_map(self, val_meta, bin_step=50):
+       # Get the indices of wrong predictions using your function
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        meta = {}
+        for i in range(len(true_labels)):
+            meta[i] = val_meta[i]
+        # Filter out noise by index events:
+        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
+        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
+        true_labels = np.delete(true_labels, noise_idx)
+        predicted_labels = np.delete(predicted_labels, noise_idx)
+        m = {}
+        for idx in not_noise_idx:
+            m[idx] = meta[idx]
+        val_meta = m
         
+        # Load map (replace with your specific shapefile for Scandinavia)
+        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+        ax = world[world.name.isin(['Norway', 'Sweden', 'Finland', 'Iceland'])].plot()
+
+        # Separate latitudes and longitudes
+        longitudes = [meta['origins'][0]['longitude'] for meta in relevant_meta]
+        latitudes = [meta['origins'][0]['latitude'] for meta in relevant_meta]
+
+        # Filter the event types and locations for wrong predictions
+        wrong_lats = [latitudes[i] for i in wrong_indices]
+        wrong_longs = [longitudes[i] for i in wrong_indices]
+        wrong_events = [true_labels[i] for i in wrong_indices]
+        
+        for lat, long, event in zip(wrong_lats, wrong_longs, wrong_events):
+            if event == 'explosion':
+                plt.scatter(long, lat, c='red', label='Wrong Explosion', marker='o')
+            elif event == 'earthquake':
+                plt.scatter(long, lat, c='green', label='Wrong Earthquake', marker='^')
+
+        plt.legend()
+        plt.savefig(f"{cfg.paths.plots_folder}/map_errors_{cfg.model}_{self.date_and_time}.png")
+        plt.close()
+        self.val_gen.on_epoch_end()
 
 
     def plot_precision_recall_curve(self):

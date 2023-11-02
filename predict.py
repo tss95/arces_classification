@@ -56,6 +56,8 @@ analysis = Analysis(model, val_gen, label_map, date_and_time)
 
 #analysis.main()
 #analysis.collect_and_plot_samples(val_gen, val_meta)
+analysis.plot_mistakes_by_distance(val_meta)
+analysis.plot_events_on_map(val_meta)
 if cfg.data.include_induced:
     analysis.explore_induced_events(val_gen, val_meta, unswapped_labels)
 analysis.explore_regular_events(val_gen, val_meta, "noise")

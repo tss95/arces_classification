@@ -17,6 +17,7 @@ imblearn
 plotly
 imageio
 imageio[ffmpeg]
+geopandas
 haikunator 
 ffmpeg
 scikit-image
