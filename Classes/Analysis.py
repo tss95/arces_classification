@@ -199,8 +199,11 @@ class Analysis:
         for idx in not_noise_idx:
             m[idx] = meta[idx]
         val_meta = m
-        wrong_indices = get_index_of_wrong_predictions(true_labels, predicted_labels)
-        relevant_meta = val_meta[wrong_indices]
+        wrong_indices = np.array(get_index_of_wrong_predictions(true_labels, predicted_labels))
+        meta_indexes = sorted(val_meta.keys())
+        relevant_meta = {}
+        for i, idx in enumerate(wrong_indices):
+            relevant_meta[i] = val_meta[meta_indexes[idx]]
         true_labels = np.array(true_labels)[wrong_indices]
         predicted_labels = np.array(predicted_labels)[wrong_indices]
         distances = [meta['dist_to_arces'] for meta in relevant_meta]
