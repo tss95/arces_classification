@@ -20,11 +20,11 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         # Get true labels and predicted labels
         y_true, y_pred, y_prob = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        self.wandb_conf_matrix(y_true, y_pred)
-        self.explore_and_log_distributions(y_true, np.array(y_pred), y_prob)
+        self.wandb_conf_matrix(y_true, y_pred, epoch)
+        self.explore_and_log_distributions(y_true, np.array(y_pred), y_prob, epoch)
         
 
-    def wandb_conf_matrix(self, y_true, y_pred):
+    def wandb_conf_matrix(self, y_true, y_pred, epoch):
         # Compute the confusion matrix
         conf_matrix = confusion_matrix(y_true, y_pred, labels=["noise", "earthquake", "explosion"])
         
@@ -37,10 +37,10 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         y_pred_int = [label_to_int[label] for label in y_pred]
         
         plt = plot_confusion_matrix(conf_matrix, conf_matrix_normalized, ["noise", "earthquake", "explosion"])
-        wandb.log({"confusion_matrix": plt})
+        wandb.log({"confusion_matrix": plt}, step = epoch)
 
 
-    def explore_and_log_distributions(self, y_true, y_pred, final_pred_probs):
+    def explore_and_log_distributions(self, y_true, y_pred, final_pred_probs, epoch):
         fig, axs = plt.subplots(4 if cfg.data.include_induced else 3, 1, figsize=(10, 16))
 
         self.explore_regular_events(axs[0], y_true, y_pred, final_pred_probs, "noise")
@@ -58,7 +58,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
 
         # Create a wandb.Image object from the buffer
         img = wandb.Image(Image.open(img_buffer))
-        wandb.log({"probability_distributions": img})
+        wandb.log({"probability_distributions": img}, step = epoch)
 
     def explore_induced_events(self, ax, y_true, y_pred, final_pred_probs):
         n_samples = len(y_true)
@@ -134,3 +134,22 @@ class WandbLoggingCallback(tf.keras.callbacks.Callback):
 
 # Usage example with model.fit()
 # model.fit(x, y, epochs=10, verbose=0, callbacks=[InPlaceProgressCallback()])
+
+class CosineAnnealingLearningRateScheduler(tf.keras.callbacks.Callback):
+    def __init__(self, total_epochs, max_lr, min_lr):
+        super().__init__()
+        self.total_epochs = total_epochs
+        self.max_lr = max_lr
+        self.min_lr = min_lr
+        self.warmup_epochs = int(0.05 * total_epochs)  # 10% of total epochs for warm-up
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch < self.warmup_epochs and cfg.optimizer.optimizer_kwargs.warmup:
+            lr = (self.max_lr - self.min_lr) / self.warmup_epochs * epoch + self.min_lr
+        else:
+            lr = self.min_lr + (self.max_lr - self.min_lr) * (
+                1 + np.cos(np.pi * (epoch - self.warmup_epochs) / (self.total_epochs - self.warmup_epochs))
+            ) / 2
+        
+        # Set the new learning rate to the model
+        tf.keras.backend.set_value(self.model.optimizer.lr, lr)

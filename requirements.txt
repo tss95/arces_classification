@@ -21,5 +21,7 @@ geopandas
 haikunator 
 ffmpeg
 scikit-image
+nais
+contextily
 --extra-index-url http://wcomp2/python/ --trusted-host wcomp2 seismonpy
 --extra-index-url http://wcomp2/python/ --trusted-host wcomp2 multitaper

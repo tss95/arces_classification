@@ -9,7 +9,7 @@ CONFIG_MAIN=$CONFIG_PATH/data_config.yaml
 CONFIG_MODEL=$CONFIG_PATH/model_config.yaml
 SCRIPT_NAME=train.py
 PROJECTNAME=arces_classification
-MODEL_CONFIG=cnn_dense.yaml
+MODEL_CONFIG=alexnet.yaml
 SCRIPT_LOCATION=$PROJECT_PATH
 REQUIREMENTS=$PROJECT_PATH/requirements.txt
 
@@ -39,6 +39,9 @@ mkdir_if_not_exist $OUTPUT/plots
 mkdir_if_not_exist $OUTPUT/models
 mkdir_if_not_exist $OUTPUT/predictions
 mkdir_if_not_exist $OUTPUT/logs
+mkdir_if_not_exist $BASE_DIR/data/maps
+
+
 
 
 echo "Folders created"
@@ -46,6 +49,7 @@ echo "Folders created"
 cp $SCRIPT_LOCATION/$SCRIPT_NAME $BASE_DIR/run_script.py
 rsync -ahr $GLOBAL_CONFIG $BASE_DIR/global_config.py
 rsync -ahr $PROJECT_SETUP $BASE_DIR/project_setup.py
+rsync -ahr $PROJECT_PATH/data/maps/* $BASE_DIR/data/maps/
 rsync -ahr $LOGGER $BASE_DIR/config/logging_config.py
 rsync -agr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
 rsync -ahr $PROJECT_PATH/config/models/$MODEL_CONFIG $BASE_DIR/config/models/$MODEL_CONFIG
@@ -98,7 +102,8 @@ docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus '"device=0"' -v 
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py && bash"
+                                                                                                     #python /tf/run_script.py && 
+                                                                                                     bash"
 
 # docker run -it --ipc=host --rm --gpus '"device=0"' -v $BASE_DIR:/tf tensorflow/tensorflow:latest-gpu bash -c "export WANDB_API_KEY=$wandb_api_key &&
 #                                                                                                               source /root/.bashrc &&
@@ -114,6 +119,10 @@ rsync -ahr --progress $GPU_OUTPUT_DIR/*.pdf $OUTPUT/plots
 rsync -ahr --progress $GPU_OUTPUT_DIR/logs $OUTPUT/logs
 rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.tf $OUTPUT/models
 rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.h5 $OUTPUT/models
+rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.h5 $OUTPUT/models
+rsync -ahr --progress $GPU_OUTPUT_DIR/models/*.hdf5 $OUTPUT/models
+#rsync -ahr --progress $GPU_OUTPUT_DIR/models/**/*.hdf5 $OUTPUT/models
+
 
 
 

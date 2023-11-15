@@ -39,6 +39,8 @@ mkdir_if_not_exist $OUTPUT/plots
 mkdir_if_not_exist $OUTPUT/models
 mkdir_if_not_exist $OUTPUT/predictions
 mkdir_if_not_exist $OUTPUT/logs
+mkdir_if_not_exist $BASE_DIR/data/maps
+
 
 
 echo "Folders created"
@@ -56,6 +58,8 @@ rsync -ahr $REQUIREMENTS $BASE_DIR/requirements.txt
 cp $PROJECT_PATH/docker.dockerfile $BASE_DIR/docker.dockerfile
 cp -v $PROJECT_PATH/.dockerignore $BASE_DIR/.dockerignore
 cp $PROJECT_PATH/.docker_bashrc $BASE_DIR/.docker_bashrc
+rsync -ahr $PROJECT_PATH/data/maps/* $BASE_DIR/data/maps/
+
 
 echo "Files synced"
 

@@ -18,8 +18,10 @@ from Classes.Metrics import get_least_frequent_class_metrics
 from Classes.UMAPCallback import UMAPCallback
 from Classes.Analysis import Analysis
 from Classes.MetricsCallback import MetricsCallback
-from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
+from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback, CosineAnnealingLearningRateScheduler
 import socket
+from tensorflow.keras.callbacks import ModelCheckpoint
+import os
 
 import wandb 
 from wandb.keras import WandbMetricsLogger
@@ -68,7 +70,7 @@ detector_metrics = ["accuracy"]
 model = get_model(detector_label_map, classifier_label_map, detector_metrics, classifier_metrics, 
                   detector_class_weight_dict, classifier_class_weight_dict)
 model.build(input_shape=(None, *input_shape))  # Explicitly building the model here
-opt = Adam(learning_rate=cfg.optimizer.optimizer_kwargs.lr, weight_decay=cfg.optimizer.optimizer_kwargs.weight_decay)
+opt = Adam(learning_rate=cfg.optimizer.optimizer_kwargs.max_lr, weight_decay=cfg.optimizer.optimizer_kwargs.weight_decay)
 model.compile(optimizer=opt, loss=CategoricalCrossentropy(from_logits = True), metrics='accuracy')
 model.summary()
 
@@ -105,6 +107,14 @@ valConfCallback = ValidationConfusionMatrixCallback(val_gen, label_map, unswappe
 callbacks.append(valConfCallback)
 callbacks.append(InPlaceProgressCallback())
 callbacks.append(WandbLoggingCallback())
+
+checkpoint_dir = os.path.join(cfg.paths.model_save_folder, model_name)
+os.makedirs(checkpoint_dir, exist_ok = True)
+callbacks.append(ModelCheckpoint(filepath=os.path.join(checkpoint_dir, 'model_epoch_{epoch:02d}.hdf5'),
+                                 save_weights_only = True,
+                                 save_freq = 'epoch',
+                                 verbose = 1))
+callbacks.append(CosineAnnealingLearningRateScheduler(cfg.optimizer.max_epochs, max_lr=cfg.optimizer.optimizer_kwargs.max_lr, min_lr = cfg.optimizer.optimizer_kwargs.min_lr))
 #callbacks.append(MetricsCallback(val_gen, label_map))
 
 model.fit(
