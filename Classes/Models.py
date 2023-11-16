@@ -10,13 +10,13 @@ import tensorflow.keras.backend as K
 
 def get_initializer(initializer):
     if initializer == "glorot_uniform":
-        return tf.initializers.glorot_uniform()
+        return tf.initializers.glorot_uniform(seed=cfg.seed)
     elif initializer == "glorot_normal":
-        return tf.initializers.glorot_normal()
+        return tf.initializers.glorot_normal(seed=cfg.seed)
     elif initializer == "he_uniform":
-        return tf.initializers.he_uniform()
+        return tf.initializers.he_uniform(seed=cfg.seed)
     elif initializer == "he_normal":
-        return tf.initializers.he_normal()
+        return tf.initializers.he_normal(seed=cfg.seed)
     else:
         raise ValueError("Initializer not found.")
 

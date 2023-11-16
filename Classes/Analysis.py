@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from global_config import logger, cfg
+from global_config import logger, cfg, run_id
 import csv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_recall_curve, PrecisionRecallDisplay
 import numpy as np
@@ -177,11 +177,11 @@ class Analysis:
         axs[-1].axis('off')
         axs[-1].table(cellText=cell_data, colLabels=columns, cellLoc='center', loc='center')
         
-        plt.suptitle(f"Probability Distributions of {title} for Model {cfg.model} on {self.date_and_time}")
+        plt.suptitle(f"Probability Distributions of {title} for Model {cfg.model} on {run_id}")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
         # Save the plot
-        plt.savefig(f"{cfg.paths.plots_folder}/{title}_prob_distributions_{cfg.model}_{self.date_and_time}.png")
+        plt.savefig(f"{cfg.paths.plots_folder}/{title}_prob_distributions_{cfg.model}.png")
         plt.close()
 
     def convert_to_detector_labels(self, true_labels, predicted_labels):
@@ -196,146 +196,7 @@ class Analysis:
             return "event"
         return "noise"
 
-        
-    def plot_d_mistakes_by_distance(self, val_meta, bin_step=100):
-        # Rather than error rate by the right class, looking at the error rate of each stage would be better.
-        # For example, a distant event is more important to detect corretly than classify corretly.
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels = self.convert_to_detector_labels(true_labels, predicted_labels)
-        # Match the length of meta to the length of true_labels and predicted_labels. This will align indexes
-        meta = {}
-        for i in range(len(true_labels)):
-            meta[i] = val_meta[i]
-        # Get noise indexes
-        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
-        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
-        # Filter out noise by index events:
-        true_labels = np.delete(true_labels, noise_idx)
-        predicted_labels = np.delete(predicted_labels, noise_idx)
-        m = {}
-        for idx in not_noise_idx:
-            m[idx] = meta[idx]
-        not_noise_meta = m
-        # Get the distances of all non noise events
-        distances_all = []
-        for idx in list(not_noise_meta.keys()):
-            distances_all.append(not_noise_meta[idx]['dist_to_arces'])
-        # Get the indexes of wrong predictions
-        wrong_indices = np.array(get_index_of_wrong_predictions(true_labels, predicted_labels))
-        # Get the meta indexes of the wrong predictions
-        not_noise_meta_indexes = sorted(not_noise_meta.keys())
-        # Get the meta of the wrong predictions
-        not_noise_error_metas = {}
-        for i, idx in enumerate(wrong_indices):
-            not_noise_error_metas[i] = not_noise_meta[not_noise_meta_indexes[idx]]
-        # Get the true and predicted labels of the wrong predictions
-        true_labels = np.array(true_labels)[wrong_indices]
-        predicted_labels = np.array(predicted_labels)[wrong_indices]
 
-        distances = [] # Distances of non noise events incorrectly predicted
-        for i in list(not_noise_error_metas.keys()):
-            distances.append(not_noise_error_metas[i]['dist_to_arces'])
-
-
-        # Dynamically create distance bins based on data and desired bin step (e.g., 100 km)
-        min_distance = math.floor(min(distances) / bin_step) * bin_step
-        max_distance = math.ceil(max(distances) / bin_step) * bin_step
-        distance_bins = np.arange(min_distance, max_distance + bin_step, bin_step)
-
-        # Count mistakes in each distance bin
-        mistake_counts, _ = np.histogram(distances, bins=distance_bins)
-
-        # Count total events in each distance bin
-        total_counts, _ = np.histogram(distances_all, bins=distance_bins)
-
-
-        # Calculate mistake rates
-        with np.errstate(divide='ignore', invalid='ignore'):
-            mistake_rates = np.true_divide(mistake_counts, total_counts)
-            mistake_rates = np.nan_to_num(mistake_rates)  # Convert NaNs to zeros
-
-        # Plot mistake rates
-        plt.figure(figsize=(12, 7))  # Increased figure size for readability
-        tick_labels = [f"{int(bin_)}" for bin_ in distance_bins[:-1]]
-        plt.bar(distance_bins[:-1] + bin_step/2, mistake_rates, width=bin_step * 0.9, align='center')
-        plt.xticks(ticks=distance_bins[:-1] + bin_step/2, labels=tick_labels, rotation=45, ha='right', fontsize=8)  # Reduced font size
-        plt.xlabel("Distance bin (km)")
-        plt.ylabel("Mistake rate")
-        plt.title(f"Detector mistake rate by distance to event (Bin step: {bin_step} km)")
-        plt.grid(True)
-        plt.tight_layout()   # Adjust the plot to ensure everything fits without overlapping
-        plt.savefig(f"{cfg.paths.plots_folder}/d_mistakes_by_distance_{cfg.model}_{self.date_and_time}.png")
-        plt.close()  # Close the plot to free memory
-        self.val_gen.on_epoch_end()  # Call this at the end of the epoch
-
-
-    def plot_dnc_mistakes_by_distance(self, val_meta, bin_step=100):
-        # Needs to plot the prediction rate by the distance of the event. 
-        # Get the indices of wrong predictions using your function
-        # TODO: This plot seems to be correct. However the results are misleading.
-        # Rather than error rate by the right class, looking at the error rate of each stage would be better.
-        # For example, a distant event is more important to detect corretly than classify corretly.
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        meta = {}
-        for i in range(len(true_labels)):
-            meta[i] = val_meta[i]
-        # Filter out noise by index events:
-        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
-        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
-
-        distances_all = []
-        for idx in not_noise_idx:
-            distances_all.append(meta[idx]['dist_to_arces'])
-
-        true_labels = np.delete(true_labels, noise_idx)
-        predicted_labels = np.delete(predicted_labels, noise_idx)
-        m = {}
-        for idx in not_noise_idx:
-            m[idx] = meta[idx]
-        not_noise_meta = m
-        wrong_indices = np.array(get_index_of_wrong_predictions(true_labels, predicted_labels))
-        not_noise_meta_indexes = sorted(not_noise_meta.keys())
-        not_noise_error_metas = {}
-        for i, idx in enumerate(wrong_indices):
-            not_noise_error_metas[i] = not_noise_meta[not_noise_meta_indexes[idx]]
-        true_labels = np.array(true_labels)[wrong_indices]
-        predicted_labels = np.array(predicted_labels)[wrong_indices]
-
-        distances = [] # Distances of non noise events incorrectly predicted
-        for i in list(not_noise_error_metas.keys()):
-            distances.append(not_noise_error_metas[i]['dist_to_arces'])
-
-
-        # Dynamically create distance bins based on data and desired bin step (e.g., 100 km)
-        min_distance = math.floor(min(distances) / bin_step) * bin_step
-        max_distance = math.ceil(max(distances) / bin_step) * bin_step
-        distance_bins = np.arange(min_distance, max_distance + bin_step, bin_step)
-
-        # Count mistakes in each distance bin
-        mistake_counts, _ = np.histogram(distances, bins=distance_bins)
-
-        # Count total events in each distance bin
-        total_counts, _ = np.histogram(distances_all, bins=distance_bins)
-
-
-        # Calculate mistake rates
-        with np.errstate(divide='ignore', invalid='ignore'):
-            mistake_rates = np.true_divide(mistake_counts, total_counts)
-            mistake_rates = np.nan_to_num(mistake_rates)  # Convert NaNs to zeros
-
-        # Plot mistake rates
-        plt.figure(figsize=(12, 7))  # Increased figure size for readability
-        tick_labels = [f"{int(bin_)}" for bin_ in distance_bins[:-1]]
-        plt.bar(distance_bins[:-1] + bin_step/2, mistake_rates, width=bin_step * 0.9, align='center')
-        plt.xticks(ticks=distance_bins[:-1] + bin_step/2, labels=tick_labels, rotation=45, ha='right', fontsize=8)  # Reduced font size
-        plt.xlabel("Distance bin (km)")
-        plt.ylabel("Mistake rate")
-        plt.title(f"Detector and classifier mistake rate by distance to event (Bin step: {bin_step} km). Looking only at non noise events.")
-        plt.grid(True)
-        plt.tight_layout()   # Adjust the plot to ensure everything fits without overlapping
-        plt.savefig(f"{cfg.paths.plots_folder}/dnc_mistakes_by_distance_{cfg.model}_{self.date_and_time}.png")
-        plt.close()  # Close the plot to free memory
-        self.val_gen.on_epoch_end()  # Call this at the end of the epoch
 
     def plot_events_on_map(self, val_meta, bin_step=50):
         # Get the indices of wrong predictions using your function
@@ -418,7 +279,7 @@ class Analysis:
         ax.tick_params(axis='both', which='major', labelsize=10) 
         # Adding country borders if not already included
         plt.subplots_adjust(bottom=0.3)
-        plt.savefig(f"{cfg.paths.plots_folder}/map_errors_{cfg.model}_{self.date_and_time}.png", bbox_inches="tight")
+        plt.savefig(f"{cfg.paths.plots_folder}/map_errors_{cfg.model}.png", bbox_inches="tight")
         plt.close()
         self.val_gen.on_epoch_end()
 
@@ -454,7 +315,7 @@ class Analysis:
         disp.plot()
 
         # Save the plot
-        plt.savefig(f"{cfg.paths.plots_folder}/prc_{cfg.model}_{self.date_and_time}.png")
+        plt.savefig(f"{cfg.paths.plots_folder}/prc_{cfg.model}.png")
         plt.close()
         self.val_gen.on_epoch_end()
 
@@ -477,7 +338,7 @@ class Analysis:
         disp.plot(cmap=plt.cm.Blues)
         
         # Save the plot
-        plt.savefig(f"{cfg.paths.plots_folder}/conf_{cfg.model}_{self.date_and_time}.png")
+        plt.savefig(f"{cfg.paths.plots_folder}/conf_{cfg.model}.png")
         plt.close()
         self.val_gen.on_epoch_end()
 
@@ -489,7 +350,7 @@ class Analysis:
             if final_pred_labels != final_true_labels:
                 incorrect_indices.append(i)
 
-        csv_file_path = f"{cfg.paths.predictions_folder}/{cfg.model}_wrong_predictions_{self.date_and_time}.csv"
+        csv_file_path = f"{cfg.paths.plots_folder}/{cfg.model}_wrong_predictions.csv"
 
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -497,125 +358,6 @@ class Analysis:
             
             for idx in incorrect_indices:
                 writer.writerow([idx, final_pred_labels[idx], final_true_labels[idx]])
-        self.val_gen.on_epoch_end()
-
-    def get_prediction_errors(self, true_labels, predicted_labels, meta):
-        # ChatGPT ignore this function
-        pass
-        
-
-    def plot_d_mistakes_by_msdr(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels = self.convert_to_detector_labels(true_labels, predicted_labels)
-        meta = {i: val_meta[i] for i in range(len(true_labels))}
-        
-        # Get noise indexes
-        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
-        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
-        
-        # Filter out noise by index events:
-        true_labels = np.delete(true_labels, noise_idx)
-        predicted_labels = np.delete(predicted_labels, noise_idx)
-        not_noise_meta = {idx: meta[idx] for idx in not_noise_idx}
-        
-        # Get the distances of all non-noise events
-        msrdr_all = [not_noise_meta[idx]['magnitude_sqrtdist_ratio'] for idx in not_noise_meta.keys()]
-        
-        # Get the indexes of wrong predictions
-        wrong_indices = np.array(get_index_of_wrong_predictions(true_labels, predicted_labels))
-        
-        # Get the meta of the wrong predictions
-        not_noise_error_metas = {i: not_noise_meta[idx] for i, idx in enumerate(sorted(not_noise_meta.keys())[wrong_indices])}
-
-        # Get the true and predicted labels of the wrong predictions
-        true_labels = np.array(true_labels)[wrong_indices]
-        predicted_labels = np.array(predicted_labels)[wrong_indices]
-        
-        # Distances of non-noise events incorrectly predicted
-        msrdr = [not_noise_error_metas[i]['magnitude_sqrtdist_ratio'] for i in not_noise_error_metas.keys()]
-        
-        # Dynamically create distance bins based on the range of msrdr_all and n_bins
-        min_msrdr = min(msrdr_all)
-        max_msrdr = max(msrdr_all)
-        distance_bins = np.linspace(min_msrdr, max_msrdr, n_bins + 1)
-        
-        # Count mistakes in each distance bin
-        mistake_counts, _ = np.histogram(msrdr, bins=distance_bins)
-        
-        # Count total events in each distance bin
-        total_counts, _ = np.histogram(msrdr_all, bins=distance_bins)
-        
-        # Calculate mistake rates
-        with np.errstate(divide='ignore', invalid='ignore'):
-            mistake_rates = np.true_divide(mistake_counts, total_counts)
-            mistake_rates = np.nan_to_num(mistake_rates)  # Convert NaNs to zeros
-        
-        # Plot mistake rates
-        plt.figure(figsize=(12, 7))
-        bar_width = np.diff(distance_bins)[0]  # Width of each bar
-        plt.bar(distance_bins[:-1] + bar_width/2, mistake_rates, width=bar_width * 0.9, align='center')
-        tick_labels = [f"{edge:.4f}" for edge in distance_bins[:-1]]  # Precision based on small float values
-        plt.xticks(ticks=distance_bins[:-1] + bar_width/2, labels=tick_labels, rotation=45, ha='right', fontsize=8)
-        plt.xlabel("Magnitude squareroot distance ratio bin")
-        plt.ylabel("Mistake rate")
-        plt.title(f"Detector mistake rate by magnitude squareroot distance ratio (Bins: {n_bins})")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig(f"{cfg.paths.plots_folder}/d_mistakes_by_msdr_{cfg.model}_{self.date_and_time}.png")
-        plt.close()
-        self.val_gen.on_epoch_end()
-
-
-    def plot_dnc_mistakes_by_msdr(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        meta = {i: val_meta[i] for i in range(len(true_labels))}
-        noise_idx = np.where(np.array(true_labels) == 'noise')[0]
-        not_noise_idx = np.where(np.array(true_labels) != 'noise')[0]
-
-        msrdr_all = [meta[idx]['magnitude_sqrtdist_ratio'] for idx in not_noise_idx]
-
-        true_labels = np.delete(true_labels, noise_idx)
-        predicted_labels = np.delete(predicted_labels, noise_idx)
-        not_noise_meta = {idx: meta[idx] for idx in not_noise_idx}
-
-        wrong_indices = np.array(get_index_of_wrong_predictions(true_labels, predicted_labels))
-        not_noise_meta_indexes = sorted(not_noise_meta.keys())
-        not_noise_error_metas = {i: not_noise_meta[not_noise_meta_indexes[idx]] for i, idx in enumerate(wrong_indices)}
-
-        true_labels = np.array(true_labels)[wrong_indices]
-        predicted_labels = np.array(predicted_labels)[wrong_indices]
-
-        msrdr = [not_noise_error_metas[i]['magnitude_sqrtdist_ratio'] for i in not_noise_error_metas.keys()]
-
-        # Dynamically create distance bins based on the number of bins desired
-        min_msrdr = min(msrdr_all)
-        max_msrdr = max(msrdr_all)
-        distance_bins = np.linspace(min_msrdr, max_msrdr, n_bins + 1)
-
-        # Count mistakes in each distance bin
-        mistake_counts, _ = np.histogram(msrdr, bins=distance_bins)
-
-        # Count total events in each distance bin
-        total_counts, _ = np.histogram(msrdr_all, bins=distance_bins)
-
-        # Calculate mistake rates
-        with np.errstate(divide='ignore', invalid='ignore'):
-            mistake_rates = np.true_divide(mistake_counts, total_counts)
-            mistake_rates = np.nan_to_num(mistake_rates)  # Convert NaNs to zeros
-
-        # Plot mistake rates
-        plt.figure(figsize=(12, 7))
-        bar_width = np.diff(distance_bins)[0]  # Width of each bar
-        plt.bar(distance_bins[:-1] + bar_width/2, mistake_rates, width=bar_width * 0.9, align='center')
-        tick_labels = [f"{edge:.4f}" for edge in distance_bins[:-1]]  # Precision based on small float values
-        plt.xticks(ticks=distance_bins[:-1] + bar_width/2, labels=tick_labels, rotation=45, ha='right', fontsize=8)
-        plt.xlabel("Magnitude squareroot distance ratio bin")
-        plt.ylabel("Mistake rate")
-        plt.title(f"Detector and classifier mistake rate by magnitude squareroot distance ratio (Bins: {n_bins}). Looking only at non-noise events.")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig(f"{cfg.paths.plots_folder}/dnc_mistakes_by_msdr_{cfg.model}_{self.date_and_time}.png")
-        plt.close()
         self.val_gen.on_epoch_end()
 
 
@@ -628,3 +370,125 @@ class Analysis:
         not_noise_meta = {idx: meta[idx] for idx in not_noise_idx}
 
         return true_labels, predicted_labels, not_noise_meta
+
+
+    def get_data_and_wrong_indices(self, true_labels, predicted_labels, meta, data_extractor, error_type='d'):
+
+        if error_type == 'd':
+            true_labels = ["event" if label != "noise" else "noise" for label in true_labels]
+            predicted_labels = ["event" if label != "noise" else "noise" for label in predicted_labels]
+
+        wrong_indices = np.where(np.array(true_labels) != np.array(predicted_labels))[0]
+
+        all_data = [data_extractor(meta[idx]) for idx in meta.keys()]
+        wrong_data = [data_extractor(meta[idx]) for idx in wrong_indices]
+
+        return all_data, wrong_data
+    
+    def calculate_histogram_and_rates(self, all_data, wrong_data, bin_step, n_bins=None):
+        if n_bins is not None:
+            min_val, max_val = min(all_data), max(all_data)
+            bins = np.linspace(min_val, max_val, n_bins + 1)
+        else:
+            min_val = math.floor(min(all_data) / bin_step) * bin_step
+            max_val = math.ceil(max(all_data) / bin_step) * bin_step
+            bins = np.arange(min_val, max_val + bin_step, bin_step)
+
+        mistake_counts, _ = np.histogram(wrong_data, bins=bins)
+        total_counts, _ = np.histogram(all_data, bins=bins)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            mistake_rates = np.true_divide(mistake_counts, total_counts)
+            mistake_rates = np.nan_to_num(mistake_rates)
+
+        return bins, mistake_rates
+
+    def plot_mistake_rates_by_bins(self, mistake_rates, bins, title, filename, xlabel):
+        plt.figure(figsize=(12, 7))
+
+        # Calculate the width of each bar (bin_step)
+        bin_step = np.diff(bins)[0]
+
+        # Create tick labels for the x-axis
+        tick_labels = [f"{bin_:.2f}" for bin_ in bins[:-1]]
+
+        # Plot the bars
+        plt.bar(bins[:-1] + bin_step / 2, mistake_rates, width=bin_step * 0.9, align='center')
+
+        # Set the x-axis ticks and labels
+        plt.xticks(ticks=bins[:-1] + bin_step / 2, labels=tick_labels, rotation=45, ha='right', fontsize=8)
+
+        # Set labels and title
+        plt.xlabel(xlabel)
+        plt.ylabel("Mistake rate")
+        plt.title(title)
+
+        # Additional plot settings
+        plt.grid(True)
+        plt.tight_layout()
+
+        # Save the plot
+        plt.savefig(f"{cfg.paths.plots_folder}/{filename}_{cfg.model}.png")
+
+        # Close the plot to free resources
+        plt.close()
+
+    def plot_d_mistakes_by_msdr(self, val_meta, n_bins=20):
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+
+        msrdr_all, wrong_msrdr = self.get_data_and_wrong_indices(
+            true_labels, predicted_labels, not_noise_meta, lambda x: x['magnitude_sqrtdist_ratio']
+        )
+
+        distance_bins, mistake_rates = self.calculate_histogram_and_rates(msrdr_all, wrong_msrdr, None, n_bins)
+        self.plot_mistake_rates_by_bins(mistake_rates, distance_bins, 
+                                        "Detector mistake rate by magnitude squareroot distance ratio", 
+                                        "d_mistakes_by_msdr", "Magnitude squareroot distance ratio")
+        self.val_gen.on_epoch_end()
+
+
+    def plot_dnc_mistakes_by_msdr(self, val_meta, n_bins=20):
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+
+        msrdr_all, wrong_msrdr = self.get_data_and_wrong_indices(
+            true_labels, predicted_labels, not_noise_meta, lambda x: x['magnitude_sqrtdist_ratio']
+        )
+
+        distance_bins, mistake_rates = self.calculate_histogram_and_rates(msrdr_all, wrong_msrdr, None, n_bins)
+        self.plot_mistake_rates_by_bins(mistake_rates, distance_bins, 
+                                        "Detector and classifier mistake rate by magnitude squareroot distance ratio",
+                                        "dnc_mistakes_by_msdr", "Magnitude squareroot distance ratio")
+        self.val_gen.on_epoch_end()
+
+
+
+    def plot_d_mistakes_by_distance(self, val_meta, n_bins=20):
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+
+        distances_all, wrong_distances = self.get_data_and_wrong_indices(
+            true_labels, predicted_labels, not_noise_meta, lambda x: x['dist_to_arces'], 'd'
+        )
+
+        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, n_bins)
+        self.plot_mistake_rates_by_bins(mistake_rates, bins, 
+                                        "Detector mistake rate by distance to event",
+                                        "d_mistakes_by_distance", "Distance to event (km)")
+        self.val_gen.on_epoch_end()
+
+    def plot_dnc_mistakes_by_distance(self, val_meta, n_bins=20):
+        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        true_labels, predicted_labels, meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+
+        distances_all, wrong_distances = self.get_data_and_wrong_indices(
+            true_labels, predicted_labels, meta, lambda x: x['dist_to_arces']
+        )
+
+        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, n_bins)
+        self.plot_mistake_rates_by_bins(mistake_rates, bins, 
+                                        "Detector and classifier mistake rate by distance to event",
+                                        "dnc_mistakes_by_distance", "Distance to event (km)")
+        self.val_gen.on_epoch_end()
+

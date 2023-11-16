@@ -54,12 +54,12 @@ logger.info(f"Loaded model weights from {os.path.join(cfg.paths.model_save_folde
 
 analysis = Analysis(model, val_gen, label_map, date_and_time)
 
-#analysis.main()
+analysis.main()
 #analysis.collect_and_plot_samples(val_gen, val_meta)
 analysis.plot_d_mistakes_by_msdr(val_meta)
 analysis.plot_dnc_mistakes_by_msrd(val_meta)
-#analysis.plot_dnc_mistakes_by_distance(val_meta)
-#analysis.plot_d_mistakes_by_distance(val_meta)
+analysis.plot_dnc_mistakes_by_distance(val_meta)
+analysis.plot_d_mistakes_by_distance(val_meta)
 #analysis.plot_events_on_map(val_meta)
 
 

@@ -4,6 +4,7 @@ import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
 import os
+import datetime
 
 
 def dict_to_namespace(d):
@@ -31,6 +32,8 @@ def setup_config_and_logging():
     from config.logging_config import LOGGING_CONFIG
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+    run_id = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+
     logging.config.dictConfig(LOGGING_CONFIG)
     logger = logging.getLogger('ARCES')
     #logger.setLevel(logging.DEBUG)
@@ -52,6 +55,12 @@ def setup_config_and_logging():
     model_args = OmegaConf.create(model_args_dict)
     OmegaConf.set_struct(model_args, False)
     model_cfg = dict_to_namespace(model_args)
+
+        # Update plots folder to include model-specific subdirectory
+    model_plot_folder = os.path.join(cfg.paths.plots_folder, cfg.model, run_id)
+    os.makedirs(model_plot_folder, exist_ok=True)
+    cfg.paths.plots_folder = model_plot_folder
+
     # Create live_test_path if it does not exist
     live_test_path = os.path.join(config_dir, cfg.paths.live_test_path)
     os.makedirs(live_test_path, exist_ok=True)
@@ -62,4 +71,4 @@ def setup_config_and_logging():
     else:
         logger.setLevel(logging.INFO)
     
-    return logger, cfg, model_cfg
+    return logger, cfg, model_cfg, run_id

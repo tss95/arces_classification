@@ -150,7 +150,7 @@ def one_prediction(model, x, label_maps):
 
 def plot_confusion_matrix(conf_matrix, conf_matrix_normalized, class_names):
     # Create a custom confusion matrix plot
-    plt.figure(figsize=(8, 10))
+    plt.figure(figsize=(10, 10))
     plt.imshow(conf_matrix_normalized, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title('Normalized Confusion Matrix')
     plt.colorbar()
