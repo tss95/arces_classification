@@ -27,6 +27,10 @@ class LoadData:
             self.train_data = self.filter_data(self.train_data)
             self.val_data = self.filter_data(self.val_data)
             self.test_data = self.filter_data(self.test_data)
+        if cfg.data.what_to_load == ["val"]:
+            self.train_data, self.val_data, self.test_data = self.load_datasets()
+            self.val_data = self.filter_data(self.val_data)
+
         logger.info("Loaded data and applied filter. Ready for scaling.")
         #if self.train_data is not None:
         #    print("Train data first entry", self.train_data[0][0], self.train_data[1][0], self.train_data[2][0]) 

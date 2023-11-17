@@ -15,11 +15,14 @@ import geopandas as gpd
 import contextily as ctx
 
 class Analysis:
-    def __init__(self, model, val_gen, label_maps_dict, date_and_time):
+    def __init__(self, model, val_gen, val_meta, label_maps_dict, date_and_time):
         self.model = model
         self.val_gen = val_gen
         self.label_maps = label_maps_dict
+        self.val_meta = val_meta
         self.date_and_time = date_and_time
+        self.final_true_labels, self.final_pred_labels, self.final_pred_probs = get_y_and_ypred(model, val_gen, label_maps_dict)
+
 
     def collect_and_plot_samples(self, generator, metadata, num_samples=3):
         # Initialize a dictionary to hold the samples for each class based on label_map keys
@@ -103,10 +106,10 @@ class Analysis:
     def main(self):
         self.plot_confusion_matrix()
         #self.plot_precision_recall_curve()
-        self.incorrect_predictions_overview()
+        self.predictions_overview()
     
     def explore_induced_events(self, generator, metadata, unswapped_labels):
-        final_true_labels, final_pred_labels, final_pred_probs = get_y_and_ypred(self.model, generator, self.label_maps)
+        final_true_labels, final_pred_labels, final_pred_probs = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
         final_true_labels = np.array(final_true_labels)
         final_pred_labels = np.array(final_pred_labels)
         n_samples = len(final_true_labels)
@@ -131,8 +134,8 @@ class Analysis:
                                    ['detector', 'classifier'],
                                    "Induced Earthquakes")
 
-    def explore_regular_events(self, generator, metadata, target_label):
-        final_true_labels, final_pred_labels, final_pred_probs = get_y_and_ypred(self.model, generator, self.label_maps)
+    def explore_regular_events(self, target_label):
+        final_true_labels, final_pred_labels, final_pred_probs = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
         final_true_labels = np.array(final_true_labels)
         final_pred_labels = np.array(final_pred_labels)
         relevant_idx = np.where(final_true_labels == target_label)[0]
@@ -200,7 +203,7 @@ class Analysis:
 
     def plot_events_on_map(self, val_meta, bin_step=50):
         # Get the indices of wrong predictions using your function
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        true_labels, predicted_labels, _ = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
         meta = {}
         for i in range(len(true_labels)):
             meta[i] = val_meta[i]
@@ -305,7 +308,7 @@ class Analysis:
             raise ValueError("Predicted label cannot be noise")
 
     def plot_precision_recall_curve(self):
-        final_true_labels, _, final_pred_probs = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        final_true_labels, _, final_pred_probs = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
         # Compute precision-recall curve
         precision, recall, _ = precision_recall_curve(final_true_labels, final_pred_probs)
 
@@ -342,23 +345,39 @@ class Analysis:
         plt.close()
         self.val_gen.on_epoch_end()
 
-    def incorrect_predictions_overview(self):
-        incorrect_indices = []
-        final_true_labels, final_pred_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+    def predictions_overview(self):
+        true_labels, pred_labels, pred_probs = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
 
-        for i in range(len(final_pred_labels)):
-            if final_pred_labels != final_true_labels:
-                incorrect_indices.append(i)
 
-        csv_file_path = f"{cfg.paths.plots_folder}/{cfg.model}_wrong_predictions.csv"
+        csv_file_path = f"{cfg.paths.plots_folder}/{cfg.model}_predictions.csv"
 
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Index', 'Predicted', 'True'])
+            writer.writerow(['index','baz_to_arces','estimated_arrival_time_arces', 'predicted', 'true', 'probability_detector', "probability_classifier", 'distance', 'msrd', 'metadata'])
             
-            for idx in incorrect_indices:
-                writer.writerow([idx, final_pred_labels[idx], final_true_labels[idx]])
-        self.val_gen.on_epoch_end()
+            for idx, label in enumerate(true_labels):
+                if label == "noise":
+                    writer.writerow([idx, 
+                                     self.val_meta[idx]["baz_to_arces"],
+                                     self.val_meta[idx]["est_arrivaltime_arces"], 
+                                     pred_labels[idx], 
+                                     label, 
+                                     pred_probs["detector"][idx], 
+                                     pred_probs["classifier"][idx],  
+                                     None, 
+                                     None, 
+                                     self.val_meta[idx]])
+                else:
+                    writer.writerow([idx, 
+                                     self.val_meta[idx]["baz_to_arces"],
+                                     self.val_meta[idx]["est_arrivaltime_arces"], 
+                                     pred_labels[idx], 
+                                     label, 
+                                     pred_probs["detector"][idx], 
+                                     pred_probs["classifier"][idx], 
+                                     self.val_meta[idx]['dist_to_arces'], 
+                                     self.val_meta[idx]['magnitude_sqrtdist_ratio'], 
+                                     self.val_meta[idx]])
 
 
     def filter_noise_events(self, true_labels, predicted_labels, meta):
@@ -367,12 +386,13 @@ class Analysis:
 
         true_labels = np.delete(true_labels, noise_idx)
         predicted_labels = np.delete(predicted_labels, noise_idx)
-        not_noise_meta = {idx: meta[idx] for idx in not_noise_idx}
+        not_noise_meta = {i: meta[idx] for i, idx in enumerate(not_noise_idx)}
+
 
         return true_labels, predicted_labels, not_noise_meta
 
 
-    def get_data_and_wrong_indices(self, true_labels, predicted_labels, meta, data_extractor, error_type='d'):
+    def get_data_and_wrong_indices(self, true_labels, predicted_labels, meta, data_extractor, error_type='dnc'):
 
         if error_type == 'd':
             true_labels = ["event" if label != "noise" else "noise" for label in true_labels]
@@ -433,12 +453,14 @@ class Analysis:
         # Close the plot to free resources
         plt.close()
 
-    def plot_d_mistakes_by_msdr(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+    def plot_d_mistakes_by_msdr(self, n_bins=20):
+        true_labels, predicted_labels, _ = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
+
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, self.val_meta)
 
         msrdr_all, wrong_msrdr = self.get_data_and_wrong_indices(
-            true_labels, predicted_labels, not_noise_meta, lambda x: x['magnitude_sqrtdist_ratio']
+            true_labels, predicted_labels, not_noise_meta, lambda x: x['magnitude_sqrtdist_ratio'],
+            error_type='d'
         )
 
         distance_bins, mistake_rates = self.calculate_histogram_and_rates(msrdr_all, wrong_msrdr, None, n_bins)
@@ -448,9 +470,9 @@ class Analysis:
         self.val_gen.on_epoch_end()
 
 
-    def plot_dnc_mistakes_by_msdr(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+    def plot_dnc_mistakes_by_msdr(self, n_bins=20):
+        true_labels, predicted_labels, _ = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, self.val_meta)
 
         msrdr_all, wrong_msrdr = self.get_data_and_wrong_indices(
             true_labels, predicted_labels, not_noise_meta, lambda x: x['magnitude_sqrtdist_ratio']
@@ -464,29 +486,30 @@ class Analysis:
 
 
 
-    def plot_d_mistakes_by_distance(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+    def plot_d_mistakes_by_distance(self, n_bins=20):
+        true_labels, predicted_labels, _ = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
+        true_labels, predicted_labels, not_noise_meta = self.filter_noise_events(true_labels, predicted_labels, self.val_meta)
 
         distances_all, wrong_distances = self.get_data_and_wrong_indices(
-            true_labels, predicted_labels, not_noise_meta, lambda x: x['dist_to_arces'], 'd'
+            true_labels, predicted_labels, not_noise_meta, lambda x: x['dist_to_arces'], 
+            error_type='d'
         )
 
-        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, n_bins)
+        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, None, n_bins)
         self.plot_mistake_rates_by_bins(mistake_rates, bins, 
                                         "Detector mistake rate by distance to event",
                                         "d_mistakes_by_distance", "Distance to event (km)")
         self.val_gen.on_epoch_end()
 
-    def plot_dnc_mistakes_by_distance(self, val_meta, n_bins=20):
-        true_labels, predicted_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
-        true_labels, predicted_labels, meta = self.filter_noise_events(true_labels, predicted_labels, val_meta)
+    def plot_dnc_mistakes_by_distance(self, n_bins=20):
+        true_labels, predicted_labels, _ = self.final_true_labels, self.final_pred_labels, self.final_pred_probs
+        true_labels, predicted_labels, meta = self.filter_noise_events(true_labels, predicted_labels, self.val_meta)
 
         distances_all, wrong_distances = self.get_data_and_wrong_indices(
             true_labels, predicted_labels, meta, lambda x: x['dist_to_arces']
         )
 
-        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, n_bins)
+        bins, mistake_rates = self.calculate_histogram_and_rates(distances_all, wrong_distances, None, n_bins)
         self.plot_mistake_rates_by_bins(mistake_rates, bins, 
                                         "Detector and classifier mistake rate by distance to event",
                                         "dnc_mistakes_by_distance", "Distance to event (km)")

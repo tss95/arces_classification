@@ -46,6 +46,28 @@ mkdir_if_not_exist $OUTPUT/logs
 mkdir_if_not_exist $BASE_DIR/data/maps
 
 
+# Default mode is not predict
+PREDICT_MODE="False"
+
+# Parse command-line options
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -p|--predict) PREDICT_MODE="True" ;;
+        *) echo "Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Now use the PREDICT_MODE variable to alter script behavior
+if [ "$PREDICT_MODE" = "True" ]; then
+    echo "Only loading validation set"
+    # Add your predict mode-specific commands here
+else
+    echo "Loading training and validation set"
+    # Add your normal mode-specific commands here
+fi
+
+sed -i "s/predict: .*/predict: $PREDICT_MODE/" $CONFIG_MAIN
 
 
 echo "Folders created"
@@ -91,6 +113,8 @@ while getopts "b" OPTION; do
   esac
 done
 
+
+
 # Compute the hash of the local Dockerfile and requirements.txt
 HASH_ON_LOCAL_MACHINE=$(sha256sum $PROJECT_PATH/docker.dockerfile $REQUIREMENTS | awk '{ print $1 }')
 
@@ -106,7 +130,6 @@ if [ "$HASH_ON_GPU_MACHINE" != "$HASH_ON_LOCAL_MACHINE" ] || [ "$FORCE_BUILD" = 
   docker build -t $PROJECTNAME:latest-gpu -f $BASE_DIR/docker.dockerfile .
 fi
 
-
 wandb_api_key=aeb7c08e886c823c11e185436e5391546de850d0
 # '"device=0"' uses only one, '"device=0,1"' will use both
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
@@ -114,7 +137,7 @@ docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus ${GPU_DEVICE} -v
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py &&
+                                                                                                     python /tf/run_script.py $PREDICT_MODE &&
                                                                                                      chmod -R 777 /tf/output/* &&
                                                                                                      bash"
 

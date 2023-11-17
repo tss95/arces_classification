@@ -65,6 +65,10 @@ def setup_config_and_logging():
     live_test_path = os.path.join(config_dir, cfg.paths.live_test_path)
     os.makedirs(live_test_path, exist_ok=True)
 
+    if cfg.predict:
+        logger.warning("Script is now running in predict mode. Train data will not be loaded.")
+        cfg.data.what_to_load=["val"]
+
 
     if cfg.data.debug:
         logger.setLevel(logging.DEBUG)

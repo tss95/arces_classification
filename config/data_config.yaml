@@ -2,6 +2,7 @@
 model: "alexnet"
 model_name: "best_alexnet_epoch_30.hdf5"
 seed: 42
+predict: True
 
 paths:
   data_path: /staff/tord/Workspace/arces_classification/data

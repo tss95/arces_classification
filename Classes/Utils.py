@@ -170,6 +170,20 @@ def plot_confusion_matrix(conf_matrix, conf_matrix_normalized, class_names):
     plt.xlabel('Predicted label')
     return plt
 
+def downsample_data_labels(data, labels, unswapped = None, p=10):
+    data = np.array(data)
+    labels = np.array(labels)
+    n = len(data)
+    size = int((p / 100) * n)
+    indices = np.random.choice(np.arange(n), size=size, replace=False)
+    print(f"Type of data: {type(data)}, Type of labels: {type(labels)}, Type of indices: {type(indices)}")  # Debug line
+    
+    downsampled_data = data[indices]
+    downsampled_labels = labels[indices]
+
+    if unswapped is not None:
+        return downsampled_data, downsampled_labels, unswapped[indices]
+    return downsampled_data, downsampled_labels
 
 
 def prep_data():
@@ -179,76 +193,65 @@ def prep_data():
     loadData = LoadData()
     train_dataset = loadData.get_train_dataset()
     val_dataset = loadData.get_val_dataset()
-
-    train_data, train_labels, train_meta = train_dataset[0],train_dataset[1],train_dataset[2]
-    logger.info("Train data shape: " + str(train_data.shape))
-    train_data = np.transpose(train_data, (0,2,1))
-    logger.info("Train data shape after transpose: " + str(train_data.shape))
-    val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
-    val_data = np.transpose(val_data, (0,2,1))
-
-
-
-    train_labels = swap_labels(train_labels)
-    unswapped_labels = val_labels
-    val_labels = swap_labels(val_labels)
-
-    print(np.unique(train_labels))
-    print(np.unique(val_labels))
-
-    if cfg.data.debug:
-        def downsample_data_labels(data, labels, unswapped = None, p=10):
-            data = np.array(data)
-            labels = np.array(labels)
-            n = len(data)
-            size = int((p / 100) * n)
-            indices = np.random.choice(np.arange(n), size=size, replace=False)
-            print(f"Type of data: {type(data)}, Type of labels: {type(labels)}, Type of indices: {type(indices)}")  # Debug line
-            
-            downsampled_data = data[indices]
-            downsampled_labels = labels[indices]
-
-            if unswapped is not None:
-                return downsampled_data, downsampled_labels, unswapped[indices]
-            return downsampled_data, downsampled_labels
-
-        train_data, train_labels = downsample_data_labels(train_data, train_labels, unswapped = None, p = 10)
-        val_data, val_labels, unswapped_labels = downsample_data_labels(val_data, val_labels, unswapped = unswapped_labels, p = 10)
-
-
-    # Ensure train_data and train_labels are NumPy arrays
-    train_data = np.array(train_data)
-    train_labels = np.array(train_labels)
-
-    # Your existing code to get label counts before oversampling
-    pre_oversample = len(train_labels)
-    logger.info(f"Label distribution pre-oversample: {np.unique(train_labels, return_counts=True)}")
-
-
-    # Find the indices of the earthquake samples
-    earthquake_indices = np.where(train_labels == 'earthquake')[0]
-
-    # Repeat the earthquake samples 3 times
-    oversampled_earthquake_indices = np.repeat(earthquake_indices, 3)
-
-    # Combine the original indices with the oversampled earthquake indices
-    all_indices = np.concatenate([np.arange(len(train_labels)), oversampled_earthquake_indices])
-
-    # Perform the oversampling in both data and labels
-    train_data = train_data[all_indices]
-    train_labels = train_labels[all_indices]
-
-    # Your existing code to get label counts after oversampling
-    post_oversample = len(train_labels)
-    logger.info(f"Before oversampling: {pre_oversample}, after oversampling: {post_oversample}")
-    logger.info(f"Label distribution post-oversample: {np.unique(train_labels, return_counts=True)}")
-    logger.info(f"Label distribution validation: {np.unique(val_labels, return_counts=True)}")
-
-    logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
-    logger.info(f"Before scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
-
     scaler = Scaler()
-    scaler.fit(train_data)
+
+
+    if train_dataset is not None:
+        train_data, train_labels, train_meta = train_dataset[0],train_dataset[1],train_dataset[2]
+        logger.info("Train data shape: " + str(train_data.shape))
+        train_data = np.transpose(train_data, (0,2,1))
+        logger.info("Train data shape after transpose: " + str(train_data.shape))
+        train_labels = swap_labels(train_labels)
+        logger.info(f"Train unique labels: {np.unique(train_labels)}")
+        if cfg.data.debug:
+            train_data, train_labels = downsample_data_labels(train_data, train_labels, unswapped = None, p = 10)
+
+        # Ensure train_data and train_labels are NumPy arrays
+        train_data = np.array(train_data)
+        train_labels = np.array(train_labels)
+
+        # Your existing code to get label counts before oversampling
+        pre_oversample = len(train_labels)
+        logger.info(f"Label distribution pre-oversample: {np.unique(train_labels, return_counts=True)}")
+
+
+        # Find the indices of the earthquake samples
+        earthquake_indices = np.where(train_labels == 'earthquake')[0]
+
+        # Repeat the earthquake samples 3 times
+        oversampled_earthquake_indices = np.repeat(earthquake_indices, 3)
+
+        # Combine the original indices with the oversampled earthquake indices
+        all_indices = np.concatenate([np.arange(len(train_labels)), oversampled_earthquake_indices])
+
+        # Perform the oversampling in both data and labels
+        train_data = train_data[all_indices]
+        train_labels = train_labels[all_indices]
+
+        # Your existing code to get label counts after oversampling
+        post_oversample = len(train_labels)
+        logger.info(f"Before oversampling: {pre_oversample}, after oversampling: {post_oversample}")
+        logger.info(f"Label distribution post-oversample: {np.unique(train_labels, return_counts=True)}")
+        logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
+        scaler.fit(train_data)
+
+
+    if val_dataset is not None:
+        val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
+        val_data = np.transpose(val_data, (0,2,1))
+        unswapped_labels = val_labels
+        val_labels = swap_labels(val_labels)
+        logger.info(f"Val unique labels: {np.unique(val_labels)}")
+        if cfg.data.debug:
+            val_data, val_labels, unswapped_labels = downsample_data_labels(val_data, val_labels, unswapped = unswapped_labels, p = 10)
+
+
+        logger.info(f"Label distribution validation: {np.unique(val_labels, return_counts=True)}")
+        logger.info(f"Before scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
+        if train_dataset is not None:
+            if cfg.scaling.global_or_local != "local":
+                raise NotImplementedError("Global scaler needs to be fitted. Loading prefitted scaler is not implemented yet.")
+
     #train_data = scaler.transform(train_data)
     #val_data = scaler.transform(val_data)
 
@@ -256,9 +259,16 @@ def prep_data():
     #logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
 
     # Prepare labels for training and validation data
-    nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
-    nested_label_dict_val, _, _, _, _, _ = prepare_labels_and_weights(val_labels, label_encoder=label_encoder_train)
-
+    if train_dataset is not None:
+        nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
+        if val_dataset is not None:
+            nested_label_dict_val, _, _, _, _, _ = prepare_labels_and_weights(val_labels, label_encoder=label_encoder_train)
+    if train_dataset is None and val_dataset is not None:
+        nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(val_labels)
+        nested_label_dict_val, _, _, _, _, _ = prepare_labels_and_weights(val_labels, label_encoder=label_encoder_train)
+        train_data = val_data
+        train_labels = val_labels
+        train_meta = val_meta
     logger.info(f"Label encoder:{label_encoder_train}")
 
     # Create a translational dictionary for label strings based on training data
