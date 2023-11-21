@@ -12,50 +12,147 @@ import warnings
 import matplotlib.pyplot as plt
 from skimage.transform import resize
 from imageio import get_writer
+import re
+from typing import Any, List, Tuple, Union, Optional, Dict
 
 from PIL import Image
 from datetime import datetime
 
 
-def load_model(model_name = None):
+def load_model(model_name: Optional[str] = None) -> Tuple[Any, Dict[str, Dict[int, str]]]:
+    """
+    Load a pre-trained model with specified weights and configurations.
+
+    This function initializes the model with the given label maps for the detector and classifier.
+    It sets up the input shape based on the configuration, builds the model, and loads the weights.
+
+    Args:
+        model_name (Optional[str]): The name of the model to be loaded. If None, the default model name
+                                    from the configuration will be used.
+
+    Returns:
+        Tuple[Any, Dict[str, Dict[int, str]]]: A tuple containing the loaded model and the label maps
+                                               for the detector and classifier.
+
+    The function utilizes global configuration settings (`cfg`) and a logger instance (`logger`).
+    """
+    # Define label maps for the detector and classifier
     detector_label_map = {0: "noise", 1: "event"}
-    classifier_label_map = {0:"earthquake", 1:"exlposion"}
+    classifier_label_map = {0: "earthquake", 1: "explosion"}
     label_maps = {"detector": detector_label_map, "classifier": classifier_label_map}
 
+    # Calculate the input shape based on configuration settings
+    input_shape = (cfg.live.length * cfg.live.sample_rate + 1, 3)
 
-    input_shape = (cfg.live.length*cfg.live.sample_rate + 1, 3)
+    # Define class weights for both detector and classifier
     detector_class_weight_dict = {"noise": 1, "event": 1}
     classifier_class_weight_dict = {"earthquake": 1, "explosion": 1}
 
+    # Log the input shape
     logger.info("Input shape to the model: " + str(input_shape))
+
+    # Initialize metrics for both detector and classifier
     classifier_metrics = [None]
     detector_metrics = [None]
+
+    # Create and build the model
     model = get_model(detector_label_map, classifier_label_map, detector_metrics, classifier_metrics, 
-                    detector_class_weight_dict, classifier_class_weight_dict)
-    model.build(input_shape=(None, *input_shape))  # Explicitly building the model here
+                      detector_class_weight_dict, classifier_class_weight_dict)
+    model.build(input_shape=(None, *input_shape))  # Explicitly building the model
+
+    # Load model weights
     if model_name is None:
         model_name = cfg.model_name
     model.load_weights(os.path.join(cfg.paths.model_save_folder, model_name))
+
+    # Log the model loading information
     logger.info(f"Loaded model weights from {os.path.join(cfg.paths.model_save_folder, cfg.model_name)}")
+
     return model, label_maps
 
-import re
 
-def sanitize_filename(filename):
-    return re.sub(r'[\\/:*?"<>|]', '_', str(filename))
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize the filename by removing or replacing invalid characters.
 
-def resize_image(image, target_width):
+    This function ensures that the filename is compatible with various file systems
+    by removing or replacing characters that are typically not allowed in file names.
+
+    Args:
+        filename (str): The original filename that needs to be sanitized.
+
+    Returns:
+        str: The sanitized filename with invalid characters replaced by underscores.
+
+    Note: This function uses regular expressions for sanitization.
+    """
+    # Replace invalid characters with underscores
+    return re.sub(r'[\\/:*?"<>|]', '_', filename)
+
+
+def resize_image(image: np.ndarray, target_width: int) -> np.ndarray:
+    """
+    Resize an image to a specified width while maintaining the aspect ratio.
+
+    This function calculates the target height to maintain the aspect ratio of the image,
+    resizes the image using anti-aliasing, and converts it back to the appropriate data type.
+
+    Args:
+        image (np.ndarray): The original image to be resized.
+        target_width (int): The target width for the resized image.
+
+    Returns:
+        np.ndarray: The resized image with the specified width and adjusted height.
+
+    Note: This function assumes that the input image is a NumPy array.
+    """
+    # Calculate the current dimensions of the image
     current_height, current_width = image.shape[:2]
+
+    # Calculate the target height to maintain the aspect ratio
     target_height = int((target_width / current_width) * current_height)
+
+    # Resize the image with anti-aliasing
     resized_image = resize(image, (target_height, target_width), anti_aliasing=True)
+
+    # Convert the resized image to an 8-bit unsigned integer format
     return (resized_image * 255).astype(np.uint8)
 
+
 class ClassifyGBF:
+    """
+    A class for processing and classifying seismic data using ground-based facilities.
+
+    This class includes methods for retrieving seismic data, creating beams for P and S waves,
+    and predicting seismic events using the ground-based facilities (GBF) approach.
+    """
 
     def __init__(self):
+        """
+        Initialize the ClassifyGBF instance.
+
+        Sets up a simple filter to ignore user warnings during execution.
+        """
         warnings.simplefilter(action='ignore', category=UserWarning)
 
-    def get_beam(self, start, end, picks, inventory):
+    def get_beam(self, start: UTCDateTime, end: UTCDateTime, picks: List[Pick], inventory: Inventory) -> Tuple[Union[np.ndarray, str], Optional[Stream]]:
+        """
+        Retrieve and process seismic data to create P and S wave beams.
+
+        Args:
+            start (UTCDateTime): The start time for the data retrieval.
+            end (UTCDateTime): The end time for the data retrieval.
+            picks (List[Pick]): A list of seismic event picks.
+            inventory (Inventory): Seismic station inventory information.
+
+        Returns:
+            Tuple[Union[np.ndarray, str], Optional[Stream]]: A tuple containing either the processed tracedata as a
+                                                             numpy array and a Stream object with the beam data,
+                                                             or an error message and None in case of an exception.
+
+        Raises:
+            RuntimeError: If the stream has no remaining traces after processing.
+        """
         p_vel = cfg.live.p_vel
         s_vel = cfg.live.s_vel
         edge = cfg.live.edge
@@ -144,12 +241,25 @@ class ClassifyGBF:
             print('ERROR: {} - {}'.format(start, exc))
             return str(type(exc)) + str(exc), None
 
-    def correct_trace_start_times(self, stream, max_delta=0.15):
+    def correct_trace_start_times(self, stream: Stream, max_delta: float = 0.15) -> Stream:
         """
-        For old data the traces might have tiny offset in start time, which breaks
-        beamforming. Adjust this manually.
-        Remove traces with diff > max_delta
+        Corrects the start times of traces in a Stream to synchronize them.
+
+        This method is used for older data where traces might have slight offsets in start times.
+        It standardizes the start times or removes traces with a significant difference.
+
+        Args:
+            stream (Stream): The stream of seismic data to be corrected.
+            max_delta (float, optional): The maximum allowed time difference in seconds for a trace
+                                         to be adjusted rather than removed. Defaults to 0.15 seconds.
+
+        Returns:
+            Stream: The corrected stream with synchronized start times.
+
+        Note:
+            Traces with a start time difference greater than `max_delta` are removed from the stream.
         """
+        # Code for correcting trace start times
         sts = [tr.stats.starttime for tr in stream.traces]
         most_common = np.unique(sts)[0]
 
@@ -164,7 +274,19 @@ class ClassifyGBF:
         
         return stream
     
-    def get_data_to_predict(self, starttime, endtime):
+    def get_data_to_predict(self, starttime: UTCDateTime, endtime: UTCDateTime) -> Tuple[List[np.ndarray], List[Stream], List[UTCDateTime], List[UTCDateTime]]:
+        """
+        Retrieve and process seismic data for a given time range for prediction purposes.
+
+        Args:
+            starttime (UTCDateTime): The start time for data retrieval.
+            endtime (UTCDateTime): The end time for data retrieval.
+
+        Returns:
+            Tuple[List[np.ndarray], List[Stream], List[UTCDateTime], List[UTCDateTime]]: A tuple containing lists of
+                                                                                         processed data arrays, corresponding streams,
+                                                                                         start times, and end times.
+        """
         filtered_events, inventory = self.get_array_picks(starttime, endtime, cfg.live.array)
         print("Number of filtered events: ", len(filtered_events))
         print(f"Inventory: {inventory}")
@@ -179,7 +301,16 @@ class ClassifyGBF:
         return tracedata, streams, starttimes, endtimes
 
     
-    def average_bazimuth(self, picks):
+    def average_bazimuth(self, picks: List[Pick]) -> float:
+        """
+        Calculate the average backazimuth from a list of seismic picks.
+
+        Args:
+            picks (List[Pick]): A list of seismic picks.
+
+        Returns:
+            float: The average backazimuth calculated from the picks.
+        """
         bazimuths = [pick['backazimuth'] for pick in picks]
         # Convert each azimuth to radians
         radian_bazimuths = [math.radians(az) for az in bazimuths]
@@ -195,14 +326,27 @@ class ClassifyGBF:
         average_bazimuth_deg = math.degrees(average_bazimuth_rad) % 360
         
         return average_bazimuth_deg
-    
-    def predict_gbf_event(self):
-        # Wrapper for predict function that handles GBF picks.
-        raise NotImplementedError
+
     
     def load_events(self, starttime: UTCDateTime, endtime: UTCDateTime, collection: str = "gbf1440_large", dbname: str = "auto",  
-        mongourl: str = "mongo.norsar.no:27017", mongodb_user: str = "guest", mongodb_password: str = "guest", 
-        mongodb_authsource: str = "test"):
+                    mongourl: str = "mongo.norsar.no:27017", mongodb_user: str = "guest", mongodb_password: str = "guest", 
+                    mongodb_authsource: str = "test") -> Tuple[List[Event], Inventory]:
+        """
+        Load seismic events from a MongoDB database within a specified time range.
+
+        Args:
+            starttime (UTCDateTime): The start time for event retrieval.
+            endtime (UTCDateTime): The end time for event retrieval.
+            collection (str, optional): The MongoDB collection to query. Defaults to "gbf1440_large".
+            dbname (str, optional): The database name. Defaults to "auto".
+            mongourl (str, optional): The URL of the MongoDB server. Defaults to "mongo.norsar.no:27017".
+            mongodb_user (str, optional): The MongoDB username. Defaults to "guest".
+            mongodb_password (str, optional): The MongoDB password. Defaults to "guest".
+            mongodb_authsource (str, optional): The authentication source database. Defaults to "test".
+
+        Returns:
+            Tuple[List[Event], Inventory]: A tuple containing a list of events and the corresponding inventory.
+        """
         query = {"$and":
             [
                 {"origins.time": {"$gt": starttime.isoformat()}},
@@ -216,7 +360,18 @@ class ClassifyGBF:
         inventory = Client().get_array_inventory(cfg.live.array)
         return events, inventory
 
-    def get_array_picks(self, starttime: UTCDateTime, endtime:UTCDateTime, station_code: str):
+    def get_array_picks(self, starttime: UTCDateTime, endtime: UTCDateTime, station_code: str) -> Tuple[List[List[Pick]], Inventory]:
+        """
+        Retrieve picks from seismic events for a specific array within a time range.
+
+        Args:
+            starttime (UTCDateTime): The start time for retrieving picks.
+            endtime (UTCDateTime): The end time for retrieving picks.
+            station_code (str): The code of the station array to filter picks.
+
+        Returns:
+            Tuple[List[List[Pick]], Inventory]: A tuple containing a nested list of filtered picks and the inventory.
+        """
         events, inventory = self.load_events(starttime, endtime)
         # Filter events where ARCES made a detection
         relevant_events = [event for event in events if any(pick.waveform_id.station_code == station_code for pick in event.picks)]
@@ -229,7 +384,16 @@ class ClassifyGBF:
             
         return nested_filtered_events, inventory
 
-    def transform_events_to_start_and_end_times(self, filtered_events: list):
+    def transform_events_to_start_and_end_times(self, filtered_events: List[List[Pick]]) -> Tuple[List[UTCDateTime], List[UTCDateTime]]:
+        """
+        Transform events to their start and end times.
+
+        Args:
+            filtered_events (List[List[Pick]]): A list of lists containing filtered event picks.
+
+        Returns:
+            Tuple[List[UTCDateTime], List[UTCDateTime]]: A tuple of lists containing start and end times for each event.
+        """
         # TODO Bias towards start of the event
         starttimes, endtimes = [], []
         for event in filtered_events:
@@ -250,34 +414,32 @@ class ClassifyGBF:
         return starttimes, endtimes
     
 class LiveClassifier:
-    def __init__(self, model, scaler, label_maps, cfg):
+    def __init__(self, model: Any, scaler: Any, label_maps: dict, cfg: Any):
         """
         Initialize the LiveClassifier object.
 
-        Parameters:
-        - model: Pre-trained machine learning model for classification.
-        - scaler: Scaler object to normalize features.
-        - label_maps: Dictionary mapping from labels to integers.
-        - cfg: Configuration object containing various settings.
+        Args:
+            model (Any): Pre-trained machine learning model for classification.
+            scaler (Any): Scaler object to normalize features.
+            label_maps (dict): Dictionary mapping from labels to integers.
+            cfg (Any): Configuration object containing various settings.
         """
         self.cfg = cfg
         self.model = model
         self.label_maps = label_maps
         self.scaler = scaler
 
-    def predict(self, trace):
+    def predict(self, trace: np.ndarray) -> Tuple[Any, np.ndarray, List[Any], dict, np.ndarray]:
         """
-        Perform event classification for a specified time range.
+        Perform event classification for a specified seismic trace.
 
-        Parameters:
-        - trace: Numpy array containing the seismic trace.
+        Args:
+            trace (np.ndarray): Numpy array containing the seismic trace.
 
         Returns:
-        - final_yhat: Final ensemble prediction.
-        - mean_proba: Mean prediction probabilities for each class.
-        - yhats: Individual predictions for each trace segment.
-        - yprobas: Individual prediction probabilities for each trace segment.
-        - X: Preprocessed input features.
+            Tuple[Any, np.ndarray, List[Any], dict, np.ndarray]: A tuple containing the final ensemble prediction,
+            mean prediction probabilities, individual predictions for each trace segment,
+            individual prediction probabilities for each trace segment, and preprocessed input features.
         """
         trace = trace.T
         X = self.prepare_multiple_intervals(trace)
@@ -289,15 +451,15 @@ class LiveClassifier:
 
         return final_yhat, mean_proba, yhats, yprobas, X
     
-    def prepare_multiple_intervals(self, trace):
+    def prepare_multiple_intervals(self, trace: np.ndarray) -> List[np.ndarray]:
         """
         Prepare multiple intervals from a single trace for ensemble prediction.
 
-        Parameters:
-        - trace: Numpy array containing the seismic trace.
+        Args:
+            trace (np.ndarray): Numpy array containing the seismic trace.
 
         Returns:
-        - List of sub-traces.
+            List[np.ndarray]: List of sub-traces.
         """
         traces = []
         # Creates equally sized intervals of the trace, using the user defined step size.
@@ -305,19 +467,18 @@ class LiveClassifier:
             traces.append(trace[start:(start+cfg.live.length*cfg.live.sample_rate)+1])
         return traces
 
-    def ensamble_predict(self, model, X):
+    def ensamble_predict(self, model: Any, X: np.ndarray) -> Tuple[List[Any], dict, Any, np.ndarray]:
         """
         Perform ensemble prediction on multiple intervals.
 
-        Parameters:
-        - model: Pre-trained machine learning model.
-        - X: Numpy array of shape (n_samples, timestamps, channels).
+        Args:
+            model (Any): Pre-trained machine learning model.
+            X (np.ndarray): Numpy array of shape (n_samples, timestamps, channels).
 
         Returns:
-        - yhats: List of predicted labels.
-        - yprobas: Dictionary containing prediction probabilities for "detector" and "classifier".
-        - final_yhat: Final ensemble prediction.
-        - mean_proba: Mean prediction probabilities.
+            Tuple[List[Any], dict, Any, np.ndarray]: A tuple containing lists of predicted labels,
+            dictionary containing prediction probabilities for "detector" and "classifier",
+            final ensemble prediction, and mean prediction probabilities.
         """
         # Basic ensamble prediction for the input data.
         # TODO: Consider weighing predictions higher around the center (assuming thats where the pick is).
@@ -332,22 +493,35 @@ class LiveClassifier:
         mean_proba = {"detector": np.mean(probas["detector"], axis=0), "classifier": np.mean(probas["classifier"], axis=0)}
         return yhats, probas, final_yhat, mean_proba
     
-    def local_minmax(self, trace):
+    def local_minmax(self, trace: np.ndarray) -> np.ndarray:
         """
         Normalize a trace using min-max scaling.
 
-        Parameters:
-        - trace: Numpy array containing a seismic trace.
+        Args:
+            trace (np.ndarray): Numpy array containing a seismic trace.
 
         Returns:
-        - Normalized trace.
+            np.ndarray: Normalized trace.
         """
         mmax = np.max(trace)
         mmin = np.min(trace)
         return (trace - mmin) / (mmax - mmin)
     
 
-    def plot_predicted_event(self, intervals, event_time, yprobas, yhats, final_yhat, mean_proba, station='AR*'):
+    def plot_predicted_event(self, intervals: List[np.ndarray], event_time: Optional[UTCDateTime], yprobas: dict, 
+                             yhats: List[Any], final_yhat: Any, mean_proba: np.ndarray, station: str = 'AR*') -> None:
+        """
+        Plot the predicted event with model output.
+
+        Args:
+            intervals (List[np.ndarray]): List of intervals (sub-traces).
+            event_time (Optional[UTCDateTime]): UTCDateTime of the event.
+            yprobas (dict): Dictionary of prediction probabilities.
+            yhats (List[Any]): List of individual predictions.
+            final_yhat (Any): Final ensemble prediction.
+            mean_proba (np.ndarray): Mean prediction probabilities.
+            station (str, optional): Station code. Defaults to 'AR*'.
+        """
         frames = []
         for i, interval in enumerate(intervals):
             channel_names = ['P-beam, Z', 'S-beam, T', 'S-beam, R']
@@ -389,7 +563,22 @@ class LiveClassifier:
             for frame in frames:
                 writer.append_data(frame)
 
-    def plot_model_output(self, detector_values, classifier_values, current_step, final_prediction, yhats, mean_proba):
+    def plot_model_output(self, detector_values: List[float], classifier_values: List[float], current_step: Optional[int], 
+                          final_prediction: Any, yhats: List[Any], mean_proba: np.ndarray) -> np.ndarray:
+        """
+        Create a plot of the model's output.
+
+        Args:
+            detector_values (List[float]): List of detector values.
+            classifier_values (List[float]): List of classifier values.
+            current_step (Optional[int]): Current step index.
+            final_prediction (Any): Final ensemble prediction.
+            yhats (List[Any]): List of individual predictions.
+            mean_proba (np.ndarray): Mean prediction probabilities.
+
+        Returns:
+            np.ndarray: An array representing the plotted image.
+        """
         fig, ax = plt.subplots(figsize=(10, 4))  # Adjusted height
 
         ax.plot(detector_values, label='Detector', color='r', marker='o')
