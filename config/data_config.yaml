@@ -5,91 +5,91 @@ seed: 42
 predict: True
 
 paths:
-  data_path: /staff/tord/Workspace/arces_classification/data
+  data_path: /staff/tord/Workspace/arces_classification/data # Directory for training, validation and test data. Not needed for live
   #data_path: /nobackup/tord/gpu-test-tord/data
-  labels: ["explosion", "noise", "earthquake"]
-  output_folder: /staff/tord/Workspace/arces_classification/output
-  data_csv: /staff/tord/Workspace/arces_classification/output/data.csv
-  model_save_folder: /staff/tord/Workspace/arces_classification/output/models
-  logs_folder: /staff/tord/Workspace/arces_classification/output/logs
-  predictions_folder: /staff/tord/Workspace/arces_classification/output
-  plots_folder: /staff/tord/Workspace/arces_classification/output
-  loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/
-  sweep_config: /staff/tord/Workspace/arces_classification/config/sweep_config.yaml
-  live_test_path: /staff/tord/Workspace/arces_classification/output/live_test/
-  scaler_path: /staff/tord/workspace/arces_classification/saved_scalers/
-  map_folder: /staff/tord/Workspace/arces_classification/data/maps/
+  labels: ["explosion", "noise", "earthquake"] # TODO: Verify that this is needed. 
+  output_folder: /staff/tord/Workspace/arces_classification/output # Where plots and csvs are stored. Not needed for live
+  data_csv: /staff/tord/Workspace/arces_classification/output/data.csv # Where the data csv is stored. Not needed for live. # TODO Is this even used?
+  model_save_folder: /staff/tord/Workspace/arces_classification/output/models # Where models are and will be saved. Needed for live
+  logs_folder: /staff/tord/Workspace/arces_classification/output/logs # Where logs are stored. Not needed for live. Currently unused
+  predictions_folder: /staff/tord/Workspace/arces_classification/output # Redundant output directory. Not needed for live
+  plots_folder: /staff/tord/Workspace/arces_classification/output # Another redundant output directory. Not needed for live
+  loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/ # Where the loaded data is stored. Not needed for live
+  sweep_config: /staff/tord/Workspace/arces_classification/config/sweep_config.yaml # Where the sweep config is stored. Not needed for live
+  live_test_path: /staff/tord/Workspace/arces_classification/output/live_test/ # Where the live data plots are stored. Needed for live, but not final version.
+  scaler_path: /staff/tord/workspace/arces_classification/saved_scalers/ # Where fitted scalers are stored. Only needed for live if global scaler is used.
+  map_folder: /staff/tord/Workspace/arces_classification/data/maps/ # Where the maps are stored. Not needed for live
 
-data:
-  debug: False
-  include_induced: True
-  num_classes: 3
-  load_filtered: True
-  what_to_load: ["train", "val"]
-  train_prop: 0.8
-  val_prop: 0.6
-  first_date: "1998-10-01"
-  model_threshold: 0.5
+data: # None of these are needed for live
+  debug: False # If true, only 10% of the data is loaded
+  include_induced: True # Whether or not induced events are included (as earthquake)
+  num_classes: 3 # TODO: Not sure if this does anything anymore.
+  load_filtered: True # Whether or not to load filtered data, or unfilitered data.
+  what_to_load: ["train", "val"] # Which datasets should be loaded. Currently does not support "test"
+  train_prop: 0.8 # Proportion of data to use for training
+  val_prop: 0.6 # Proportion of non training data to be used for validation. Remaining data is used for testing. Testing pipeline not set up.
+  first_date: "1998-10-01" # First date to be included in the dataset
+  model_threshold: 0.5 # Threshold for model prediction to be considered a positive prediction
 
-live:
-  live: True
-  array: "ARCES"
-  step: 5
-  sample_rate: 40
-  length: 240
-  edge: 10
-  delay: 5
-  event_buffer: 30
-  p_vel: 6.45
-  s_vel: 3.70
+live: # Needed for live
+  live: True # Alters the pipeline to be used for live data
+  array: "ARCES" # Which array to use. Currently only ARCES is supported
+  step: 5 # How many seconds between each prediction
+  sample_rate: 40 # Sample rate of the data
+  length: 240 # Length of the data to be used for each prediction (seconds)
+  edge: 10 # Additional seconds of data to load, which will be cut due to tapering.
+  delay: 5 # TODO: Figure out if this is used.
+  event_buffer: 30 # Number of seconds to load before and after the area of interest, determined by length and pick.
+  p_vel: 6.45 # Artificial velocity of P waves. Used to make beams.
+  s_vel: 3.70 # Artificial velocity of S waves. Used to make beams.
 
-filters:
-  use_filters: True
-  detrend: True
-  taper: True
-  taper_max_percentage: 0.05
-  highpass_or_bandpass: bandpass
-  band_kwargs:
-    min: 2
-    max: 8
+filters: # Needed for live
+  use_filters: True # Whether or not to use filters
+  detrend: True # Whether or not to detrend the data
+  taper: True # Whether or not to taper the data
+  taper_max_percentage: 0.05 # Maximum percentage of the data to be tapered
+  highpass_or_bandpass: bandpass # Whether to use a highpass or bandpass filter
+  band_kwargs: 
+    min: 2 # Minimum frequency of the bandpass filter
+    max: 8 # Maximum frequency of the bandpass filter
   high_kwargs:
-    high_freq: 1.0
+    high_freq: 1.0 # High frequency of the highpass filter
 
-callbacks:
-  early_stopping_patience: 7
-  umap: False
-  umap_interval: 5
-  wandb_n_batches_per_update: 50
-  reduce_lr_patience: 1
+callbacks: # Not needed for live
+  early_stopping_patience: 7 # Number of epochs without improvement before early stopping
+  umap: False # Whether or not to use UMAP
+  umap_interval: 5 # Number of epochs between each UMAP plot
+  wandb_n_batches_per_update: 50 # Number of batches between each wandb update # TODO: Is this used anymore?
+  reduce_lr_patience: 1 # Number of epochs without improvement before reducing learning rate
 
-scaling:
-  scaler_type: minmax
-  per_channel: False
-  global_or_local: local
+scaling: # Needed for live
+  scaler_type: minmax # Which scaler to use. Currently only minmax is supported for live, as other scalers are not fitted.
+  per_channel: False # Whether or not to scale each channel individually
+  global_or_local: local # Whether or not to use a global scaler. Currently only local is supported for live as global isn't fitted.
 
-augment:
-  zero_channel: True
+augment: # Not needed for live
+  zero_channel: True # Whether or not to zero out a random channel
   zero_channel_kwargs:
-    prob: 0.1
-  add_gap: False
+    prob: 0.1 # Probability of zeroing out a channel
+  add_gap: False # Whether or not to add a gap to the data # TODO: This augemntation does not work as expected.
   add_gap_kwargs:
-    prob: 0
+    prob: 0 # Probability of adding a gap
     max_size: 0.01
-  add_noise: True
+  add_noise: True # Whether or not to add noise to the data
   add_noise_kwargs:
-    prob: 0.2
-    noise_std: 0.1
-  taper: True
+    prob: 0.2 # Probability of adding noise
+    noise_std: 0.1 # Standard deviation of the noise
+  taper: True # Whether or not to taper the data
   taper_kwargs:
-    prob: 1
-    alpha: 0.04
+    prob: 1 # Probability of tapering the data
+    alpha: 0.04 # Alpha value of the taper
 
-optimizer:
-  max_epochs: 100
-  batch_size: 128
-  optimizer: adam
-  optimizer_kwargs:
-    warmup: False
-    max_lr: 0.0001
-    min_lr: 0.000005
-    weight_decay: 1e-6
+optimizer: # Not needed for live
+  max_epochs: 100 # Maximum number of epochs
+  batch_size: 128 # Batch size
+  optimizer: adam # Which optimizer to use
+  optimizer_kwargs: 
+    warmup: False # Whether or not to use warmup
+    max_lr: 0.0001 # Maximum learning rate
+    min_lr: 0.000005 # Minimum learning rate
+    weight_decay: 1e-6 # Weight decay
