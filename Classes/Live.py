@@ -14,10 +14,12 @@ from skimage.transform import resize
 from imageio import get_writer
 import re
 from typing import Any, List, Tuple, Union, Optional, Dict
+from obspy.core.inventory import Inventory
 
 from PIL import Image
 from datetime import datetime
 
+# TODO: Resolve pick type declaration
 
 def load_model(model_name: Optional[str] = None) -> Tuple[Any, Dict[str, Dict[int, str]]]:
     """
@@ -135,14 +137,14 @@ class ClassifyGBF:
         """
         warnings.simplefilter(action='ignore', category=UserWarning)
 
-    def get_beam(self, start: UTCDateTime, end: UTCDateTime, picks: List[Pick], inventory: Inventory) -> Tuple[Union[np.ndarray, str], Optional[Stream]]:
+    def get_beam(self, start: UTCDateTime, end: UTCDateTime, picks: List[Dict], inventory: Inventory) -> Tuple[Union[np.ndarray, str], Optional[Stream]]:
         """
         Retrieve and process seismic data to create P and S wave beams.
 
         Args:
             start (UTCDateTime): The start time for the data retrieval.
             end (UTCDateTime): The end time for the data retrieval.
-            picks (List[Pick]): A list of seismic event picks.
+            picks (List[Dict]): A list of seismic event picks.
             inventory (Inventory): Seismic station inventory information.
 
         Returns:
@@ -301,12 +303,12 @@ class ClassifyGBF:
         return tracedata, streams, starttimes, endtimes
 
     
-    def average_bazimuth(self, picks: List[Pick]) -> float:
+    def average_bazimuth(self, picks: List[Dict]) -> float:
         """
         Calculate the average backazimuth from a list of seismic picks.
 
         Args:
-            picks (List[Pick]): A list of seismic picks.
+            picks (List[Dict]): A list of seismic picks.
 
         Returns:
             float: The average backazimuth calculated from the picks.
@@ -330,7 +332,7 @@ class ClassifyGBF:
     
     def load_events(self, starttime: UTCDateTime, endtime: UTCDateTime, collection: str = "gbf1440_large", dbname: str = "auto",  
                     mongourl: str = "mongo.norsar.no:27017", mongodb_user: str = "guest", mongodb_password: str = "guest", 
-                    mongodb_authsource: str = "test") -> Tuple[List[Event], Inventory]:
+                    mongodb_authsource: str = "test") -> Tuple[List[Dict], Inventory]:
         """
         Load seismic events from a MongoDB database within a specified time range.
 
@@ -345,7 +347,7 @@ class ClassifyGBF:
             mongodb_authsource (str, optional): The authentication source database. Defaults to "test".
 
         Returns:
-            Tuple[List[Event], Inventory]: A tuple containing a list of events and the corresponding inventory.
+            Tuple[List[Dict], Inventory]: A tuple containing a list of events and the corresponding inventory.
         """
         query = {"$and":
             [
@@ -360,7 +362,7 @@ class ClassifyGBF:
         inventory = Client().get_array_inventory(cfg.live.array)
         return events, inventory
 
-    def get_array_picks(self, starttime: UTCDateTime, endtime: UTCDateTime, station_code: str) -> Tuple[List[List[Pick]], Inventory]:
+    def get_array_picks(self, starttime: UTCDateTime, endtime: UTCDateTime, station_code: str) -> Tuple[List[List[Dict]], Inventory]:
         """
         Retrieve picks from seismic events for a specific array within a time range.
 
@@ -370,7 +372,7 @@ class ClassifyGBF:
             station_code (str): The code of the station array to filter picks.
 
         Returns:
-            Tuple[List[List[Pick]], Inventory]: A tuple containing a nested list of filtered picks and the inventory.
+            Tuple[List[List[Dict]], Inventory]: A tuple containing a nested list of filtered picks and the inventory.
         """
         events, inventory = self.load_events(starttime, endtime)
         # Filter events where ARCES made a detection
@@ -384,12 +386,12 @@ class ClassifyGBF:
             
         return nested_filtered_events, inventory
 
-    def transform_events_to_start_and_end_times(self, filtered_events: List[List[Pick]]) -> Tuple[List[UTCDateTime], List[UTCDateTime]]:
+    def transform_events_to_start_and_end_times(self, filtered_events: List[List[Dict]]) -> Tuple[List[UTCDateTime], List[UTCDateTime]]:
         """
         Transform events to their start and end times.
 
         Args:
-            filtered_events (List[List[Pick]]): A list of lists containing filtered event picks.
+            filtered_events (List[List[Dict]]): A list of lists containing filtered event picks.
 
         Returns:
             Tuple[List[UTCDateTime], List[UTCDateTime]]: A tuple of lists containing start and end times for each event.

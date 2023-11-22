@@ -3,9 +3,11 @@ import logging.config
 import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
-from typing import Any, Dict, Union. Tuple
+from typing import Any, Dict, Union, Tuple
 import os
 import datetime
+from config.logging_config import LOGGING_CONFIG
+
 
 
 def dict_to_namespace(d: Dict[str, Any]) -> SimpleNamespace:
@@ -42,14 +44,9 @@ def get_config_dir() -> str:
         return "/staff/tord/Workspace/arces_classification/config"
     else:
         return "/tf/config"
-    hostname = socket.gethostname()
-    if hostname == 'saturn.norsar.no':
-        return "/staff/tord/Workspace/arces_classification/config"
-    else:
-        return "/tf/config"
 
 def setup_config_and_logging():
-        """
+    """
     Sets up configuration and logging for the application.
 
     Returns:
@@ -57,7 +54,6 @@ def setup_config_and_logging():
         general configuration, model-specific configuration, and run ID.
     """
     # Your LOGGING_CONFIG presumably comes from another file. Import it here.
-    from config.logging_config import LOGGING_CONFIG
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     run_id = datetime.datetime.now().strftime("%y%m%d_%H%M%S")

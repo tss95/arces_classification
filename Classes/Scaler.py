@@ -19,7 +19,7 @@ class Scaler:
         self.scaler = self.get_scaler()
 
         
-    def get_scaler(self) -> Union[MinMaxScaler, StandardScaler, RobustScaler, LogScaler]:
+    def get_scaler(self):
         """
         Determines and returns the appropriate scaler based on the scaler_type.
 

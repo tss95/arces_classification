@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 tf.get_logger().setLevel('ERROR')
 import wandb
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Union
 
 class MetricsPipeline:
     def __init__(self, metrics_list: List[str]):
@@ -83,7 +83,7 @@ class Loop(tf.keras.Model):
 
     
     @tf.function
-    def on_epoch_end(self, epoch: int, logs: Dict[str, Any] = None):
+    def on_epoch_end(self, epoch: int, logs: Union[Dict[str, Any], None] = None):
         """
         Actions to perform at the end of an epoch.
 
