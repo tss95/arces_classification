@@ -1,10 +1,10 @@
 
-model: "alexnet"
-model_name: "best_alexnet_epoch_30.hdf5"
-seed: 42
-predict: True
+model: "alexnet" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
+model_name: "best_alexnet_epoch_30.hdf5" # Name of the weights file to be loaded. Needed for live.
+seed: 42 # Seed for reproducibility
+predict: True # Whether or not to run in predict mode. Overwrites data.what_to_load to only load validation data, if called. Simplifies bash scripts.
 
-paths:
+paths: # Needed for live
   data_path: /staff/tord/Workspace/arces_classification/data # Directory for training, validation and test data. Not needed for live
   #data_path: /nobackup/tord/gpu-test-tord/data
   labels: ["explosion", "noise", "earthquake"] # TODO: Verify that this is needed. 
