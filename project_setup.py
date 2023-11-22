@@ -3,11 +3,21 @@ import logging.config
 import colorlog
 from omegaconf import OmegaConf
 from types import SimpleNamespace
+from typing import Any, Dict, Union. Tuple
 import os
 import datetime
 
 
-def dict_to_namespace(d):
+def dict_to_namespace(d: Dict[str, Any]) -> SimpleNamespace:
+    """
+    Converts a dictionary to a SimpleNamespace object for easier attribute access.
+
+    Args:
+        d (Dict[str, Any]): Dictionary to convert.
+
+    Returns:
+        SimpleNamespace: The converted dictionary as a namespace.
+    """
     for k, v in d.items():
         if isinstance(v, dict):
             d[k] = dict_to_namespace(v)
@@ -20,7 +30,18 @@ def update_paths(d):
         elif isinstance(v, dict):
             update_paths(v)
 
-def get_config_dir():
+def get_config_dir() -> str:
+    """
+    Determines the configuration base directory based on the hostname.
+
+    Returns:
+        str: The path to the configuration directory.
+    """
+    hostname = socket.gethostname()
+    if hostname == 'saturn.norsar.no':
+        return "/staff/tord/Workspace/arces_classification/config"
+    else:
+        return "/tf/config"
     hostname = socket.gethostname()
     if hostname == 'saturn.norsar.no':
         return "/staff/tord/Workspace/arces_classification/config"
@@ -28,6 +49,13 @@ def get_config_dir():
         return "/tf/config"
 
 def setup_config_and_logging():
+        """
+    Sets up configuration and logging for the application.
+
+    Returns:
+        Tuple[Logger, SimpleNamespace, SimpleNamespace, str]: Tuple containing the logger, 
+        general configuration, model-specific configuration, and run ID.
+    """
     # Your LOGGING_CONFIG presumably comes from another file. Import it here.
     from config.logging_config import LOGGING_CONFIG
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

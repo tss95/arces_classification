@@ -445,7 +445,6 @@ class LiveClassifier:
         X = self.prepare_multiple_intervals(trace)
         X = [self.local_minmax(x) for x in X]
         X = np.array(X)
-        # TODO: Figure out the logic for this
         yhats, yprobas, final_yhat, mean_proba = self.ensamble_predict(self.model, X)
         logger.info(f"Mean proba: {mean_proba}")
 

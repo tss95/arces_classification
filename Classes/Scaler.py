@@ -4,10 +4,14 @@ import numpy as np
 import tensorflow as tf
 import pickle 
 import os
+from typing import Any, Union
 
 class Scaler:
     
     def __init__(self):
+        """
+        Initializes the Scaler object with configuration settings.
+        """
         self.global_or_local = cfg.scaling.global_or_local
         self.per_channel = cfg.scaling.per_channel
         self.scaler_type = cfg.scaling.scaler_type
@@ -15,7 +19,13 @@ class Scaler:
         self.scaler = self.get_scaler()
 
         
-    def get_scaler(self):
+    def get_scaler(self) -> Union[MinMaxScaler, StandardScaler, RobustScaler, LogScaler]:
+        """
+        Determines and returns the appropriate scaler based on the scaler_type.
+
+        Returns:
+            Union[MinMaxScaler, StandardScaler, RobustScaler, LogScaler]: An instance of the selected scaler.
+        """
         if self.scaler_type == "minmax":
             return MinMaxScaler()
         if self.scaler_type == "standard":
@@ -26,6 +36,9 @@ class Scaler:
             return LogScaler()
 
     def parameter_validation(self):
+        """
+        Validates the parameters of the scaler configuration.
+        """
         # Validate scaler_type
         if self.scaler_type not in (valid_scalers:=["minmax", "standard", "robust", "log"]):
             raise Exception(f"Invalid scaler type ({self.scaler_type}). Must be one of {str(valid_scalers)}")
@@ -36,25 +49,46 @@ class Scaler:
         if self.global_or_local not in (valid_global_or_local:=["local", "global"]):
             raise Exception(f"Invalid value for global_or_local ({self.global_or_local}). Must be one of {str(valid_global_or_local)}")
 
-    def fit(self, X):
+    def fit(self, X: Any):
+        """
+        Fits the scaler to the data.
+
+        Args:
+            X (Any): The data to fit the scaler on.
+        """
         logger.info("Fitting scaler.")
         self.scaler.fit(X)
         logger.info("Scaler fitted.")
 
     def load_fitted(self):
+        """
+        Loads a previously fitted scaler from a file.
+        """
         logger.info("Loading fitted scaler.")
-        scaler_path = os.path.join(scaler_path, f"{scaler_type}_{cfg.scaling.global_or_local}.pkl")
+        scaler_path = os.path.join(scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
         self.scaler = pickle.load(open(scaler_path, "rb"))
         logger.info("Scaler loaded.")
 
     def save_scaler(self):
+        """
+        Saves the fitted scaler to a file.
+        """
         logger.info("Saving fitted scaler.")
-        scaler_path = os.path.join(scaler_path, f"{scaler_type}_{cfg.scaling.global_or_local}.pkl")
+        scaler_path = os.path.join(scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
         with open(scaler_path, 'wb') as f:
             pickle.dump(self.scaler, f)
         logger.info(f"Scaler saved to {scaler_path}.")
 
-    def transform(self, X):
+    def transform(self, X: Any) -> Any:
+        """
+        Transforms the data using the fitted scaler.
+
+        Args:
+            X (Any): The data to be transformed.
+
+        Returns:
+            Any: The transformed data.
+        """
         return self.scaler.transform(X)
 
 
@@ -62,7 +96,13 @@ class MinMaxScaler(Scaler):
     def __init__(self):
         pass
 
-    def fit(self, X):
+    def fit(self, X: np.ndarray):
+        """
+        Fits the scaler to the data for MinMax scaling.
+
+        Args:
+            X (np.ndarray): The data to fit the scaler on.
+        """
         if cfg.scaling.global_or_local == "global":
             x1 = X[:,:,0]
             x2 = X[:,:,1]
@@ -79,7 +119,16 @@ class MinMaxScaler(Scaler):
         if cfg.scaling.global_or_local == "local":
             logger.info("Local minmax; skipping fit")
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> tf.Tensor:
+        """
+        Transforms the data using the MinMax scaling approach.
+
+        Args:
+            X (np.ndarray): The data to be transformed.
+
+        Returns:
+            tf.Tensor: The transformed data.
+        """
         X = tf.cast(X, tf.float32)
         transformed_X = tf.identity(X)  # Create a new tensor with the same values as X
 
@@ -114,7 +163,13 @@ class StandardScaler(Scaler):
     def __init__(self):
         pass
 
-    def fit(self, X):
+    def fit(self, X: np.ndarray):
+        """
+        Fits the scaler to the data for Standard scaling.
+
+        Args:
+            X (np.ndarray): The data to fit the scaler on.
+        """
         if cfg.scaling.global_or_local == "global":
             x1 = X[:,:,0]
             x2 = X[:,:,1]
@@ -131,7 +186,16 @@ class StandardScaler(Scaler):
         if cfg.scaling.global_or_local == "local":
             logger.info("Local standard; skipping fit")
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """
+        Transforms the data using the Standard scaling approach.
+
+        Args:
+            X (np.ndarray): The data to be transformed.
+
+        Returns:
+            np.ndarray: The transformed data.
+        """
         X = X.astype(float)
         if cfg.scaling.global_or_local == "global":
             if cfg.scaling.per_channel:
@@ -156,7 +220,13 @@ class RobustScaler(Scaler):
         pass
 
 
-    def fit(self, X):
+    def fit(self, X: np.ndarray):
+        """
+        Fits the scaler to the data for Robust scaling.
+
+        Args:
+            X (np.ndarray): The data to fit the scaler on.
+        """
         if cfg.scaling.global_or_local == "global":
             x1 = X[:,0]
             x2 = X[:,1]
@@ -173,7 +243,16 @@ class RobustScaler(Scaler):
         if cfg.scaling.global_or_local == "local":
             logger.info("Local robust; skipping fit")
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """
+        Transforms the data using the Robust scaling approach.
+
+        Args:
+            X (np.ndarray): The data to be transformed.
+
+        Returns:
+            np.ndarray: The transformed data.
+        """
         X = X.astype(float)
         if cfg.scaling.global_or_local == "global":
             if self.per_channel:
@@ -197,10 +276,18 @@ class LogScaler(Scaler):
     def __init__(self):
         pass
 
-    def fit(self, X):
+    def fit(self, X: np.ndarray):
         logger.info("Log scaler; skipping fit")
-        return X
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """
+        Transforms the data using logarithmic scaling.
+
+        Args:
+            X (np.ndarray): The data to be transformed.
+
+        Returns:
+            np.ndarray: The transformed data.
+        """
         logger.info("Data has been log scaled")
         return np.log(X)

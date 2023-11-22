@@ -12,8 +12,25 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 import tensorflow as tf
+from typing import Dict, List, Tuple, Any, Optional
 
-def prepare_labels_and_weights(labels, label_encoder=None):
+def prepare_labels_and_weights(labels: List[str], label_encoder: Optional[Dict[str, LabelEncoder]] = None) -> Tuple[Dict[int, Dict[str, np.ndarray]], np.ndarray, np.ndarray, Dict[str, LabelEncoder], Dict[int, str], Dict[int, str]]:
+    """
+    Prepare labels and weights for a seismic data classification task.
+
+    This function prepares the labels for both a detector and a classifier. It encodes and one-hot encodes the labels, computes class weights, and creates label maps.
+
+    Args:
+    labels: A list of string labels representing seismic events.
+    label_encoder: An optional dictionary containing label encoders for the detector and classifier. If not provided, new encoders will be created.
+
+    Returns:
+    A tuple containing:
+        - A dictionary mapping indices to dictionaries with one-hot encoded labels for both detector and classifier.
+        - Numpy arrays of class weights for detector and classifier.
+        - A dictionary containing the label encoder for both detector and classifier.
+        - Two dictionaries mapping encoded labels back to original labels for detector and classifier.
+    """
     # Prepare labels for the detector and classifier
     detector_labels = ["noise" if label == "noise" else "not_noise" for label in labels]
     classifier_labels = ["earthquake" if label == "earthquake" else "explosion" for label in labels]
@@ -47,7 +64,20 @@ def prepare_labels_and_weights(labels, label_encoder=None):
     classifier_label_map = {index: label for index, label in enumerate(label_encoder['classifier'].classes_)}
 
     return nested_label_dict, detector_class_weights, classifier_class_weights, label_encoder, detector_label_map, classifier_label_map
-def swap_labels(labels):
+
+
+def swap_labels(labels: List[str]) -> List[str]:
+    """
+    Swap specific labels in the provided list.
+
+    This function is designed to replace 'induced or triggered event' labels with 'earthquake'. It's used in the context of seismic data where such a substitution is relevant.
+
+    Args:
+    labels: A list of string labels.
+
+    Returns:
+    A list of string labels where 'induced or triggered event' has been replaced with 'earthquake'.
+    """
     output = []
     for label in labels:
         if label == 'induced or triggered event':
@@ -57,16 +87,20 @@ def swap_labels(labels):
     return output
 
 
-def get_final_labels(pred_probs, label_map):
+def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dict[int, str]]) -> Tuple[List[str], Dict[str, np.ndarray]]:
     """
-    Given the predicted probabilities from the model, return the final label.
-    
-    Parameters:
-    pred_probs (dict): A dictionary containing the predicted probabilities for both 'detector' and 'classifier'.
-    label_map (dict): A dictionary containing mappings from label indices to their string representations.
-    
+    Determine the final labels based on the predicted probabilities and label map.
+
+    This function applies a sigmoid function to the predicted probabilities, applies a threshold, and translates them into final labels using the provided label map.
+
+    Args:
+    pred_probs: A dictionary containing the predicted probabilities for both 'detector' and 'classifier'.
+    label_map: A dictionary mapping label indices to their string representations for both 'detector' and 'classifier'.
+
     Returns:
-    list: A list of final labels.
+    A tuple containing:
+        - A list of final string labels.
+        - A dictionary with updated predicted probabilities for both 'detector' and 'classifier'.
     """
     final_labels = []
     pred_probs_detector = tf.sigmoid(tf.cast(pred_probs['detector'], tf.float32)).numpy()       
@@ -79,7 +113,20 @@ def get_final_labels(pred_probs, label_map):
     return final_labels, {"detector": pred_probs_detector, "classifier": pred_probs_classifier}
         
 
-def translate_labels(labels_detector, labels_classifier, label_map):
+def translate_labels(labels_detector: np.ndarray, labels_classifier: np.ndarray, label_map: Dict[str, Dict[int, str]]) -> List[str]:
+    """
+    Translate numeric labels to their string counterparts using a label map.
+
+    This function translates the numeric labels from the detector and classifier into their corresponding string labels.
+
+    Args:
+    labels_detector: A numpy array of numeric labels from the detector.
+    labels_classifier: A numpy array of numeric labels from the classifier.
+    label_map: A dictionary mapping label indices to their string representations for both 'detector' and 'classifier'.
+
+    Returns:
+    A list of final string labels after translation.
+    """
     final_labels = []
     for det, cls in zip(labels_detector, labels_classifier):
         det = int(det[0]) if isinstance(det, np.ndarray) else det
@@ -93,7 +140,18 @@ def translate_labels(labels_detector, labels_classifier, label_map):
     
     return final_labels
 
-def apply_threshold(pred_probs):
+def apply_threshold(pred_probs: np.ndarray) -> List[int]:
+    """
+    Apply a threshold to predicted probabilities to classify them as 0 or 1.
+
+    This function applies a threshold defined in the global configuration to the predicted probabilities.
+
+    Args:
+    pred_probs: A numpy array of predicted probabilities.
+
+    Returns:
+    A list of integers (0 or 1) after applying the threshold.
+    """
     out = []
     for prob in pred_probs:
         if prob <= cfg.data.model_threshold:
@@ -102,24 +160,46 @@ def apply_threshold(pred_probs):
             out.append(1)
     return out
 
-def get_index_of_wrong_predictions(true_labels, pred_labels):
+def get_index_of_wrong_predictions(true_labels: List[str], pred_labels: List[str]) -> List[int]:
     """
-    Given the true and predicted labels, return the indices of the wrong predictions.
-    
-    Parameters:
-    true_labels (list): A list of true labels.
-    pred_labels (list): A list of predicted labels.
-    
+    Identify indices where the true labels and predicted labels do not match.
+
+    This function is useful for analyzing the performance of the model by identifying where it makes incorrect predictions.
+
+    Args:
+    true_labels: A list of true labels.
+    pred_labels: A list of predicted labels.
+
     Returns:
-    list: A list of indices of the wrong predictions.
+    A list of indices where the true label does not match the predicted label.
     """
+
     wrong_indices = []
     for i, (true_label, pred_label) in enumerate(zip(true_labels, pred_labels)):
         if true_label != pred_label:
             wrong_indices.append(i)
     return wrong_indices
 
-def get_y_and_ypred(model, val_gen, label_maps):
+def get_y_and_ypred(model: Any, val_gen: Any, label_maps: Dict[str, Dict[int, str]]) -> Tuple[List[str], List[str], Dict[str, List[float]]]:
+    """
+    Generate true and predicted labels, along with predicted probabilities, from a validation generator.
+
+    This function iterates over the validation generator, predicts labels and probabilities using the model, and translates these into final string labels.
+
+    Args:
+    model: The trained model used for prediction.
+    val_gen: A generator that yields batches of data and labels for validation.
+    label_maps: A dictionary containing label maps for translating numeric labels to string labels.
+
+    Returns:
+    A tuple containing:
+        - A list of true string labels.
+        - A list of predicted string labels.
+        - A dictionary with lists of predicted probabilities for both 'detector' and 'classifier'.
+    
+    Note:
+    Will work with any generator, not only validation generators.
+    """
     final_pred_labels = []
     final_true_labels = []
     final_pred_probs = {"detector": [], "classifier": []}
@@ -141,14 +221,42 @@ def get_y_and_ypred(model, val_gen, label_maps):
     return final_true_labels, final_pred_labels, final_pred_probs
 
 
-def one_prediction(model, x, label_maps):
+def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, str]]) -> Tuple[List[str], Dict[str, np.ndarray]]:
+    """
+    Generate a prediction for a single data instance.
+
+    This function is used to make a prediction on a single instance of data using the provided model. It processes the input, makes a prediction, and then translates it into a final label.
+
+    Args:
+    model: The trained model used for prediction.
+    x: A numpy array representing a single instance of input data.
+    label_maps: A dictionary containing label maps for translating numeric labels to string labels.
+
+    Returns:
+    A tuple containing:
+        - A list with the final string label for the input data.
+        - A dictionary with the predicted probabilities for both 'detector' and 'classifier'.
+    """
     x = np.reshape(x, (1, *x.shape))
     pred_probs = model.predict(x)
     labels, pred_probs = get_final_labels(pred_probs, label_maps)
     return labels, pred_probs
 
 
-def plot_confusion_matrix(conf_matrix, conf_matrix_normalized, class_names):
+def plot_confusion_matrix(conf_matrix: np.ndarray, conf_matrix_normalized: np.ndarray, class_names: List[str]) -> plt.Figure:
+    """
+    Plot a confusion matrix.
+
+    This function creates a visual representation of the confusion matrix, both in its raw and normalized forms.
+
+    Args:
+    conf_matrix: A numpy array representing the confusion matrix.
+    conf_matrix_normalized: A numpy array representing the normalized confusion matrix.
+    class_names: A list of class names corresponding to the confusion matrix.
+
+    Returns:
+    A matplotlib Figure object representing the plotted confusion matrix.
+    """
     # Create a custom confusion matrix plot
     plt.figure(figsize=(10, 10))
     plt.imshow(conf_matrix_normalized, interpolation='nearest', cmap=plt.cm.Blues)
@@ -170,7 +278,25 @@ def plot_confusion_matrix(conf_matrix, conf_matrix_normalized, class_names):
     plt.xlabel('Predicted label')
     return plt
 
-def downsample_data_labels(data, labels, unswapped = None, p=10):
+def downsample_data_labels(data: np.ndarray, labels: np.ndarray, unswapped: Optional[np.ndarray] = None, p: int = 10) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """
+    Downsample the given data and labels.
+
+    This function randomly selects a subset of the data and corresponding labels based on the specified percentage. 
+    It is useful for creating a smaller, more manageable dataset for experimentation or debugging.
+
+    Args:
+    data: A numpy array of data to be downsampled.
+    labels: A numpy array of labels corresponding to the data.
+    unswapped: An optional numpy array of unswapped labels, used in some specific cases.
+    p: The percentage of data to keep after downsampling (default is 10%).
+
+    Returns:
+    A tuple containing:
+        - The downsampled data numpy array.
+        - The downsampled labels numpy array.
+        - Optionally, the downsampled unswapped labels numpy array, if provided.
+    """
     data = np.array(data)
     labels = np.array(labels)
     n = len(data)
@@ -186,7 +312,23 @@ def downsample_data_labels(data, labels, unswapped = None, p=10):
     return downsampled_data, downsampled_labels
 
 
-def prep_data():
+def prep_data() -> Tuple[Any, ...]:
+    """
+    Prepare and preprocess the seismic data for training and validation.
+
+    This extensive function handles various steps such as loading data, data transformation, label swapping, 
+    downsampling, scaling, oversampling, and preparing labels and weights for training and validation. 
+    It also sets up label encoders and class weights, and prepares the data structures required for 
+    training a machine learning model.
+
+    Returns:
+    A tuple containing various elements essential for training and validation, 
+    including processed data, labels, label maps, class weights, and other metadata.
+
+    Note:
+    Used to reduce the complexity of the main training script. Not used in production.
+    """
+    # Section 1: Initial setup and loading data
     now = datetime.now()
     date_and_time = now.strftime("%Y%m%d_%H%M%S")
 
@@ -195,6 +337,9 @@ def prep_data():
     val_dataset = loadData.get_val_dataset()
     scaler = Scaler()
 
+    # Section 2: Processing and preparing training data
+    # This includes transposing data, label swapping, downsampling, and checking for debugging.
+    
 
     if train_dataset is not None:
         train_data, train_labels, train_meta = train_dataset[0],train_dataset[1],train_dataset[2]
@@ -235,7 +380,8 @@ def prep_data():
         logger.info(f"Before scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
         scaler.fit(train_data)
 
-
+    # Section 3: Processing and preparing validation data
+    # Similar to training data, but with additional steps specific to validation.
     if val_dataset is not None:
         val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
         val_data = np.transpose(val_data, (0,2,1))
@@ -258,7 +404,9 @@ def prep_data():
     #logger.info(f"After scaling training shape is {train_data.shape}, with (min, max) ({np.min(train_data)}, {np.max(train_data)})")
     #logger.info(f"After scaling validation shape is {val_data.shape}, with (min, max) ({np.min(val_data)}, {np.max(val_data)})")
 
-    # Prepare labels for training and validation data
+    # Section 4: Scaling data and preparing labels and weights
+    # This includes fitting the scaler, transforming data, and preparing nested label dictionaries.
+    
     if train_dataset is not None:
         nested_label_dict_train, detector_class_weights_train, classifier_class_weights_train, label_encoder_train, detector_label_map, classifier_label_map = prepare_labels_and_weights(train_labels)
         if val_dataset is not None:
@@ -287,7 +435,8 @@ def prep_data():
     logger.info(f"Detector class weights: {detector_class_weight_dict}")
     logger.info(f"Classifier class weights: {classifier_class_weight_dict}")
 
-
+     # Section 5: Final preparations and return
+    # Setting up final structures and logging information before returning all prepared data and metadata.
 
     # Convert nested dictionaries to NumPy arrays
     detector_labels_array_train = np.argmax(np.array([nested_label_dict_train[i]['detector'] for i in range(len(nested_label_dict_train))]), axis=1)

@@ -6,22 +6,49 @@ from nais.Models import AlexNet1D
 tf.get_logger().setLevel('ERROR')
 import tensorflow.keras.layers as tfl 
 import tensorflow.keras.backend as K
+from typing import Dict, List, Callable
 
 
-def get_initializer(initializer):
-    if initializer == "glorot_uniform":
-        return tf.initializers.glorot_uniform(seed=cfg.seed)
-    elif initializer == "glorot_normal":
-        return tf.initializers.glorot_normal(seed=cfg.seed)
-    elif initializer == "he_uniform":
-        return tf.initializers.he_uniform(seed=cfg.seed)
-    elif initializer == "he_normal":
-        return tf.initializers.he_normal(seed=cfg.seed)
-    else:
-        raise ValueError("Initializer not found.")
+def get_initializer(initializer: str) -> tf.initializers.Initializer:
+    """
+    Selects a TensorFlow initializer based on a given string.
 
-def get_model(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
-              detector_class_weights, classifier_class_weights):
+    Args:
+        initializer (str): The name of the initializer to use. Supported values are
+                           "glorot_uniform", "glorot_normal", "he_uniform", and "he_normal".
+
+    Returns:
+        tf.initializers.Initializer: The corresponding TensorFlow initializer.
+
+    Raises:
+        ValueError: If the initializer name is not recognized.
+
+    """
+
+def get_model(label_map_detector: Dict[int, str], 
+              label_map_classifier: Dict[int, str], 
+              detector_metrics: List[Callable], 
+              classifier_metrics: List[Callable],
+              detector_class_weights: Dict[str, float], 
+              classifier_class_weights: Dict[str, float]) -> Loop:
+    """
+    Creates and returns a model based on configuration settings.
+
+    Args:
+        label_map_detector (Dict[int, str]): Mapping of labels for the detector.
+        label_map_classifier (Dict[int, str]): Mapping of labels for the classifier.
+        detector_metrics (List[Callable]): Metrics to be used for the detector.
+        classifier_metrics (List[Callable]): Metrics to be used for the classifier.
+        detector_class_weights (Dict[str, float]): Class weights for the detector.
+        classifier_class_weights (Dict[str, float]): Class weights for the classifier.
+
+    Returns:
+        Loop: An instance of the Loop class representing the model.
+
+    Raises:
+        ValueError: If the model specified in the configuration is not found.
+
+    """
     if cfg.model == "cnn_dense":
         return CNN_dense(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
                          detector_class_weights, classifier_class_weights)
@@ -33,8 +60,35 @@ def get_model(label_map_detector, label_map_classifier, detector_metrics, classi
         raise ValueError("Model not found.")
 
 class AlexNet(Loop):
-    def __init__(self, label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
-                detector_class_weights, classifier_class_weights):
+    """
+    A custom implementation of the AlexNet model tailored for specific use cases.
+
+    Attributes:
+        label_map_detector (Dict[int, str]): Mapping of labels for the detector.
+        label_map_classifier (Dict[int, str]): Mapping of labels for the classifier.
+        detector_metrics (List[Callable]): Metrics for the detector.
+        classifier_metrics (List[Callable]): Metrics for the classifier.
+        detector_class_weights (Dict[str, float]): Class weights for the detector.
+        classifier_class_weights (Dict[str, float]): Class weights for the classifier.
+        backbone (AlexNet1D): The core AlexNet1D model.
+        final_dense_detector (tfl.Dense): Final dense layer for the detector.
+        final_dense_classifier (tfl.Dense): Final dense layer for the classifier.
+
+    """
+    def __init__(self, label_map_detector: Dict[int, str], label_map_classifier: Dict[int, str], 
+                 detector_metrics: List[Callable], classifier_metrics: List[Callable],
+                 detector_class_weights: Dict[str, float], classifier_class_weights: Dict[str, float]):
+        """
+        Initializes the AlexNet model with the specified parameters.
+
+        Args:
+            label_map_detector (Dict[int, str]): Mapping of labels for the detector.
+            label_map_classifier (Dict[int, str]): Mapping of labels for the classifier.
+            detector_metrics (List[Callable]): Metrics for the detector.
+            classifier_metrics (List[Callable]): Metrics for the classifier.
+            detector_class_weights (Dict[str, float]): Class weights for the detector.
+            classifier_class_weights (Dict[str, float]): Class weights for the classifier.
+        """
         super(AlexNet, self).__init__(label_map_detector, label_map_classifier, 
                                         detector_metrics, classifier_metrics, 
                                         detector_class_weights, classifier_class_weights)
@@ -50,7 +104,18 @@ class AlexNet(Loop):
 
 
     @tf.function
-    def call(self, inputs, training=False):
+    def call(self, inputs: tf.Tensor, training: bool = False) -> Dict[str, tf.Tensor]:
+        """
+        Forward pass of the model.
+
+        Args:
+            inputs (tf.Tensor): Input tensor to the model.
+            training (bool, optional): Whether the model is in training mode. Defaults to False.
+
+        Returns:
+            Dict[str, tf.Tensor]: A dictionary with keys 'detector' and 'classifier', containing
+                                  the output from the detector and classifier respectively.
+        """
         x = inputs
         x = self.backbone(x, training=training)
         output_detector = self.final_dense_detector(x)
@@ -60,8 +125,31 @@ class AlexNet(Loop):
         
 
 class CNN_dense(Loop):
-    def __init__(self, label_map_detector, label_map_classifier, detector_metrics, classifier_metrics, 
-                 detector_class_weights, classifier_class_weights):
+    """
+    A custom CNN model with dense layers, tailored for specific tasks.
+
+    Attributes:
+        conv_layers (List[tfl.Layer]): List of convolutional layers.
+        pool_layers (List[tfl.Layer]): List of pooling layers.
+        dense_layers (List[tfl.Layer]): List of dense layers.
+        final_dense_detector (tfl.Dense): Final dense layer for the detector.
+        final_dense_classifier (tfl.Dense): Final dense layer for the classifier.
+
+    """
+    def __init__(self, label_map_detector: Dict[int, str], label_map_classifier: Dict[int, str], 
+                 detector_metrics: List[Callable], classifier_metrics: List[Callable], 
+                 detector_class_weights: Dict[str, float], classifier_class_weights: Dict[str, float]):
+        """
+        Initializes the CNN_dense model with the specified parameters.
+
+        Args:
+            label_map_detector (Dict[int, str]): Mapping of labels for the detector.
+            label_map_classifier (Dict[int, str]): Mapping of labels for the classifier.
+            detector_metrics (List[Callable]): Metrics for the detector.
+            classifier_metrics (List[Callable]): Metrics for the classifier.
+            detector_class_weights (Dict[str, float]): Class weights for the detector.
+            classifier_class_weights (Dict[str, float]): Class weights for the classifier.
+        """
         # Fixed super call
         super(CNN_dense, self).__init__(label_map_detector, label_map_classifier, 
                                         detector_metrics, classifier_metrics, 
@@ -101,7 +189,18 @@ class CNN_dense(Loop):
 
 
     @tf.function
-    def call(self, inputs, training=False):
+    def call(self, inputs: tf.Tensor, training: bool = False) -> Dict[str, tf.Tensor]:
+        """
+        Forward pass of the model.
+
+        Args:
+            inputs (tf.Tensor): Input tensor to the model.
+            training (bool, optional): Whether the model is in training mode. Defaults to False.
+
+        Returns:
+            Dict[str, tf.Tensor]: A dictionary with keys 'detector' and 'classifier', containing
+                                  the output from the detector and classifier respectively.
+        """
         x = inputs
         for i in range(len(self.conv_layers)//4):  # Assuming each block has Conv, BN, Activation, Dropout
             for j in range(4):
