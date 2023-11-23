@@ -14,7 +14,7 @@ RUN echo "Upgrading pip" && \
 # Copy requirements.txt and install requirements
 COPY requirements.txt /requirements.txt
 RUN echo "Installing Python packages from requirements.txt" && \
-    pip3 install -r /requirements.txt
+    pip3 install --extra-index-url http://wcomp2/python/ --trusted-host wcomp2 -r /requirements.txt
 
 # Uncomment below lines to install optional dependencies
 # RUN echo "Installing optional dependencies" && \

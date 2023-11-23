@@ -48,16 +48,20 @@ mkdir_if_not_exist $BASE_DIR/data/maps
 
 # Default mode is not predict
 PREDICT_MODE="False"
+# Initialize variable to indicate whether to force build
+FORCE_BUILD="False"
 
 # Parse command-line options
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -p|--predict) PREDICT_MODE="True" ;;
+        -b) FORCE_BUILD="True" ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
     shift
 done
 
+echo "Options: $@"
 # Now use the PREDICT_MODE variable to alter script behavior
 if [ "$PREDICT_MODE" = "True" ]; then
     echo "Only loading validation set"
@@ -97,21 +101,6 @@ sync_directories "$SOURCE_OUTPUT_DIR" "$TARGET_OUTPUT_DIR"
 
 echo "Files synced"
 
-# Initialize variable to indicate whether to force build
-FORCE_BUILD=false
-
-# Parse command-line options
-while getopts "b" OPTION; do
-  case $OPTION in
-    b)
-      FORCE_BUILD=true
-      ;;
-    *)
-      echo "Usage: $0 [-b]"
-      exit 1
-      ;;
-  esac
-done
 
 
 
@@ -124,7 +113,7 @@ HASH_ON_GPU_MACHINE=$(sha256sum $BASE_DIR/docker.dockerfile $BASE_DIR/requiremen
 echo "Hash computed."
 
 # Rebuild the Docker image if the hashes are different
-if [ "$HASH_ON_GPU_MACHINE" != "$HASH_ON_LOCAL_MACHINE" ] || [ "$FORCE_BUILD" = true ]; then
+if [ "$HASH_ON_GPU_MACHINE" != "$HASH_ON_LOCAL_MACHINE" ] || [ "$FORCE_BUILD" = "True" ]; then
   cp $PROJECT_PATH/docker.dockerfile $BASE_DIR/docker.dockerfile
   cp $REQUIREMENTS $BASE_DIR/requirements.txt
   docker build -t $PROJECTNAME:latest-gpu -f $BASE_DIR/docker.dockerfile .
@@ -137,7 +126,7 @@ docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus ${GPU_DEVICE} -v
                                                                                                      source /root/.bashrc &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py $PREDICT_MODE &&
+                                                                                                     python /tf/run_script.py &&
                                                                                                      chmod -R 777 /tf/output/* &&
                                                                                                      bash"
 
@@ -149,3 +138,6 @@ echo "Syncing files from $TARGET_OUTPUT_DIR to $SOURCE_OUTPUT_DIR"
 
 sync_directories "$TARGET_OUTPUT_DIR" "$SOURCE_OUTPUT_DIR"
 echo "Output synced"
+
+find "$SOURCE_OUTPUT_DIR/$model_name" -type d -empty -delete
+echo "Deleted empty directories in $SOURCE_OUTPUT_DIR/$model_name"
