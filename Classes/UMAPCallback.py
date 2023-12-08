@@ -2,16 +2,43 @@ from tensorflow.keras.callbacks import Callback
 import umap
 import wandb
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import numpy as np
+from typing import Dict, Optional
 
 class UMAPCallback(Callback):
-    def __init__(self, val_data, val_labels_onehot, label_map, interval=5):
+    def __init__(self, val_data: np.ndarray, val_labels_onehot: np.ndarray, label_map: Dict, interval: int = 5):
+        """
+        Initialize the UMAPCallback.
+
+        Args:
+            val_data (np.ndarray): Validation data to be visualized using UMAP.
+            val_labels_onehot (np.ndarray): One-hot encoded labels for the validation data.
+            label_map (dict): Dictionary mapping label indices to human-readable names.
+            interval (int, optional): Frequency of epochs at which the callback is executed. Defaults to 5.
+
+        This callback is intended for use with neural network models trained using Keras. At specified intervals,
+        it applies UMAP dimensionality reduction to the outputs of the penultimate layer of the model and produces
+        a scatter plot of these outputs, color-coded by their labels. This plot is then logged to Wandb for visualization.
+        """
         super(UMAPCallback, self).__init__()
         self.val_data = val_data
         self.val_labels_onehot = val_labels_onehot
         self.label_map = label_map
         self.interval = interval
     
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs: Dict = None):
+        """
+        Perform actions at the end of each epoch.
+
+        Args:
+            epoch (int): The current epoch number.
+            logs (dict, optional): A dictionary of logs from the training process.
+
+        This method is automatically called at the end of each epoch during training. If the current epoch
+        is a multiple of the specified interval, it computes the UMAP embedding for the outputs of the model's
+        penultimate layer and creates a scatter plot, which is then logged to Wandb.
+        """
         if (epoch % self.interval) == 0:
             # Get the output from the last layer before the output layer
             model = self.model

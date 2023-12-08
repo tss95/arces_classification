@@ -1,4 +1,5 @@
 from tensorflow.keras.callbacks import Callback
+from typing import Dict, Any
 from global_config import logger, cfg, model_cfg
 from Classes.Utils import get_y_and_ypred
 import numpy as np
@@ -7,8 +8,31 @@ import tensorflow as tf
 
 
 class MetricsCallback(Callback):
+     """
+    A custom callback for logging various metrics during training and validation.
+
+    This callback computes and logs precision, recall, F1 score, and accuracy for both training and validation phases.
+    It supports both binary and multi-class classification tasks.
+
+    Attributes:
+        val_gen (Sequence): The validation data generator.
+        label_map (Dict[str, int]): A dictionary mapping label names to class indices.
+        label_name (str): The name of the label for logging purposes, default is 'binary'.
+        precision (tf.keras.metrics.Precision): Precision metric.
+        recall (tf.keras.metrics.Recall): Recall metric.
+        accuracy (tf.keras.metrics.BinaryAccuracy): Accuracy metric.
+        is_binary (bool): Flag to determine if the task is binary classification.
+        min_class_id (int): The class id of the least frequent class.
+    """
     #TODO Rewrite this class to account for the output shape
-    def __init__(self, val_gen, label_map):
+    def __init__(self, val_gen, label_map: Dict[str, int]):
+        """
+        Initializes the MetricsCallback instance.
+
+        Args:
+            val_gen (Sequence): The validation data generator.
+            label_map (Dict[str, int]): A dictionary mapping label names to class indices.
+        """
         super().__init__()
         y_train = {"detector": np.array(y_train["detector"]),
                    "classifier": np.array(y_train["classifier"])}
@@ -21,7 +45,16 @@ class MetricsCallback(Callback):
         self.recall = tf.keras.metrics.Recall(name=f"val_recall_{self.label_name}")
         self.accuracy = tf.keras.metrics.BinaryAccuracy(name="val_accuracy")
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs: Dict[str, Any] = None):
+        """
+        Called at the end of an epoch during training.
+
+        Computes and logs precision, recall, F1 score, and accuracy for the validation set.
+
+        Args:
+            epoch (int): The index of the epoch.
+            logs (Dict[str, Any]): The dictionary of logs from Keras.
+        """
         x_val, y_val = self.validation_data[0], self.validation_data[1]
         y_pred = self.model.predict(x_val)
 
@@ -62,7 +95,16 @@ class MetricsCallback(Callback):
         self.recall.reset_states()
         self.accuracy.reset_states()
 
-    def on_train_batch_end(self, batch, logs=None):
+    def on_train_batch_end(self, batch: int, logs: Dict[str, Any] = None):
+        """
+        Called at the end of a training batch.
+
+        Optionally logs metrics to wandb if the batch number meets the specified interval.
+
+        Args:
+            batch (int): The index of the batch.
+            logs (Dict[str, Any]): The dictionary of logs from Keras.
+        """
         if batch % cfg.callbacks.wandb_n_batches_per_update == 0:
             x_train, y_train = self.model.train_function.inputs[0], self.model.train_function.targets[0]
             y_pred = self.model.predict(x_train)

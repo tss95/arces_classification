@@ -7,12 +7,23 @@ from tqdm import tqdm
 import os
 import pickle
 from obspy import Trace, Stream
+from typing import Tuple, Dict, List, Optional
 
 class LoadData:
     
     def __init__(self):
-        print(cfg)
-        print("CFG USE_FILTERED::", cfg.data.load_filtered)
+        """
+        Initialize the LoadData class.
+
+        This class is responsible for loading, filtering, and managing seismic data based on the configuration 
+        specified in the global configuration (`cfg`). It handles different data sets (training, validation, test) 
+        and applies necessary preprocessing steps such as filtering.
+
+        Attributes:
+            train_data (Optional[Tuple[np.ndarray, np.ndarray, Dict]]): Loaded and processed training data.
+            val_data (Optional[Tuple[np.ndarray, np.ndarray, Dict]]): Loaded and processed validation data.
+            test_data (Optional[Tuple[np.ndarray, np.ndarray, Dict]]): Loaded and processed test data.
+        """
         
         if cfg.data.what_to_load == ["train", "val"]:
             self.train_data, self.val_data, _ = self.load_datasets()
@@ -36,16 +47,43 @@ class LoadData:
         #    print("Train data first entry", self.train_data[0][0], self.train_data[1][0], self.train_data[2][0]) 
 
     
-    def get_train_dataset(self):
+    def get_train_dataset(self) -> Optional[Tuple[np.ndarray, np.ndarray, Dict]]:
+        """
+        Retrieve the processed training dataset.
+
+        Returns:
+            Optional[Tuple[np.ndarray, np.ndarray, Dict]]: The training dataset containing traces, labels, and metadata.
+        """
         return self.train_data
     
-    def get_val_dataset(self):
+    def get_val_dataset(self) -> Optional[Tuple[np.ndarray, np.ndarray, Dict]]:
+        """
+        Retrieve the processed validation dataset.
+
+        Returns:
+            Optional[Tuple[np.ndarray, np.ndarray, Dict]]: The validation dataset containing traces, labels, and metadata.
+        """
         return self.val_data
     
-    def get_test_dataset(self):
+    def get_test_dataset(self) -> Optional[Tuple[np.ndarray, np.ndarray, Dict]]:
+        """
+        Retrieve the processed test dataset.
+
+        Returns:
+            Optional[Tuple[np.ndarray, np.ndarray, Dict]]: The test dataset containing traces, labels, and metadata.
+        """
         return self.test_data
         
-    def filter_data(self, dataset):
+    def filter_data(self, dataset: Tuple[np.ndarray, np.ndarray, Dict]) -> Tuple[np.ndarray, np.ndarray, Dict]:
+        """
+        Apply filtering to the provided dataset based on the configuration settings.
+
+        Args:
+            dataset (Tuple[np.ndarray, np.ndarray, Dict]): The dataset to be filtered, consisting of traces, labels, and metadata.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, Dict]: The filtered dataset.
+        """
         if cfg.data.load_filtered:
             logger.warning("Pre filtered data is loaded. If this is an error -> check your data config file.")
             #r=np.random.randint(0, len(dataset[1]))
@@ -64,7 +102,16 @@ class LoadData:
             
             
         
-    def load_datasets(self):
+    def load_datasets(self) -> Tuple[Optional[Tuple[np.ndarray, np.ndarray, Dict]], 
+                                     Optional[Tuple[np.ndarray, np.ndarray, Dict]], 
+                                     Optional[Tuple[np.ndarray, np.ndarray, Dict]]]:
+        """
+        Load the datasets as specified in the configuration. This method can load train, validation, and test datasets.
+
+        Returns:
+            Tuple containing train, validation, and test datasets, respectively.
+            Each element in the tuple is a dataset represented as (traces, labels, metadata), or None if not loaded.
+        """
         what_to_load = cfg.data.what_to_load
         train_data, val_data, test_data = None, None, None
         if "train" in what_to_load:
@@ -81,7 +128,16 @@ class LoadData:
             logger.info("Finished loading test dataset.")
         return train_data, val_data, test_data
     
-    def load_data(self, data_description):
+    def load_data(self, data_description: str) -> Tuple[np.ndarray, np.ndarray, Dict]:
+        """
+        Load a specific dataset (train, val, or test) based on the provided description.
+
+        Args:
+            data_description (str): A string indicating which dataset to load ('train', 'val', or 'test').
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, Dict]: The loaded dataset consisting of traces, labels, and metadata.
+        """
         traces, label, metadata = None, None, None
         trace_path = os.path.join(cfg.paths.loaded_path, f'{data_description}_traces{"_filtered" if cfg.data.load_filtered else ""}.npy')
         logger.warning("Loading: %s", str(trace_path))
@@ -94,12 +150,32 @@ class LoadData:
             traces, label, metadata = self.remove_induced_events(traces, label, metadata)
         return traces, label, metadata
     
-    def remove_induced_events(self, traces, label, metadata):
+    def remove_induced_events(self, traces: np.ndarray, label: np.ndarray, metadata: Dict) -> Tuple[np.ndarray, np.ndarray, Dict]:
+        """
+        Remove induced or triggered events from the dataset.
+
+        Args:
+            traces (np.ndarray): Array of seismic traces.
+            label (np.ndarray): Array of labels corresponding to the traces.
+            metadata (Dict): Metadata associated with the traces.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, Dict]: The dataset with induced events removed.
+        """
         relevant_idx = np.where(np.array(metadata['labels']) != 'induced or triggered event')[0]
         metadata = {k: v for k, v in metadata.items() if k in relevant_idx}
         return traces[relevant_idx], label[relevant_idx], metadata
 
-    def change_key_to_index(self, input_dict):
+    def change_key_to_index(self, input_dict: Dict) -> Dict:
+        """
+        Convert the keys of the provided dictionary to sequential indices.
+
+        Args:
+            input_dict (Dict): The original dictionary with arbitrary keys.
+
+        Returns:
+            Dict: A dictionary with keys converted to sequential indices.
+        """
         output_dict = {}
         for idx, key in enumerate(list(input_dict.keys())):
             output_dict[idx] = input_dict[key]
@@ -107,7 +183,16 @@ class LoadData:
         return output_dict
 
     
-    def filter_all_data(self, dataset):
+    def filter_all_data(self, dataset: List[Tuple[np.ndarray, np.ndarray, Dict]]) -> List[Tuple[np.ndarray, np.ndarray, Dict]]:
+        """
+        Apply filtering to all entries in a list of datasets.
+
+        Args:
+            dataset (List[Tuple[np.ndarray, np.ndarray, Dict]]): A list of datasets to be filtered.
+
+        Returns:
+            List[Tuple[np.ndarray, np.ndarray, Dict]]: The list of filtered datasets.
+        """
         if cfg.data.load_filtered:
             logger.warning("Data assumed to be prefiltered, skipping filtering process.")
             return dataset
@@ -117,7 +202,17 @@ class LoadData:
         return dataset
         
         
-    def apply_filter(self, trace, meta):
+    def apply_filter(self, trace: np.ndarray, meta: Dict) -> np.ndarray:
+        """
+        Apply the configured filter to a single trace.
+
+        Args:
+            trace (np.ndarray): The seismic trace data to be filtered.
+            meta (Dict): Metadata associated with the trace.
+
+        Returns:
+            np.ndarray: The filtered trace.
+        """
         filter_name = cfg.filters.highpass_or_bandpass
         station = meta['trace_stats']['station']
         channels = meta['trace_stats']['channels']
@@ -144,7 +239,17 @@ class LoadData:
             stream.filter('bandpass', freqmin=cfg.filters.band_kwargs.min, freqmax=cfg.filters.band_kwargs.max)
         return np.array(stream)
 
-    def save_filtered_data(self, train_data, val_data, test_data):
+    def save_filtered_data(self, train_data: Tuple[np.ndarray, np.ndarray, Dict], 
+                           val_data: Tuple[np.ndarray, np.ndarray, Dict], 
+                           test_data: Tuple[np.ndarray, np.ndarray, Dict]):
+        """
+        Save the filtered train, validation, and test datasets to disk.
+
+        Args:
+            train_data (Tuple[np.ndarray, np.ndarray, Dict]): The training dataset.
+            val_data (Tuple[np.ndarray, np.ndarray, Dict]): The validation dataset.
+            test_data (Tuple[np.ndarray, np.ndarray, Dict]): The test dataset.
+        """
         for dataset, name in [(train_data, 'train'), (val_data, 'val'), (test_data, 'test')]:
             #traces, labels, metadata = load_data(dataset["filename"], name)
             traces, _, _ = dataset
