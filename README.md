@@ -13,7 +13,7 @@ export ROOT_DIR=/path/to/your/root/directory
 
 Replace /path/to/your/root/directory with the actual path to your root directory.
 
-On Windows
+**On Windows**
 Open Command Prompt and enter the following command:
 
 Replace C:\path\to\your\root\directory with the actual path to your root directory.
@@ -22,6 +22,3 @@ Please note that these commands will only set the ROOT_DIR environment variable 
 
 To set the environment variable permanently, you can add the above command to your shell's startup file (like ~/.bashrc or ~/.bash_profile on Unix/Linux/macOS, or the Environment Variables on Windows).
 
-```
-
-This will guide the user on how to set the ROOT_DIR environment variable on both Unix/Linux/macOS and Windows.

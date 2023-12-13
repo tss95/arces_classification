@@ -25,25 +25,32 @@ def dict_to_namespace(d: Dict[str, Any]) -> SimpleNamespace:
             d[k] = dict_to_namespace(v)
     return SimpleNamespace(**d)
 
-def update_paths(d):
-    for k, v in d.items():
-        if isinstance(v, str) and v.startswith('/staff/tord/Workspace/arces_classification/'):
-            d[k] = v.replace('/staff/tord/Workspace/arces_classification/', '/tf/')
-        elif isinstance(v, dict):
-            update_paths(v)
+def add_root_paths(d):
+    root_dir = os.getenv('ROOT_DIR')
+    if root_dir is None:
+        raise EnvironmentError("The ROOT_DIR environment variable is not set. Please set this variable to the path of your root directory. Instructions can be found in the README.md file.")
+    if 'paths' in d:
+        for k, v in d['paths'].items():
+            if isinstance(v, str):
+                d['paths'][k] = os.path.join(root_dir, v.lstrip('/'))
+            elif isinstance(v, dict):
+                update_paths(v)
+    return d
 
 def get_config_dir() -> str:
     """
-    Determines the configuration base directory based on the hostname.
+    Determines the configuration base directory based on whether the code is running inside a Docker container.
 
     Returns:
         str: The path to the configuration directory.
+
+    Raises:
+        EnvironmentError: If the ROOT_DIR environment variable is not set.
     """
-    hostname = socket.gethostname()
-    if hostname == 'saturn.norsar.no':
-        return "/staff/tord/Workspace/arces_classification/config"
-    else:
-        return "/tf/config"
+    root_dir = os.getenv('ROOT_DIR')
+    if root_dir is None:
+        raise EnvironmentError("The ROOT_DIR environment variable is not set. Please set this variable to the path of your root directory. Instructions can be found in the README.md file.")
+    return os.path.join(root_dir, 'config')
 
 def setup_config_and_logging():
     """
@@ -66,9 +73,8 @@ def setup_config_and_logging():
     args = OmegaConf.load(f'{config_dir}/data_config.yaml')
     args_dict = OmegaConf.to_container(args, resolve=True)
 
-    # Update paths if not running on 'norsar.saturn.no'x|
-    if socket.gethostname() != 'saturn.norsar.no':
-        update_paths(args_dict)
+    # Add the roots defined in the ROOT_DIR environment variable to the paths.
+    args_dict = add_root_paths(args_dict)
 
     args = OmegaConf.create(args_dict)
     OmegaConf.set_struct(args, False)

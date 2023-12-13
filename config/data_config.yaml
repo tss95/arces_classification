@@ -5,20 +5,20 @@ seed: 42 # Seed for reproducibility
 predict: True
 
 paths: # Needed for live
-  data_path: /staff/tord/Workspace/arces_classification/data # Directory for training, validation and test data. Not needed for live
+  data_path: data/ # Directory for training, validation and test data. Not needed for live
   #data_path: /nobackup/tord/gpu-test-tord/data
   labels: ["explosion", "noise", "earthquake"] # TODO: Verify that this is needed. 
-  output_folder: /staff/tord/Workspace/arces_classification/output # Where plots and csvs are stored. Not needed for live
-  data_csv: /staff/tord/Workspace/arces_classification/output/data.csv # Where the data csv is stored. Not needed for live. # TODO Is this even used?
-  model_save_folder: /staff/tord/Workspace/arces_classification/output/models # Where models are and will be saved. Needed for live
-  logs_folder: /staff/tord/Workspace/arces_classification/output/logs # Where logs are stored. Not needed for live. Currently unused
-  predictions_folder: /staff/tord/Workspace/arces_classification/output # Redundant output directory. Not needed for live
-  plots_folder: /staff/tord/Workspace/arces_classification/output # Another redundant output directory. Not needed for live
-  loaded_path: /staff/tord/Workspace/arces_classification/data/loaded/ # Where the loaded data is stored. Not needed for live
-  sweep_config: /staff/tord/Workspace/arces_classification/config/sweep_config.yaml # Where the sweep config is stored. Not needed for live
-  live_test_path: /staff/tord/Workspace/arces_classification/output/live_test/ # Where the live data plots are stored. Needed for live, but not final version.
-  scaler_path: /staff/tord/workspace/arces_classification/saved_scalers/ # Where fitted scalers are stored. Only needed for live if global scaler is used.
-  map_folder: /staff/tord/Workspace/arces_classification/data/maps/ # Where the maps are stored. Not needed for live
+  output_folder: output/ # Where plots and csvs are stored. Not needed for live
+  data_csv: output/data.csv # Where the data csv is stored. Not needed for live. # TODO Is this even used?
+  model_save_folder: output/models # Where models are and will be saved. Needed for live
+  logs_folder: output/logs # Where logs are stored. Not needed for live. Currently unused
+  predictions_folder: output/ # Redundant output directory. Not needed for live
+  plots_folder: output/ # Another redundant output directory. Not needed for live
+  loaded_path: data/loaded/ # Where the loaded data is stored. Not needed for live
+  sweep_config: config/sweep_config.yaml # Where the sweep config is stored. Not needed for live
+  live_test_path: output/live_test/ # Where the live data plots are stored. Needed for live, but not final version.
+  scaler_path: saved_scalers/ # Where fitted scalers are stored. Only needed for live if global scaler is used.
+  map_folder: data/maps/ # Where the maps are stored. Not needed for live
 
 data: # None of these are needed for live
   debug: False # If true, only 10% of the data is loaded
