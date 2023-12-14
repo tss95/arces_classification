@@ -1,3 +1,88 @@
+## Repository Structure
+This repository has the following structure:
+
+- `config/`: This directory contains configuration files for the project.
+- `data/`: This directory contains the data files used in the project.
+- `output/`: This directory is where the output files are stored.
+- `saved_scalers/`: This directory contains saved scaler files.
+- `src/`: This directory contains the source code of the project. It includes the following files:
+    - `Live.py`: The most important file in the project, which implements the system for GBF. It includes two main classes:
+        - `ClassifyGBF`: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
+        - `LiveClassifier`: A class that handles the live classification of seismic data. It includes methods for loading the model, preprocessing the data, and making predictions in real-time.
+    - `Scaler.py`: This file contains various scalers available to the model. It includes four main classes:
+        - `RobustScaler`: A class that scales features using statistics that are robust to outliers. This Scaler removes the median and scales the data according to the Interquartile Range (IQR). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
+        - `LogScaler`: A class that scales the features using logarithmic scaling. This Scaler applies a logarithmic transformation to the data, which can be useful for reducing the impact of outliers and transforming the data to a more Gaussian-like distribution.
+        - `MinMaxScaler`: A class that scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
+        - `StandardScaler`: A class that standardizes features by removing the mean and scaling to unit variance. The standard score of a sample x is calculated as z = (x - u) / s, where u is the mean of the training samples, and s is the standard deviation of the training samples.
+    - `Models.py`: This file defines the architecture of neural network models for seismic event classification and detection. It includes key functions   like get_initializer for selecting weight initializers and get_model for creating model instances based on configuration settings. The file also contains custom model classes AlexNet and CNN_dense, tailored for handling seismic data. These classes extend from a base Loop class and implement specific structures and behaviors, including convolutional and dense layers, for effective seismic event analysis.
+    - `Utils.py`: Contains functions used throughout the project.
+    - `Loop.py`: Central to the model's training and evaluation processes, this file defines the Loop class, which extends tf.keras.Model. It implements custom training and testing steps, loss calculation, and metrics handling for both detector and classifier components of the model. The class also integrates with Weight & Biases (wandb) for metric tracking. Additionally, it includes the MetricsPipeline class, designed to initialize, update, and retrieve results for various metrics like precision, recall, and accuracy. The Loop class handles the complexities of training, including handling class weights, updating state for metrics, and customizing gradient updates and loss calculations specific to the project's needs.
+    - `Analysis.py`: Defines the Analysis class for evaluating and visualizing model performance. It includes methods for plotting seismic event samples, generating confusion matrices, precision-recall curves, and geographical maps of predictions. The class also provides exploratory analysis tools for specific seismic event types and detailed error analysis functionalities.
+    - `Augment.py`: Provides functions for data augmentation in seismic signal processing. This includes adding noise, tapering signals, creating gaps, and zeroing specific channels in the data. These augmentations are configurable through the `cfg` settings, allowing for flexible application to various datasets. The augmentation techniques enhance the robustness and generalizability of the model by introducing variability in the training data.
+    - `Callbacks.py`: Defines various TensorFlow Keras callbacks for enhancing the model training and evaluation process. These include:
+        - **`ValidationConfusionMatrixCallback`**: Calculates and logs confusion matrices and prediction distributions at the end of each epoch, useful for monitoring model performance and biases.
+        - **`InPlaceProgressCallback`**: Provides in-place progress updates during training, displaying current epoch progress and average training loss.
+        - **`WandbLoggingCallback`**: Integrates with Weights & Biases (wandb) for logging training and validation metrics, aiding in detailed monitoring and analysis of model performance over epochs.
+        - **`CosineAnnealingLearningRateScheduler`**: Implements a cosine annealing schedule for the learning rate, which can help in stabilizing and improving the training process.
+    
+    - `Generator.py`: Defines `Generator`, `TrainGenerator`, and `ValGenerator` classes for efficient data handling and batch generation in TensorFlow. These classes extend `tf.keras.utils.Sequence` and are crucial for loading and preprocessing data during model training and validation.
+
+        - **`Generator` Class**: Serves as a base class for creating data generators. It handles data shuffling, normalization (using a provided scaler), and batch-wise data retrieval. It also supports chunk-wise processing of large datasets to optimize memory usage.
+
+        - **`TrainGenerator` Class**: Inherits from `Generator` and is tailored for training data. It includes data augmentation methods to introduce variability and robustness in the training process. It ensures that data is shuffled and augmented in each epoch.
+
+        - **`ValGenerator` Class**: Also inheriting from `Generator`, this class is designed for validation data. It ensures that data is not shuffled or augmented, providing a consistent set of data for evaluating the model's performance.
+
+
+    - `LoadData.py`: Implements the `LoadData` class for managing the loading, preprocessing, and filtering of seismic data for machine learning models. The class is designed to handle different datasets (training, validation, test) and applies necessary preprocessing steps, such as filtering, based on the configuration specified in `data_config.py`.
+
+        - **Initialization and Data Processing**: The constructor initializes the class and decides which datasets (train, validation, test) to load based on the `cfg.data.what_to_load` setting. It loads the datasets and applies filtering as required.
+
+        - **Dataset Retrieval Methods**: Methods like `get_train_dataset`, `get_val_dataset`, and `get_test_dataset` provide easy access to the processed datasets.
+
+        - **Data Filtering**: The `filter_data` method applies the configured filters to the seismic data. This is important for preparing the data for model training and ensuring data quality.
+
+        - **Loading and Saving Datasets**: Methods like `load_data` and `save_filtered_data` handle the reading and writing of datasets to and from the disk, respectively.
+
+        - **Utility Functions**: Functions like `remove_induced_events` and `change_key_to_index` perform specific transformations on the data, aiding in data preparation and management.
+
+    - `MetricsCallback.py`: Evaluate if this is no longer used.
+    - `Metrics.py`: Evaluate if this is no longer used.
+    - `UMAPCallback.py`: Defines the `UMAPCallback` class, a custom callback for TensorFlow Keras models. This callback integrates Uniform Manifold Approximation and Projection (UMAP) for dimensionality reduction and visualization, and logs the results to Weights & Biases (wandb). 
+
+        - **Initialization**: During the initialization phase, the callback takes validation data and labels, a label map for human-readable label names, and an interval specifying how frequently the UMAP visualization should be generated.
+
+        - **Epoch-End Action**: The `on_epoch_end` method, which is triggered at the end of each epoch, checks if the current epoch aligns with the specified interval. If it does, the method extracts outputs from the model's penultimate layer, applies UMAP to reduce the dimensionality of these outputs, and generates a scatter plot.
+
+        - **Visualization and Logging**: The scatter plot, where each point represents a validation data point and is color-coded based on its true label, is saved to a file. This file is then logged to wandb, providing a visual representation of how the model's embeddings of the validation data evolve over epochs.
+  - `__init__.py`: This script initializes the Python package.
+- `__pycache__/`: This directory contains Python cache files.
+- `docker.dockerfile`: This is the Dockerfile for the project.
+- `data_analysis.ipynb`: This Jupyter notebook contains data analysis code.
+- `data_exploration.ipynb`: This Jupyter notebook contains data exploration code.
+- `live.ipynb`: This Jupyter notebook contains live code.
+- `README.md`: This is the README file for the project.
+- `export_data.py`: This script exports data.
+- `gbf_iter.py`: This script is an example used to run the system, using command line inputs and keeping the model in memory.
+- `gbf_live.py`: This script is an example used to run the system.
+- `generate_data_csv.py`: This script generates a CSV file from data.
+- `generate_datasets.py`: This script generates datasets.
+- `get_model_name.py`: This script gets the model name.
+- `global_config.py`: This script contains two lines of code to make the variables set in `project_setup.py` accessible across the project.
+- `__init__.py`: This script initializes the Python package.
+- `live.py`: This script contains live code.
+- `predict.py`: This script makes predictions.
+- `project_setup.py`: This script is the setup file for the project. It loads the config files and addresses project file paths on different systems.
+- `train.py`: This script trains the model.
+- `sweep_train.py`: This script performs a sweep train.
+- `common.sh`: This shell script contains common commands.
+- `run_live.sh`: This shell script runs the live code.
+- `run_predict.sh`: This shell script runs the prediction code.
+- `run.sh`: This shell script runs the project.
+- `sweep_run.sh`: This shell script performs a sweep run.
+- `requirements.txt`: This file lists the Python dependencies for the project. Not all modules are necessary for the live version. This needs to be addressed at some point.
+- `gpt text.txt`: This text file contains GPT text.
+
 ## Setting Up the Environment Variable
 
 The application uses an environment variable `ROOT_DIR` to determine the root directory of the project. You need to set this environment variable before running the application.
