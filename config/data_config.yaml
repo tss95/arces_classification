@@ -6,8 +6,6 @@ predict: True
 
 paths: # Needed for live
   data_path: data/ # Directory for training, validation and test data. Not needed for live
-  #data_path: /nobackup/tord/gpu-test-tord/data
-  labels: ["explosion", "noise", "earthquake"] # TODO: Verify that this is needed. 
   output_folder: output/ # Where plots and csvs are stored. Not needed for live
   data_csv: output/data.csv # Where the data csv is stored. Not needed for live. # TODO Is this even used?
   model_save_folder: output/models # Where models are and will be saved. Needed for live

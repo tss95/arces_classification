@@ -1,6 +1,6 @@
-from Classes.Live import ClassifyGBF, load_model, LiveClassifier
+from src.Live import ClassifyGBF, load_model, LiveClassifier
 from obspy import UTCDateTime
-from Classes.Scaler import Scaler
+from src.Scaler import Scaler
 from global_config import cfg, logger
 import argparse
 

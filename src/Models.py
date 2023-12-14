@@ -1,5 +1,5 @@
 from global_config import cfg, model_cfg
-from Classes.Loop import Loop
+from src.Loop import Loop
 import numpy as np
 import tensorflow as tf
 from nais.Models import AlexNet1D

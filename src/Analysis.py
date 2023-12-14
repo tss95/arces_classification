@@ -7,8 +7,8 @@ import os
 import matplotlib.pyplot as plt
 from obspy import Stream, Trace
 import tensorflow as tf
-from Classes.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred, get_index_of_wrong_predictions
-from Classes.Augment import augment_pipeline
+from src.Utils import get_final_labels, translate_labels, apply_threshold, get_y_and_ypred, get_index_of_wrong_predictions
+from src.Augment import augment_pipeline
 from collections import Counter
 import math
 import geopandas as gpd

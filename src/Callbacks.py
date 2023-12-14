@@ -8,7 +8,7 @@ from PIL import Image
 import io
 import matplotlib.pyplot as plt
 from collections import Counter
-from Classes.Utils import get_y_and_ypred, plot_confusion_matrix  # Assuming this is in Classes.Utils
+from src.Utils import get_y_and_ypred, plot_confusion_matrix  # Assuming this is in Classes.Utils
 from typing import List, Dict, Any, Optional
 
 class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):

@@ -5,11 +5,11 @@ import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from Classes.Utils import prepare_labels_and_weights, swap_labels, prep_data
-from Classes.Generator import TrainGenerator, ValGenerator
-from Classes.Models import get_model
-from Classes.Metrics import get_least_frequent_class_metrics
-from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
+from src.Utils import prepare_labels_and_weights, swap_labels, prep_data
+from src.Generator import TrainGenerator, ValGenerator
+from src.Models import get_model
+from src.Metrics import get_least_frequent_class_metrics
+from src.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
 import socket
 import yaml  # Import yaml to read the sweep_config file
 

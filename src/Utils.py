@@ -1,8 +1,8 @@
 from global_config import cfg, logger
 import matplotlib.pyplot as plt
 
-from Classes.LoadData import LoadData
-from Classes.Scaler import Scaler
+from src.LoadData import LoadData
+from src.Scaler import Scaler
 from datetime import datetime
 
 import geopandas as gpd

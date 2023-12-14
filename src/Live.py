@@ -1,10 +1,10 @@
 import numpy as np
 from global_config import logger, cfg
-from Classes.Models import get_model
+from src.Models import get_model
 import os
 import math
 from obspy import Trace, Stream, UTCDateTime
-from Classes.Utils import one_prediction
+from src.Utils import one_prediction
 from seismonpy.norsardb import Client
 from seismonpy.utils import create_global_mongodb_object
 from seismonpy.io.mongodb.eventdb import MongoEventDataBase

@@ -10,15 +10,15 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLRO
 from tensorflow.keras.optimizers import Adam
 from sklearn.utils.class_weight import compute_class_weight
 
-from Classes.Utils import prepare_labels_and_weights, swap_labels, prep_data
-from Classes.Generator import TrainGenerator
-from Classes.Generator import ValGenerator
-from Classes.Models import get_model
-from Classes.Metrics import get_least_frequent_class_metrics
-from Classes.UMAPCallback import UMAPCallback
-from Classes.Analysis import Analysis
-from Classes.MetricsCallback import MetricsCallback
-from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback, CosineAnnealingLearningRateScheduler
+from src.Utils import prepare_labels_and_weights, swap_labels, prep_data
+from src.Generator import TrainGenerator
+from src.Generator import ValGenerator
+from src.Models import get_model
+from src.Metrics import get_least_frequent_class_metrics
+from src.UMAPCallback import UMAPCallback
+from src.Analysis import Analysis
+from src.MetricsCallback import MetricsCallback
+from src.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback, CosineAnnealingLearningRateScheduler
 import socket
 from tensorflow.keras.callbacks import ModelCheckpoint
 import os

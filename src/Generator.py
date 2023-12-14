@@ -1,7 +1,7 @@
 from global_config import cfg, logger
 import tensorflow as tf
 import numpy as np
-from Classes.Augment import augment_pipeline
+from src.Augment import augment_pipeline
 from tensorflow.keras.utils import Sequence
 from typing import Dict, Any, Tuple, List
 from functools import reduce

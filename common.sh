@@ -36,7 +36,7 @@ BASE_DIR=/nobackup2/$USER/$PROJECTNAME
 mkdir_if_not_exist $BASE_DIR/data
 mkdir_if_not_exist $BASE_DIR/output
 mkdir_if_not_exist $BASE_DIR/logs
-mkdir_if_not_exist $BASE_DIR/Classes
+mkdir_if_not_exist $BASE_DIR/src
 mkdir_if_not_exist $BASE_DIR/config
 mkdir_if_not_exist $BASE_DIR/config/models
 mkdir_if_not_exist $OUTPUT/plots
@@ -83,7 +83,7 @@ rsync -ahr $PROJECT_PATH/data/maps/* $BASE_DIR/data/maps/
 rsync -ahr $LOGGER $BASE_DIR/config/logging_config.py
 rsync -agr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
 rsync -ahr $PROJECT_PATH/config/models/$MODEL_CONFIG $BASE_DIR/config/models/$MODEL_CONFIG
-cp -r $PROJECT_PATH/Classes $BASE_DIR
+cp -r $PROJECT_PATH/src $BASE_DIR
 #rsync -ahr $DATA_PATH/* $BASE_DIR/data
 rsync -ahr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
 rsync -ahr $REQUIREMENTS $BASE_DIR/requirements.txt

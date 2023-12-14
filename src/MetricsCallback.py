@@ -1,7 +1,7 @@
 from tensorflow.keras.callbacks import Callback
 from typing import Dict, Any
 from global_config import logger, cfg, model_cfg
-from Classes.Utils import get_y_and_ypred
+from src.Utils import get_y_and_ypred
 import numpy as np
 import wandb
 import tensorflow as tf

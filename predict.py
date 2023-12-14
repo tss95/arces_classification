@@ -5,15 +5,15 @@ import os
 import tensorflow as tf
 tf.get_logger().setLevel('DEBUG')
 
-from Classes.Utils import prepare_labels_and_weights, swap_labels, prep_data
-from Classes.Generator import TrainGenerator
-from Classes.Generator import ValGenerator
-from Classes.Models import get_model
-from Classes.Metrics import get_least_frequent_class_metrics
-from Classes.UMAPCallback import UMAPCallback
-from Classes.Analysis import Analysis
-from Classes.MetricsCallback import MetricsCallback
-from Classes.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
+from src.Utils import prepare_labels_and_weights, swap_labels, prep_data
+from src.Generator import TrainGenerator
+from src.Generator import ValGenerator
+from src.Models import get_model
+from src.Metrics import get_least_frequent_class_metrics
+from src.UMAPCallback import UMAPCallback
+from src.Analysis import Analysis
+from src.MetricsCallback import MetricsCallback
+from src.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback
 import socket
 
 import wandb 
