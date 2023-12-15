@@ -2,9 +2,24 @@
 This repository has the following structure:
 
 - `config/`: This directory contains configuration files for the project.
-- `data/`: This directory contains the data files used in the project.
-- `output/`: This directory is where the output files are stored.
-- `saved_scalers/`: This directory contains saved scaler files.
+    - `models/`: This directory contains configuration files for the models. The files are named after the model name, and contain the configuration settings for the model. The settings relate specifically to the hyperparameters of the relevant model.
+    - `data_config.yaml`: This file contains the configuration settings for the data. It includes the following sections:
+        - `data`: This section contains the settings for the data. It includes the following main keys:
+        - `model`: Type of model to be used. Currenlty, only `alexnet` and `cnn_dense` is supported.
+        - `model_name`: Name of the pretrained model. This is used to load the model weights.
+        - `seed` : Set seed for reproducibility.
+        - `predict`: Whether or not the model should be used for prediction.
+        - `paths`: The paths which the project utilizes. These are extensions of the `ROOT_DIR. More information can be found below regarding setting the environment variable.
+        - `data`: Parameters regarding data.
+        - `live`: Parameters regarding loading and handling of live data.
+        - `filters`: Parameters regarding filtering of data.
+        - `callbacks`: Parameters regarding callbacks.
+        - `scaling`: Parameters regarding scaling of data.
+        - `augment`: Parameters regarding data augmentation.
+        - `optimizer`: Parameters regarding the optimizer.
+    - `sweep_config`: Paremters for hyperparameter optimization using Weights & Biases (wandb).
+    - `logging_config.yaml`: Configuration settings for logging.
+- `saved_scalers/`: This directory contains saved scaler files. Not in use as scalers are ran locally and don't need fitting.
 - `src/`: This directory contains the source code of the project. It includes the following files:
     - `Live.py`: The most important file in the project, which implements the system for GBF. It includes two main classes:
         - `ClassifyGBF`: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
