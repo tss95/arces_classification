@@ -55,33 +55,27 @@ This repository has the following structure:
         - **Epoch-End Action**: The `on_epoch_end` method, which is triggered at the end of each epoch, checks if the current epoch aligns with the specified interval. If it does, the method extracts outputs from the model's penultimate layer, applies UMAP to reduce the dimensionality of these outputs, and generates a scatter plot.
 
         - **Visualization and Logging**: The scatter plot, where each point represents a validation data point and is color-coded based on its true label, is saved to a file. This file is then logged to wandb, providing a visual representation of how the model's embeddings of the validation data evolve over epochs.
-  - `__init__.py`: This script initializes the Python package.
-- `__pycache__/`: This directory contains Python cache files.
-- `docker.dockerfile`: This is the Dockerfile for the project.
-- `data_analysis.ipynb`: This Jupyter notebook contains data analysis code.
-- `data_exploration.ipynb`: This Jupyter notebook contains data exploration code.
-- `live.ipynb`: This Jupyter notebook contains live code.
+- `docker.dockerfile`: This is the Dockerfile for running the project on the GPU machine.
+- `data_analysis.ipynb`: This Jupyter notebook contains analysis code for looking at the model predictions.
+- `live.ipynb`: This Jupyter notebook contains scratch code for developing the live.py file.
 - `README.md`: This is the README file for the project.
-- `export_data.py`: This script exports data.
+- `export_data.py`: Script used by Steffen Mæland to generate the original datset.
 - `gbf_iter.py`: This script is an example used to run the system, using command line inputs and keeping the model in memory.
-- `gbf_live.py`: This script is an example used to run the system.
-- `generate_data_csv.py`: This script generates a CSV file from data.
-- `generate_datasets.py`: This script generates datasets.
-- `get_model_name.py`: This script gets the model name.
+- `gbf_live.py`: This script is an example used to run the system on a specified time interval.
+- `generate_data_csv.py`: This script generates a CSV file from the model predictions for analysis.
+- `generate_datasets.py`: This script generates preloaded training, validation and test datasets. Used when a new dataset has been added. 
+- `get_model_name.py`: This script gets the model name for the bash scripts.
 - `global_config.py`: This script contains two lines of code to make the variables set in `project_setup.py` accessible across the project.
-- `__init__.py`: This script initializes the Python package.
-- `live.py`: This script contains live code.
-- `predict.py`: This script makes predictions.
-- `project_setup.py`: This script is the setup file for the project. It loads the config files and addresses project file paths on different systems.
-- `train.py`: This script trains the model.
-- `sweep_train.py`: This script performs a sweep train.
-- `common.sh`: This shell script contains common commands.
-- `run_live.sh`: This shell script runs the live code.
-- `run_predict.sh`: This shell script runs the prediction code.
-- `run.sh`: This shell script runs the project.
-- `sweep_run.sh`: This shell script performs a sweep run.
+- `predict.py`: This script runs the model exlusively on the validation set.
+- `project_setup.py`: This script is the setup file for the project. It loads the config files and addresses project file paths on different systems. It also loads the logger, and assigns a unique ID for the run.
+- `train.py`: Training script for one model.
+- `sweep_train.py`: This unfinished script is used to perform a sweep run, or hyperparamter optimization using WandB.
+- `common.sh`: This shell script handles creating folders and transferring files to the GPU machine. It then also runs the relevant code on the GPU machine. This script is used by all other shell scripts.
+- `run_live.sh`: This shell script is a wrapper for running the live version of the model on the GPU machine. May be deprecated.
+- `run_predict.sh`: This shell script runs the `predict.py` script on the GPU machine.
+- `run.sh`: This shell script runs the `train.py` script on the GPU machine. 
+- `sweep_run.sh`: This shell script runs the `sweep_train.py` script on the GPU machine. May be deprecated.
 - `requirements.txt`: This file lists the Python dependencies for the project. Not all modules are necessary for the live version. This needs to be addressed at some point.
-- `gpt text.txt`: This text file contains GPT text.
 
 ## Setting Up the Environment Variable
 
