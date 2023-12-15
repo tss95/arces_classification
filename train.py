@@ -17,7 +17,6 @@ from src.Models import get_model
 from src.Metrics import get_least_frequent_class_metrics
 from src.UMAPCallback import UMAPCallback
 from src.Analysis import Analysis
-from src.MetricsCallback import MetricsCallback
 from src.Callbacks import InPlaceProgressCallback, WandbLoggingCallback, ValidationConfusionMatrixCallback, CosineAnnealingLearningRateScheduler
 import socket
 from tensorflow.keras.callbacks import ModelCheckpoint
@@ -60,9 +59,6 @@ else:
 train_gen = TrainGenerator(train_data, train_labels_dict, scaler)
 val_gen = ValGenerator(val_data, val_labels_dict, scaler)
 
-#metrics = get_least_frequent_class_metrics(train_labels_onehot, label_map, 
-#                                           sample_weight = class_weights, 
-#                                           metrics_list = ['accuracy','f1_score', 'precision', 'recall'])
 input_shape = train_data.shape[1:]
 logger.info("Input shape to the model: " + str(input_shape))
 classifier_metrics = ["f1_score", "precision", "recall", "accuracy"]

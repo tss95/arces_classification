@@ -7,7 +7,7 @@
 5. [Running the Model on GBF](#running-the-model-on-gbf)
 
 ## Repository Structure
-This repository has the following structure:
+**This repository has the following structure:**
 
 - `config/`: This directory contains configuration files for the project.
     - `models/`: This directory contains configuration files for the models. The files are named after the model name, and contain the configuration settings for the model. The settings relate specifically to the hyperparameters of the relevant model.
@@ -30,23 +30,23 @@ This repository has the following structure:
 - `saved_scalers/`: This directory contains saved scaler files. Not in use as scalers are ran locally and don't need fitting.
 - `src/`: This directory contains the source code of the project. It includes the following files:
     - `Live.py`: The most important file in the project, which implements the system for GBF. It includes two main classes:
-        - `ClassifyGBF`: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
-        - `LiveClassifier`: A class that handles the live classification of seismic data. It includes methods for loading the model, preprocessing the data, and making predictions in real-time.
+        - **`ClassifyGBF` Class**: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
+        - **`LiveClassifier` Class**: A class that handles the live classification of seismic data. It includes methods for loading the model, preprocessing the data, and making predictions in real-time.
     - `Scaler.py`: This file contains various scalers available to the model. It includes four main classes:
-        - `RobustScaler`: A class that scales features using statistics that are robust to outliers. This Scaler removes the median and scales the data according to the Interquartile Range (IQR). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
-        - `LogScaler`: A class that scales the features using logarithmic scaling. This Scaler applies a logarithmic transformation to the data, which can be useful for reducing the impact of outliers and transforming the data to a more Gaussian-like distribution.
-        - `MinMaxScaler`: A class that scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
-        - `StandardScaler`: A class that standardizes features by removing the mean and scaling to unit variance. The standard score of a sample x is calculated as z = (x - u) / s, where u is the mean of the training samples, and s is the standard deviation of the training samples.
+        - **`RobustScaler` Class**: A class that scales features using statistics that are robust to outliers. This Scaler removes the median and scales the data according to the Interquartile Range (IQR). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
+        - **`LogScaler` Class**: A class that scales the features using logarithmic scaling. This Scaler applies a logarithmic transformation to the data, which can be useful for reducing the impact of outliers and transforming the data to a more Gaussian-like distribution.
+        - **`MinMaxScaler` Class**: A class that scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
+        - **`StandardScaler` Class**: A class that standardizes features by removing the mean and scaling to unit variance. The standard score of a sample x is calculated as z = (x - u) / s, where u is the mean of the training samples, and s is the standard deviation of the training samples.
     - `Models.py`: This file defines the architecture of neural network models for seismic event classification and detection. It includes key functions   like get_initializer for selecting weight initializers and get_model for creating model instances based on configuration settings. The file also contains custom model classes AlexNet and CNN_dense, tailored for handling seismic data. These classes extend from a base Loop class and implement specific structures and behaviors, including convolutional and dense layers, for effective seismic event analysis.
     - `Utils.py`: Contains functions used throughout the project.
     - `Loop.py`: Central to the model's training and evaluation processes, this file defines the Loop class, which extends tf.keras.Model. It implements custom training and testing steps, loss calculation, and metrics handling for both detector and classifier components of the model. The class also integrates with Weight & Biases (wandb) for metric tracking. Additionally, it includes the MetricsPipeline class, designed to initialize, update, and retrieve results for various metrics like precision, recall, and accuracy. The Loop class handles the complexities of training, including handling class weights, updating state for metrics, and customizing gradient updates and loss calculations specific to the project's needs.
     - `Analysis.py`: Defines the Analysis class for evaluating and visualizing model performance. It includes methods for plotting seismic event samples, generating confusion matrices, precision-recall curves, and geographical maps of predictions. The class also provides exploratory analysis tools for specific seismic event types and detailed error analysis functionalities.
     - `Augment.py`: Provides functions for data augmentation in seismic signal processing. This includes adding noise, tapering signals, creating gaps, and zeroing specific channels in the data. These augmentations are configurable through the `cfg` settings, allowing for flexible application to various datasets. The augmentation techniques enhance the robustness and generalizability of the model by introducing variability in the training data.
     - `Callbacks.py`: Defines various TensorFlow Keras callbacks for enhancing the model training and evaluation process. These include:
-        - **`ValidationConfusionMatrixCallback`**: Calculates and logs confusion matrices and prediction distributions at the end of each epoch, useful for monitoring model performance and biases.
-        - **`InPlaceProgressCallback`**: Provides in-place progress updates during training, displaying current epoch progress and average training loss.
-        - **`WandbLoggingCallback`**: Integrates with Weights & Biases (wandb) for logging training and validation metrics, aiding in detailed monitoring and analysis of model performance over epochs.
-        - **`CosineAnnealingLearningRateScheduler`**: Implements a cosine annealing schedule for the learning rate, which can help in stabilizing and improving the training process.
+        - **`ValidationConfusionMatrixCallback` Class**: Calculates and logs confusion matrices and prediction distributions at the end of each epoch, useful for monitoring model performance and biases.
+        - **`InPlaceProgressCallback` Class**: Provides in-place progress updates during training, displaying current epoch progress and average training loss.
+        - **`WandbLoggingCallback` Class**: Integrates with Weights & Biases (wandb) for logging training and validation metrics, aiding in detailed monitoring and analysis of model performance over epochs.
+        - **`CosineAnnealingLearningRateScheduler` Class**: Implements a cosine annealing schedule for the learning rate, which can help in stabilizing and improving the training process.
     
     - `Generator.py`: Defines `Generator`, `TrainGenerator`, and `ValGenerator` classes for efficient data handling and batch generation in TensorFlow. These classes extend `tf.keras.utils.Sequence` and are crucial for loading and preprocessing data during model training and validation.
 
@@ -69,8 +69,6 @@ This repository has the following structure:
 
         - **Utility Functions**: Functions like `remove_induced_events` and `change_key_to_index` perform specific transformations on the data, aiding in data preparation and management.
 
-    - `MetricsCallback.py`: Evaluate if this is no longer used.
-    - `Metrics.py`: Evaluate if this is no longer used.
     - `UMAPCallback.py`: Defines the `UMAPCallback` class, a custom callback for TensorFlow Keras models. This callback integrates Uniform Manifold Approximation and Projection (UMAP) for dimensionality reduction and visualization, and logs the results to Weights & Biases (wandb). 
 
         - **Initialization**: During the initialization phase, the callback takes validation data and labels, a label map for human-readable label names, and an interval specifying how frequently the UMAP visualization should be generated.
@@ -80,7 +78,6 @@ This repository has the following structure:
         - **Visualization and Logging**: The scatter plot, where each point represents a validation data point and is color-coded based on its true label, is saved to a file. This file is then logged to wandb, providing a visual representation of how the model's embeddings of the validation data evolve over epochs.
 - `docker.dockerfile`: This is the Dockerfile for running the project on the GPU machine.
 - `data_analysis.ipynb`: This Jupyter notebook contains analysis code for looking at the model predictions.
-- `live.ipynb`: This Jupyter notebook contains scratch code for developing the live.py file.
 - `README.md`: This is the README file for the project.
 - `export_data.py`: Script used by Steffen Mæland to generate the original datset.
 - `gbf_iter.py`: This script is an example used to run the system, using command line inputs and keeping the model in memory.
