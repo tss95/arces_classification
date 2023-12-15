@@ -1,3 +1,41 @@
+## Table of Contents
+
+1. [Repository Structure](#repository-structure)
+    - [Config Directory](#config-directory)
+        - [Models Directory](#models-directory)
+        - [data_config.yaml](#data-config-yaml)
+    - [saved_scalers Directory](#saved-scalers-directory)
+    - [Source Code (src) Directory](#src-directory)
+        - [Key Source Files](#key-source-files)
+            - [Live.py](#live-py)
+            - [Scaler.py](#scaler-py)
+            - [Models.py](#models-py)
+            - [Utils.py](#utils-py)
+            - [Loop.py](#loop-py)
+            - [Analysis.py](#analysis-py)
+            - [Augment.py](#augment-py)
+            - [Callbacks.py](#callbacks-py)
+            - [Generator.py](#generator-py)
+            - [LoadData.py](#load-data-py)
+            - [UMAPCallback.py](#umap-callback-py)
+    - [Other Important Files](#other-important-files)
+        - [Dockerfile and Jupyter Notebooks](#dockerfile-and-jupyter-notebooks)
+        - [README.md](#readme-md)
+        - [Script Files](#script-files)
+    - [Requirements.txt](#requirements-txt)
+2. [Setting Up the Environment Variable](#setting-up-the-environment-variable)
+    - [Unix/Linux/macOS](#unix-linux-macos)
+    - [Windows](#windows)
+3. [Training a Model](#training-a-model)
+    - [On GPU Machine](#on-gpu-machine)
+    - [On Local Machine](#on-local-machine)
+4. [Predicting with a Model on Validation Set](#predicting-with-a-model-on-validation-set)
+    - [On GPU Machine](#on-gpu-machine-predict)
+    - [On Local Machine](#on-local-machine-predict)
+5. [Running the Model on GBF](#running-the-model-on-gbf)
+    - [Options for Running](#options-for-running)
+
+
 ## Repository Structure
 This repository has the following structure:
 
