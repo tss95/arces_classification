@@ -1,10 +1,19 @@
 ## Table of Contents
 
-1. [Repository Structure](#repository-structure)
-2. [Setting Up the Environment Variable](#setting-up-the-environment-variable)
-3. [Training a Model](#training-a-model)
-4. [Predicting with a Model on Validation Set](#predicting-with-a-model-on-validation-set)
-5. [Running the Model on GBF](#running-the-model-on-gbf)
+1. [General Information](#general-information)
+2. [Repository Structure](#repository-structure)
+3. [Setting Up the Environment Variable](#setting-up-the-environment-variable)
+4. [Training a Model](#training-a-model)
+5. [Predicting with a Model on Validation Set](#predicting-with-a-model-on-validation-set)
+6. [Running the Model on GBF](#running-the-model-on-gbf)
+
+## General Information
+
+This project is a machine learning system for seismic event classification and detection. It is designed to be used with beamformed array data from the ARCES array, although with plans to extend the application to more arrays. The data is beamformed using the seismonpy software suite. The dataset is not yet made directly available to the public, but the user may generate their own dataset to be used. The system is designed to be run on NORSARs GPU server through a docker container, but can also be run on a local linux machine. This README will explain how to set up the environment and run the system but only for use within NORSARs ecosystem. For use outside of NORSAR, the user will need to make some changes to the code. Contact the author for more information.
+
+#### Author:
+**Tord Sture Stangeland**
+*tord.stangeland@norsar.no* | *tord.stangeland@gmail.com*
 
 ## Repository Structure
 **This repository has the following structure:**
@@ -17,7 +26,7 @@
         - `model_name`: Name of the pretrained model. This is used to load the model weights.
         - `seed` : Set seed for reproducibility.
         - `predict`: Whether or not the model should be used for prediction.
-        - `paths`: The paths which the project utilizes. These are extensions of the `ROOT_DIR. More information can be found below regarding setting the environment variable.
+        - `paths`: The paths which the project utilizes. These are extensions of the `ROOT_DIR` and `STORAGE_DIR`. More information can be found below regarding setting the environment variable.
         - `data`: Parameters regarding data.
         - `live`: Parameters regarding loading and handling of live data.
         - `filters`: Parameters regarding filtering of data.
@@ -27,7 +36,6 @@
         - `optimizer`: Parameters regarding the optimizer.
     - `sweep_config`: Paremters for hyperparameter optimization using Weights & Biases (wandb).
     - `logging_config.yaml`: Configuration settings for logging.
-- `saved_scalers/`: This directory contains saved scaler files. Not in use as scalers are ran locally and don't need fitting.
 - `src/`: This directory contains the source code of the project. It includes the following files:
     - `Live.py`: The most important file in the project, which implements the system for GBF. It includes two main classes:
         - **`ClassifyGBF` Class**: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
@@ -77,6 +85,8 @@
 
         - **Visualization and Logging**: The scatter plot, where each point represents a validation data point and is color-coded based on its true label, is saved to a file. This file is then logged to wandb, providing a visual representation of how the model's embeddings of the validation data evolve over epochs.
 - `docker.dockerfile`: This is the Dockerfile for running the project on the GPU machine.
+- `.docker_bashrc`: This is the bashrc file for the docker container.
+- `.dockerignore`: This file contains the files that should be ignored by the docker container.
 - `data_analysis.ipynb`: This Jupyter notebook contains analysis code for looking at the model predictions.
 - `README.md`: This is the README file for the project.
 - `export_data.py`: Script used by Steffen Mæland to generate the original datset.
@@ -111,9 +121,9 @@ export STORAGE_DIR=/path/to/your/storage/directory
 (for NORSAR employees this will be here: `/projects/active/Array/ML_methods/arces_classification`)
 ```	
 
-Replace /path/to/your/root/repository/directory with the actual path to your root directory.
+Replace `/path/to/your/root/repository/directory` with the actual path to your root directory.
 
-Please note that these commands will only set the `ROOT_DIR` environment variable for the current session. If you open a new terminal or Command Prompt window, you will need to set the environment variable again.
+Please note that these commands will only set the `ROOT_DIR` and `STORAGE_DIR` environment variables for the current session. If you open a new terminal or Command Prompt window, you will need to set the environment variable again.
 
 To set the environment variable permanently, you can add the above command to your shell's startup file (like `~/.bashrc` or `~/.bash_profile` on Unix/Linux/macOS, or the Environment Variables on Windows).
 
