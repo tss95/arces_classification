@@ -46,3 +46,4 @@ export TF_CPP_MIN_LOG_LEVEL=3
 cd /tf
 
 export ROOT_DIR=/tf/
+export STORAGE_DIR=/tf/

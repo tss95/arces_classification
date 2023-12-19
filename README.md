@@ -99,26 +99,34 @@
 
 ## Setting Up the Environment Variable
 
-The application uses an environment variable `ROOT_DIR` to determine the root directory of the project. You need to set this environment variable before running the application.
+The application uses two environment variables: `ROOT_DIR` to determine the root directory of the project, and `STORAGE_DIR` to point to where the output, data and stored scalers are located. You need to set this environment variable before running the application.
 
 ### On Unix/Linux/macOS
 
 Open your terminal and enter the following command:
 
 ```bash
-export ROOT_DIR=/path/to/your/root/directory
+export ROOT_DIR=/path/to/your/root/respository/directory
+export STORAGE_DIR=/path/to/your/storage/directory 
+(for NORSAR employees this will be here: `/projects/active/Array/ML_methods/arces_classification`)
 ```	
 
-Replace /path/to/your/root/directory with the actual path to your root directory.
+Replace /path/to/your/root/repository/directory with the actual path to your root directory.
 
 Please note that these commands will only set the `ROOT_DIR` environment variable for the current session. If you open a new terminal or Command Prompt window, you will need to set the environment variable again.
 
 To set the environment variable permanently, you can add the above command to your shell's startup file (like `~/.bashrc` or `~/.bash_profile` on Unix/Linux/macOS, or the Environment Variables on Windows).
 
-### On Windows
-Open Command Prompt and enter the following command:
+#### Weights & Biases (wandb)
+If you have a Weights & Biases account, the project will use it as long as you export the api key as a environment variable. To do this, run the following command (recommended to add this to your .bashrc file):
 
-Replace `C:\path\to\your\root\directory` with the actual path to your root directory.
+```bash
+wandb_api_key=0o0o0oo00o0o0o0oYOUR_KEYo0o0o0o0o0o0o
+export WANDB_API_KEY=$wandb_api_key
+```
+The `common.sh` script will automatically install wandb if it is not installed, and log you in using the api key.
+
+Wandb is only used in `train.py` and `sweep_train.py` scripts for now. You need to set the details of your wandb call inside these functions. They are currently hard coded. 
 
 ## Training a model
 
@@ -182,8 +190,3 @@ Alternatively, you can run:
 cd ROOT_DIR
 python gbf_iter.py
 ```
-
-
-
-
-
