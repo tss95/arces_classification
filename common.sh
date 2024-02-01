@@ -122,12 +122,12 @@ fi
 
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
 docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus ${GPU_DEVICE} -v $BASE_DIR:/tf $PROJECTNAME:latest-gpu bash -c "$WANDB_EXPORT
-                                                                                                     source /root/.bashrc &&
-                                                                                                     find /tf/data -name 'Thumbs.db' -type f -delete &&
-                                                                                                     export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                     python /tf/run_script.py &&
-                                                                                                     chmod -R 777 /tf/output/* &&
-                                                                                                     bash"
+                                                                                                                                source /root/.bashrc &&
+                                                                                                                                find /tf/data -name 'Thumbs.db' -type f -delete &&
+                                                                                                                                export TF_CPP_MIN_LOG_LEVEL=3 &&
+                                                                                                                                python /tf/run_script.py &&
+                                                                                                                                chmod -R 777 /tf/output/* &&
+                                                                                                                                bash"
 
 
 # Extract model name using Python script

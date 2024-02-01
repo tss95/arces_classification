@@ -1,5 +1,6 @@
 from global_config import cfg, model_cfg
 from src.Loop import Loop
+from src.S4D import S4D
 import numpy as np
 import tensorflow as tf
 from nais.Models import AlexNet1D
@@ -56,8 +57,33 @@ def get_model(label_map_detector: Dict[int, str],
     if cfg.model == "alexnet":
         return AlexNet(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
                        detector_class_weights, classifier_class_weights)
+    if cfg.model == "s4d":
+        return S4DModel(label_map_detector, label_map_classifier, detector_metrics, classifier_metrics,
+                        detector_class_weights, classifier_class_weights)
     else:
         raise ValueError("Model not found.")
+    
+
+class S4DModel(Loop):
+    def __init__(self, label_map_detector: Dict[int, str], label_map_classifier: Dict[int, str], 
+                 detector_metrics: List[Callable], classifier_metrics: List[Callable],
+                 detector_class_weights: Dict[str, float], classifier_class_weights: Dict[str, float]):
+        super(S4DModel, self).__init__(label_map_detector, label_map_classifier, 
+                                        detector_metrics, classifier_metrics, 
+                                        detector_class_weights, classifier_class_weights)
+        self.initializer = get_initializer(model_cfg.initializer)
+        self.backbone = S4(d_model = model_cfg.d_model, d_state = model_cfg.d_state, dropout= model_cfg.dropout, transposed=model_cfg.transposed)  # Replace with the actual S4D model
+        self.final_dense_detector = tfl.Dense(1, activation=None, kernel_initializer=self.initializer, name="final_dense_detector")  
+        self.final_dense_classifier = tfl.Dense(1, activation=None, kernel_initializer=self.initializer, name="final_dense_classifier")
+
+    @tf.function
+    def call(self, inputs: tf.Tensor, training: bool = False) -> Dict[str, tf.Tensor]:
+        x = inputs
+        x, _ = self.backbone(x)  # S4D model returns two values
+        output_detector = self.final_dense_detector(x)
+        output_classifier = self.final_dense_classifier(x)
+
+        return {'detector': output_detector, 'classifier': output_classifier}
 
 class AlexNet(Loop):
     """

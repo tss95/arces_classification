@@ -127,6 +127,17 @@ Please note that these commands will only set the `ROOT_DIR` and `STORAGE_DIR` e
 
 To set the environment variable permanently, you can add the above command to your shell's startup file (like `~/.bashrc` or `~/.bash_profile` on Unix/Linux/macOS, or the Environment Variables on Windows).
 
+#### In Jupyter Notebooks
+
+If you're running parts of the project in a Jupyter Notebook, you will need to set the environment variable in the notebook itself. You can do this by running the following code:
+
+```python
+import os
+os.environ['ROOT_DIR'] = '/path/to/your/root/dir'
+os.environ['STORAGE_DIR'] = '/path/to/your/storage/dir'
+```
+NOTE: This needs to be before you import any of the project files.
+
 #### Weights & Biases (wandb)
 If you have a Weights & Biases account, the project will use it as long as you export the api key as a environment variable. To do this, run the following command (recommended to add this to your .bashrc file):
 

@@ -1,5 +1,5 @@
 
-model: "alexnet" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
+model: "s4" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
 model_name: "best_alexnet_epoch_30.hdf5" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
 predict: True

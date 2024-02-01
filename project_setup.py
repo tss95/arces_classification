@@ -60,7 +60,6 @@ def setup_config_and_logging():
         Tuple[Logger, SimpleNamespace, SimpleNamespace, str]: Tuple containing the logger, 
         general configuration, model-specific configuration, and run ID.
     """
-    # Your LOGGING_CONFIG presumably comes from another file. Import it here.
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     run_id = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
