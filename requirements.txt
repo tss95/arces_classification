@@ -6,7 +6,6 @@ scikit-learn
 hydra-core
 numpy   
 debugpy
-tensorflow
 ipykernel
 colorlog
 pandas
@@ -25,3 +24,7 @@ nais
 contextily
 seismonpy
 multitaper
+-f https://download.pytorch.org/whl/cu118
+torch
+torchvision
+torchaudio

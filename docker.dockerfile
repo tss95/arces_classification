@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest-gpu
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-devel
 RUN echo "Using TensorFlow GPU-enabled base image"
 
 # Install required packages
