@@ -11,23 +11,23 @@ class augment_torch:
     def augment_pipeline(self, x, y):
         # Add Noise
         if cfg.augment.add_noise:
-            x = self.add_noise_torch(x, cfg.augment.add_noise_kwargs.prob)
+            x = self.add_noise(x, cfg.augment.add_noise_kwargs.prob)
         
         # Taper
         if cfg.augment.taper:
-            x = self.taper_torch(x, cfg.augment.taper_kwargs.prob, cfg.augment.taper_kwargs.alpha)
+            x = self.taper(x, cfg.augment.taper_kwargs.prob, cfg.augment.taper_kwargs.alpha)
             
         # Add Gap
         if cfg.augment.add_gap:
-            x = self.add_gap_torch(x, cfg.augment.add_gap_kwargs.prob, cfg.augment.add_gap_kwargs.max_size)
+            x = self.add_gap(x, cfg.augment.add_gap_kwargs.prob, cfg.augment.add_gap_kwargs.max_size)
             
         # Zero Channel
         if cfg.augment.zero_channel:
-            x = self.zero_channel_torch(x, cfg.augment.zero_channel_kwargs.prob)
+            x = self.zero_channel(x, cfg.augment.zero_channel_kwargs.prob)
             
         return x, y
 
-    def add_noise_torch(self, x, prob):
+    def add_noise(self, x, prob):
         batch_size = x.shape[0]
         num_to_select = round(batch_size * prob)
         indices = torch.randperm(batch_size)[:num_to_select]
@@ -48,7 +48,7 @@ class augment_torch:
         x.index_add_(0, indices, scaled_noise)
         return x
 
-    def add_gap_torch(self, x, prob, max_size: float):
+    def add_gap(self, x, prob, max_size: float):
         batch_size, timesteps, n_channels = x.shape
 
         # Number of batches to select for introducing gaps
@@ -81,12 +81,12 @@ class augment_torch:
 
         return updated_values
     
-    def taper_torch(self, x, prob, alpha=0.04):
+    def taper(self, x, prob, alpha=0.04):
         batch_size = x.shape[0]
         num_to_select = int(round(batch_size * prob))
         indices = torch.randperm(batch_size)[:num_to_select]
 
-        w = self.tukey_torch(x.shape[1], alpha, device=x.device)
+        w = self.tukey(x.shape[1], alpha, device=x.device)
         w=w.type(x.dtype)
         w = w.unsqueeze(-1)
         selected_x = x[indices]
@@ -95,7 +95,7 @@ class augment_torch:
         x[indices] = updated_x
         return x
     
-    def zero_channel_torch(self, x, prob):
+    def zero_channel(self, x, prob):
         dtype = x.dtype  # Capture the data type of the input tensor
         batch_size, timesteps, n_channels = x.shape
 
@@ -118,7 +118,7 @@ class augment_torch:
 
         return x_copy
 
-    def tukey_torch(self, M, alpha=0.5, device='cuda:0'):
+    def tukey(self, M, alpha=0.5, device='cuda:0'):
         # Create the Tukey window in PyTorch
         # M is the number of points in the output window
         if alpha <= 0:
@@ -149,24 +149,24 @@ class augment_tf:
     def augment_pipeline(self, x, y):
         # Add Noise
         if cfg.augment.add_noise:
-            x = self.add_noise_tf(x, cfg.augment.add_noise_kwargs.prob)
+            x = self.add_noise(x, cfg.augment.add_noise_kwargs.prob)
         
         # Taper
         if cfg.augment.taper:
-            x = self.taper_tf(x, cfg.augment.taper_kwargs.prob, cfg.augment.taper_kwargs.alpha)
+            x = self.taper(x, cfg.augment.taper_kwargs.prob, cfg.augment.taper_kwargs.alpha)
             
         # Add Gap
         if cfg.augment.add_gap:
-            x = self.add_gap_tf(x, cfg.augment.add_gap_kwargs.prob, cfg.augment.add_gap_kwargs.max_size)
+            x = self.add_gap(x, cfg.augment.add_gap_kwargs.prob, cfg.augment.add_gap_kwargs.max_size)
             
         # Zero Channel
         if cfg.augment.zero_channel:
-            x = self.zero_channel_tf(x, cfg.augment.zero_channel_kwargs.prob)
+            x = self.zero_channel(x, cfg.augment.zero_channel_kwargs.prob)
             
         return x, y
 
 
-    def add_noise_tf(self, x, prob):
+    def add_noise(self, x, prob):
         batch_size = tf.shape(x)[0]
         num_to_select = tf.cast(tf.round(tf.cast(batch_size, tf.float32) * prob), tf.int32)
         indices = tf.random.shuffle(tf.range(batch_size))[:num_to_select]
@@ -191,11 +191,11 @@ class augment_tf:
 
 
 
-    def taper_tf(self, x, prob, alpha=0.04):
+    def taper(self, x, prob, alpha=0.04):
         batch_size = tf.shape(x)[0]
         num_to_select = tf.cast(tf.round(tf.cast(batch_size, tf.float32) * prob), tf.int32)
         indices = tf.random.shuffle(tf.range(batch_size))[:num_to_select]
-        w = self.tukey_tf(tf.shape(x)[1], alpha) 
+        w = self.tukey(tf.shape(x)[1], alpha) 
         # Cast to ensure data type consistency
         w = tf.cast(w, dtype=x.dtype)
         
@@ -214,8 +214,8 @@ class augment_tf:
 
 
 
-    def add_gap_tf(self, x, prob, max_size: float):
-        logger.warning("add_gap_tf is not implemented yet")
+    def add_gap(self, x, prob, max_size: float):
+        logger.warning("add_gap (tensorflow) is not implemented yet. Only available in pytorch.")
         return x
         """
         batch_size, timesteps, n_channels = tf.shape(x)
@@ -256,7 +256,7 @@ class augment_tf:
         return x
         """
 
-    def zero_channel_tf(self, x, prob):
+    def zero_channel(self, x, prob):
         dtype = x.dtype  # Capture the data type of the input tensor
         batch_size, timesteps, n_channels = tf.shape(x)
 
@@ -281,7 +281,7 @@ class augment_tf:
         return x_copy
 
 
-    def tukey_tf(self, M, alpha=0.5):
+    def tukey(self, M, alpha=0.5):
         # Create the Tukey window in TensorFlow
         # M is the number of points in the output window
         if alpha <= 0:
@@ -306,8 +306,8 @@ def test_tukey():
     M = 10
     alpha = 0.5
     
-    w_tf = augment_tf.tukey_tf(M, alpha)
-    w_torch = augment_torch.tukey_torch(M, alpha)
+    w_tf = augment_tf().tukey(M, alpha)
+    w_torch = augment_torch().tukey(M, alpha)
 
     assert np.allclose(w_tf.numpy(), w_torch.cpu().numpy(), atol=1e-6)
 
@@ -316,8 +316,8 @@ def test_add_noise():
     x_torch = torch.from_numpy(np.copy(x_tf.numpy()))
     prob = 0.5
 
-    y_tf = add_noise_tf(x_tf, prob)
-    y_torch = add_noise_torch(x_torch, prob)
+    y_tf = augment_tf().add_noise(x_tf, prob)
+    y_torch = augment_torch().add_noise(x_torch, prob)
 
     assert np.allclose(y_tf.numpy(), y_torch.numpy(), atol=1e-3)
 
@@ -327,8 +327,8 @@ def test_taper():
     prob = 0.5
     alpha = 0.04
 
-    y_tf = taper_tf(x_tf, prob, alpha)
-    y_torch = taper_torch(x_torch, prob, alpha)
+    y_tf = augment_tf().taper(x_tf, prob, alpha)
+    y_torch = augment_torch().taper(x_torch, prob, alpha)
 
     assert np.allclose(y_tf.numpy(), y_torch.cpu().numpy(), atol=1e-6)
 
@@ -341,8 +341,8 @@ def test_zero_channel():
     x_tf = tf.convert_to_tensor(x_torch.numpy())
 
     # Call both functions
-    output_torch = zero_channel_torch(x_torch, prob=1)
-    output_tf = zero_channel_tf(x_tf, prob=1)
+    output_torch = augment_torch().zero_channel(x_torch, prob=1)
+    output_tf = augment_tf().zero_channel(x_tf, prob=1)
 
     # Convert the output of the PyTorch function to a TensorFlow tensor
     output_torch_tf = tf.convert_to_tensor(output_torch.numpy())
@@ -357,8 +357,8 @@ def test_gap():
     x_tf = tf.convert_to_tensor(x_torch.numpy())
 
     # Call both functions
-    output_torch = add_gap_torch(x_torch, prob=1, max_size=0.1)
-    output_tf = add_gap_tf(x_tf, prob=1, max_size=0.1)
+    output_torch = augment_torch().add_gap(x_torch, prob=1, max_size=0.1)
+    output_tf = augment_tf().add_gap(x_tf, prob=1, max_size=0.1)
 
     # Convert the output of the PyTorch function to a TensorFlow tensor
     output_torch_tf = tf.convert_to_tensor(output_torch.numpy())
@@ -388,6 +388,8 @@ def plot_results(x_tf, output_torch_tf, output_tf, title):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import os
+    import tensorflow as tf
+    import torch
 
     test_add_noise()
     test_tukey()

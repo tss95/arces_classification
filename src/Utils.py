@@ -2,7 +2,7 @@ from global_config import cfg, logger
 import matplotlib.pyplot as plt
 
 from src.LoadData import LoadData
-from src.Scaler import Scaler
+from src.Scaler_tf import Scaler
 from datetime import datetime
 
 import geopandas as gpd
