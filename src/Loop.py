@@ -81,6 +81,8 @@ class Loop(tf.keras.Model):
         self.detector_metrics = MetricsPipeline(detector_metrics)
         self.classifier_metrics = MetricsPipeline(classifier_metrics)
 
+
+
     
     @tf.function
     def on_epoch_end(self, epoch: int, logs: Union[Dict[str, Any], None] = None):

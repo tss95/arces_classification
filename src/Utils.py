@@ -7,11 +7,10 @@ from datetime import datetime
 
 import geopandas as gpd
 import math
-from tensorflow.keras.utils import to_categorical
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
-import tensorflow as tf
+import torch
 from typing import Dict, List, Tuple, Any, Optional
 
 def prepare_labels_and_weights(labels: List[str], label_encoder: Optional[Dict[str, LabelEncoder]] = None) -> Tuple[Dict[int, Dict[str, np.ndarray]], np.ndarray, np.ndarray, Dict[str, LabelEncoder], Dict[int, str], Dict[int, str]]:
@@ -44,8 +43,8 @@ def prepare_labels_and_weights(labels: List[str], label_encoder: Optional[Dict[s
     classifier_labels_encoded = label_encoder['classifier'].fit_transform([label for label in classifier_labels if label != "noise"])
     classifier_labels_encoded_full = label_encoder['classifier'].transform(classifier_labels)
 
-    detector_labels_onehot = to_categorical(detector_labels_encoded)
-    classifier_labels_onehot = to_categorical(classifier_labels_encoded_full)
+    detector_labels_onehot = torch.nn.functional.one_hot(torch.tensor(detector_labels_encoded)).numpy()
+    classifier_labels_onehot = torch.nn.functional.one_hot(torch.tensor(classifier_labels_encoded_full)).numpy()
 
     # Calculate class weights for detector and classifier
     detector_class_weights = compute_class_weight('balanced', classes=np.unique(detector_labels_encoded), y=detector_labels_encoded)
@@ -103,10 +102,10 @@ def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dic
         - A dictionary with updated predicted probabilities for both 'detector' and 'classifier'.
     """
     final_labels = []
-    pred_probs_detector = tf.sigmoid(tf.cast(pred_probs['detector'], tf.float32)).numpy()       
+    pred_probs_detector = torch.sigmoid(torch.tensor(pred_probs['detector'], dtype=torch.float32)).numpy()       
     pred_labels_detector = apply_threshold(pred_probs_detector)
 
-    pred_probs_classifier = tf.sigmoid(tf.cast(pred_probs['classifier'], tf.float32)).numpy()
+    pred_probs_classifier = torch.sigmoid(torch.tensor(pred_probs['classifier'], dtype=torch.float32)).numpy()
     pred_labels_classifier = apply_threshold(pred_probs_classifier)
 
     final_labels = translate_labels(pred_labels_detector, pred_labels_classifier, label_map)

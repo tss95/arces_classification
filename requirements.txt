@@ -28,3 +28,4 @@ multitaper
 torch
 torchvision
 torchaudio
+lightning
