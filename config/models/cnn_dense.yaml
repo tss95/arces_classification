@@ -6,5 +6,5 @@ l2: 0.001
 dropout: 0.001
 pool_type: "max"
 dense_units: [128, 128]
-initializer: "glorot_uniform"
+initializer: "uniform"
 conv_type: "not_seperable"

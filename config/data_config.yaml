@@ -1,8 +1,10 @@
 
-model: "s4" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
+model: "cnn_dense" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
 model_name: "best_alexnet_epoch_30.hdf5" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
-predict: True
+predict: False # Whether or not to make predictions. Needed for live.
+device: "cuda"
+workers: 12 # Number of workers for the dataloader. Needed for live.
 
 paths: # Needed for live
   data_path: data/ # Directory for training, validation and test data. Not needed for live
@@ -91,3 +93,9 @@ optimizer: # Not needed for live
     max_lr: 0.0001 # Maximum learning rate
     min_lr: 0.000005 # Minimum learning rate
     weight_decay: 1e-6 # Weight decay
+  scheduler:
+    use_scheduler: True # Whether or not to use a scheduler
+    warmup: False # Whether or not to use warmup
+    warmup_epochs: 5 # Number of warmup epochs
+    scheduler_type: "cosine" # Which scheduler to use. So far only cosine available.
+

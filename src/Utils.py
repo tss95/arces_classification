@@ -13,6 +13,19 @@ import numpy as np
 import torch
 from typing import Dict, List, Tuple, Any, Optional
 
+def collate_fn_train(batch):
+    # Separate inputs and targets
+    inputs, targets = zip(*batch)
+
+    # Stack inputs and targets
+    inputs = torch.stack(inputs, 0)  # This results in a tensor of shape (batch_size, channel, timeseries)
+    targets = torch.stack(targets, 0)
+
+    # Apply augmentation pipeline
+    inputs = augment.augment_pipeline(inputs, targets)
+
+    return inputs, targets
+
 def prepare_labels_and_weights(labels: List[str], label_encoder: Optional[Dict[str, LabelEncoder]] = None) -> Tuple[Dict[int, Dict[str, np.ndarray]], np.ndarray, np.ndarray, Dict[str, LabelEncoder], Dict[int, str], Dict[int, str]]:
     """
     Prepare labels and weights for a seismic data classification task.
@@ -237,7 +250,7 @@ def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, st
         - A dictionary with the predicted probabilities for both 'detector' and 'classifier'.
     """
     x = np.reshape(x, (1, *x.shape))
-    pred_probs = model.predict(x)
+    pred_probs = model(x)
     labels, pred_probs = get_final_labels(pred_probs, label_maps)
     return labels, pred_probs
 
