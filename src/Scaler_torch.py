@@ -8,6 +8,7 @@ from typing import Any, Union
 
 class Scaler:
     # TODO: Memory leak present. If you need to run transform multiple times 
+    # TODO: Shape is only correct for minmax scaler. Need to fix for all
     # (i.e. you cannot hold all of your data in memory) resolve the leak issue
     def __init__(self):
         """
@@ -99,9 +100,9 @@ class MinMaxScaler(Scaler):
 
     def fit(self, X: torch.Tensor):
         if cfg.scaling.global_or_local == "global":
-            x1 = X[:,:,0]
-            x2 = X[:,:,1]
-            x3 = X[:,:,2]
+            x1 = X[:,0]
+            x2 = X[:,1]
+            x3 = X[:,2]
             max_1, max_2, max_3 = torch.max(x1), torch.max(x2), torch.max(x3)
             min_1, min_2, min_3 = torch.min(x1), torch.min(x2), torch.min(x3)
 
@@ -121,9 +122,9 @@ class MinMaxScaler(Scaler):
         if cfg.scaling.global_or_local == "global":
             if cfg.scaling.per_channel:
                 transformed_X = torch.stack([
-                    (X[:,:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0]),
-                    (X[:,:,1] - self.mins[1]) / (self.maxs[1] - self.mins[1]),
-                    (X[:,:,2] - self.mins[2]) / (self.maxs[2] - self.mins[2])
+                    (X[:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0]),
+                    (X[:,1] - self.mins[1]) / (self.maxs[1] - self.mins[1]),
+                    (X[:,2] - self.mins[2]) / (self.maxs[2] - self.mins[2])
                 ], dim=-1)
             else:
                 transformed_X = (X - self.mins) / (self.maxs - self.mins)

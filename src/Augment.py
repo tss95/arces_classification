@@ -28,13 +28,13 @@ class augment_torch:
         return x, y
 
     def add_noise(self, x, prob):
-        batch_size = x.shape[0]
+        batch_size, n_channels, timesteps = x.shape
         num_to_select = round(batch_size * prob)
         indices = torch.randperm(batch_size)[:num_to_select]
         selected_x = x[indices]
 
         if cfg.scaling.per_channel:
-            std_per_channel = torch.std(selected_x, dim=1)
+            std_per_channel = torch.std(selected_x, dim=2)
             noise = torch.randn_like(selected_x)
             scaled_noise = noise * std_per_channel.unsqueeze(-1)
         else:
@@ -42,81 +42,54 @@ class augment_torch:
             noise = torch.randn_like(selected_x)
             scaled_noise = noise * std_global.unsqueeze(-1).unsqueeze(-1)
 
-        # Cast scaled_noise to the same dtype as x
         scaled_noise = scaled_noise.to(x.dtype)
-
         x.index_add_(0, indices, scaled_noise)
         return x
 
     def add_gap(self, x, prob, max_size: float):
-        batch_size, timesteps, n_channels = x.shape
+        batch_size, n_channels, timesteps = x.shape
 
-        # Number of batches to select for introducing gaps
         num_to_select = int(round(batch_size * prob))
-        selected_events = torch.randperm(batch_size)[:num_to_select]
+        selected_indices = torch.randperm(batch_size)[:num_to_select]
+        gap_starts = torch.randint(0, timesteps - int(max_size * timesteps), (num_to_select,))
 
-        # Randomly select a starting points for the gaps
-        gap_starts = torch.randint(0, timesteps-int(max_size*timesteps), (num_to_select,))
-
-        # Create a tensor to hold the updated values
-        updated_values = x.clone()
-
-        for i in range(num_to_select):
-            event = selected_events[i]
+        updated_x = x.clone()
+        for i, index in enumerate(selected_indices):
             gap_start = gap_starts[i]
-            gap_end = gap_start + torch.randint(0, int(max_size*timesteps), (1,))
+            gap_end = gap_start + torch.randint(0, int(max_size * timesteps), (1,))
+            channel = torch.randint(0, n_channels, (1,))
+            
+            gap_mask = torch.zeros(timesteps, dtype=torch.bool)
+            gap_mask[gap_start:gap_end] = True
+            updated_x[index, channel, gap_mask] = updated_x[index, channel, ~gap_mask].mean()
 
-            # Randomly select a channel for each event
-            selected_channel = torch.randint(0, n_channels, (1,))
-
-            # Calculate the average value of the channel for each event
-            avg_val = x[event, :, selected_channel].mean()
-
-            # Create a tensor of indices for the gap
-            gap_indices = torch.arange(timesteps)
-            gap_mask = (gap_indices >= gap_start) & (gap_indices < gap_end)
-
-            # Replace the values within the gap with the average value
-            updated_values[event, gap_mask, selected_channel] = avg_val
-
-        return updated_values
+        return updated_x
     
     def taper(self, x, prob, alpha=0.04):
-        batch_size = x.shape[0]
+        batch_size, n_channels, timesteps = x.shape
         num_to_select = int(round(batch_size * prob))
         indices = torch.randperm(batch_size)[:num_to_select]
 
-        w = self.tukey(x.shape[1], alpha, device=x.device)
-        w=w.type(x.dtype)
-        w = w.unsqueeze(-1)
-        selected_x = x[indices]
-        
-        updated_x = selected_x * w
-        x[indices] = updated_x
+        w = self.tukey(timesteps, alpha, device=x.device).type(x.dtype)
+        w = w.unsqueeze(0).unsqueeze(1)  # Adjust to shape (1, 1, timesteps) for broadcasting
+
+        for index in indices:
+            x[index] *= w  # Apply taper window across the timesteps
+
         return x
     
     def zero_channel(self, x, prob):
-        dtype = x.dtype  # Capture the data type of the input tensor
-        batch_size, timesteps, n_channels = x.shape
-
-        # Calculate the number of events to zero out
+        batch_size, n_channels, timesteps = x.shape
         num_to_select = round(batch_size * prob)
-
-        # Randomly select batch indices to zero out
         selected_indices = torch.randperm(batch_size)[:num_to_select]
+        channels_to_zero = torch.randint(0, n_channels, (num_to_select,))
 
-        # Generate a random channel for each selected batch
-        random_channels = torch.randint(0, n_channels, (num_to_select,))
+        for i, batch_index in enumerate(selected_indices):
+            channel = channels_to_zero[i]
+            # Zero out the selected channel
+            x[batch_index, channel, :] = 0  # Updated to zero out across timesteps
 
-        # Create a copy of the original tensor
-        x_copy = x.clone()
-
-        for i in range(num_to_select):
-            x_i = x_copy[selected_indices[i], :, :]
-            channel_avg = x_i[:,random_channels[i]].mean(dim=-1, keepdim=True)
-            x_copy[selected_indices[i], :, random_channels[i]] = channel_avg
-
-        return x_copy
+        return x
 
     def tukey(self, M, alpha=0.5, device='cuda:0'):
         # Create the Tukey window in PyTorch
@@ -317,13 +290,13 @@ def test_add_noise():
     prob = 0.5
 
     y_tf = augment_tf().add_noise(x_tf, prob)
-    y_torch = augment_torch().add_noise(x_torch, prob)
+    y_torch = augment_torch().add_noise(np.transpose(x_torch), prob)
 
-    assert np.allclose(y_tf.numpy(), y_torch.numpy(), atol=1e-3)
+    assert np.allclose(y_tf.numpy(), np.transpose(y_torch.numpy()), atol=1e-3)
 
 def test_taper():
     x_tf = tf.random.normal([1, 10000, 3])
-    x_torch = torch.from_numpy(np.copy(x_tf.numpy())).to('cuda:0')
+    x_torch = torch.from_numpy(np.transpose(np.copy(x_tf.numpy()))).to('cuda:0')
     prob = 0.5
     alpha = 0.04
 

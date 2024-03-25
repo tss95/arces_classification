@@ -42,9 +42,9 @@ else:
 train_dataset = BeamDataset(train_data, train_labels_dict, transform=None, scaler=scaler)
 val_dataset = BeamDataset(val_data, val_labels_dict, transform=None, scaler=scaler)
 # Creating the DataLoaders
-train_loader = DataLoader(train_dataset, batch_size=cfg.data.batch_size, shuffle=True, 
+train_loader = DataLoader(train_dataset, batch_size=cfg.optimizer.batch_size, shuffle=True, 
                           num_workers=cfg.num_workers, collate_fn=collate_fn_train)
-val_loader = DataLoader(val_dataset, batch_size=cfg.data.batch_size, shuffle=False, 
+val_loader = DataLoader(val_dataset, batch_size=cfg.optimizer.batch_size, shuffle=False, 
                         num_workers=cfg.num_workers, collate_fn=None)
 
 
@@ -59,7 +59,7 @@ summary(model, input_size = input_shape)
 
 # Create a trainer
 if cfg.data.debug:
-    max_epochs = 1
+    cfg.optimizer.max_epochs = 1
 
 wandb_logger = WandbLogger(name=model_name, entity="norsar_ai", project="ARCES classification torch", config=config_dict)
 callbacks = []

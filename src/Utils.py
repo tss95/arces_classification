@@ -1,17 +1,50 @@
-from global_config import cfg, logger
+from global_config import logger
 import matplotlib.pyplot as plt
 
 from src.LoadData import LoadData
-from src.Scaler_tf import Scaler
+from src.Scaler_torch import Scaler
 from datetime import datetime
 
 import geopandas as gpd
 import math
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import LabelEncoder
+from src.Augment import augment_torch
 import numpy as np
 import torch
 from typing import Dict, List, Tuple, Any, Optional
+import os
+
+augment = augment_torch()
+
+def prepare_folders_paths_cfg(run_id, cfg, make_folders=True):
+    """
+    Prepare folders and paths for the seismic data classification project.
+
+    This function creates the necessary folders for storing logs, models, and plots. It also sets up the output project paths.
+
+    Args:
+    cfg: The global configuration object containing all necessary paths and settings.
+
+    """
+    project_path = os.environ.get('PROJECT_DIR')
+    output_path = os.path.join(project_path, cfg.project_paths.output_folder, cfg.model_name, run_id)
+    cfg.project_paths.output_folder = output_path
+    if make_folders:
+        os.makedirs(output_path, exist_ok=True)
+    for key in cfg.project_paths.output_folders:
+        if cfg.project_paths.output_folders[key].endswith('/'):
+            cfg.project_paths.output_folders[key] = os.path.join(output_path, cfg.project_paths.output_folders[key])
+            if make_folders:
+                os.makedirs(cfg.project_paths.output_folders[key], exist_ok=True)
+    for key in cfg.project_paths:
+        if key not in ["output_folders", "output_folder"]:
+            cfg.project_paths[key] = os.path.join(output_path, cfg.project_paths[key])
+            if make_folders:
+                os.makedirs(cfg.project_paths[key], exist_ok=True)
+    return cfg
+            
+    
 
 def collate_fn_train(batch):
     # Separate inputs and targets
@@ -152,7 +185,7 @@ def translate_labels(labels_detector: np.ndarray, labels_classifier: np.ndarray,
     
     return final_labels
 
-def apply_threshold(pred_probs: np.ndarray) -> List[int]:
+def apply_threshold(pred_probs: np.ndarray, cfg) -> List[int]:
     """
     Apply a threshold to predicted probabilities to classify them as 0 or 1.
 
@@ -324,7 +357,7 @@ def downsample_data_labels(data: np.ndarray, labels: np.ndarray, unswapped: Opti
     return downsampled_data, downsampled_labels
 
 
-def prep_data() -> Tuple[Any, ...]:
+def prep_data(cfg) -> Tuple[Any, ...]:
     """
     Prepare and preprocess the seismic data for training and validation.
 
@@ -356,8 +389,8 @@ def prep_data() -> Tuple[Any, ...]:
     if train_dataset is not None:
         train_data, train_labels, train_meta = train_dataset[0],train_dataset[1],train_dataset[2]
         logger.info("Train data shape: " + str(train_data.shape))
-        train_data = np.transpose(train_data, (0,2,1))
-        logger.info("Train data shape after transpose: " + str(train_data.shape))
+        #train_data = np.transpose(train_data, (0,2,1))
+        #logger.info("Train data shape after transpose: " + str(train_data.shape))
         train_labels = swap_labels(train_labels)
         logger.info(f"Train unique labels: {np.unique(train_labels)}")
         if cfg.data.debug:
@@ -396,7 +429,7 @@ def prep_data() -> Tuple[Any, ...]:
     # Similar to training data, but with additional steps specific to validation.
     if val_dataset is not None:
         val_data, val_labels, val_meta = val_dataset[0],val_dataset[1],val_dataset[2]
-        val_data = np.transpose(val_data, (0,2,1))
+        #val_data = np.transpose(val_data, (0,2,1))
         unswapped_labels = val_labels
         val_labels = swap_labels(val_labels)
         logger.info(f"Val unique labels: {np.unique(val_labels)}")

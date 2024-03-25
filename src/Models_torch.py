@@ -1,4 +1,4 @@
-from global_config import cfg, model_cfg
+from global_config import model_cfg, logger
 from src.Loop_torch import Loop
 import numpy as np
 #from nais.Models import AlexNet1D
@@ -9,11 +9,14 @@ import torch.nn as nn
 from typing import Dict, List, Callable
 
 
-def get_model(input_shape: tuple[int, int],
-              label_map_detector: Dict[int, str], 
-              label_map_classifier: Dict[int, str], 
+def get_model(input_shape,
+              detector_metrics_list: List[str],
+              classifier_metrics_list: list[str],
+              label_map_detector: Dict[str, int], 
+              label_map_classifier: Dict[str, int],
               detector_class_weights: Dict[str, float], 
-              classifier_class_weights: Dict[str, float]):
+              classifier_class_weights: Dict[str, float],
+              cfg):
     """
     Creates and returns a model based on configuration settings.
 
@@ -32,8 +35,14 @@ def get_model(input_shape: tuple[int, int],
 
     """
     if cfg.model == "cnn_dense":
-        model = CNN_dense(input_shape, label_map_detector, label_map_classifier,
-                         detector_class_weights, classifier_class_weights)
+        model = CNN_dense(input_shape,
+                        detector_metrics_list,
+                        classifier_metrics_list,
+                        label_map_detector, 
+                        label_map_classifier,
+                        detector_class_weights, 
+                        classifier_class_weights,
+                        cfg)
     else:
         raise ValueError("Model not found.")
     model = model.to("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,11 +80,23 @@ class CNN_dense(Loop):
 
     """
 
-    def __init__(self, input_shape, label_map_detector: Dict[int, str], label_map_classifier: Dict[int, str],
-                 detector_class_weights: Dict[str, float], classifier_class_weights: Dict[str, float]):
+    def __init__(self, input_shape,
+                detector_metrics_list: List[str],
+                classifier_metrics_list: list[str],
+                label_map_detector: Dict[str, int], 
+                label_map_classifier: Dict[str, int],
+                detector_class_weights: Dict[str, float], 
+                classifier_class_weights: Dict[str, float],
+                cfg):
         
-        super(CNN_dense, self).__init__(input_shape, label_map_detector, label_map_classifier, 
-                                        detector_class_weights, classifier_class_weights)
+        super(CNN_dense, self).__init__(input_shape,
+                                        detector_metrics_list,
+                                        classifier_metrics_list,
+                                        label_map_detector, 
+                                        label_map_classifier,
+                                        detector_class_weights, 
+                                        classifier_class_weights,
+                                        cfg)
         self.conv_blocks = nn.ModuleDict()
         self.pool_layers = nn.ModuleList()
         self.dense_blocks = nn.ModuleDict()
@@ -183,8 +204,14 @@ if __name__ == "__main__":
     classifier_class_weight_dict = {"earthquake": 1.0, "explosion": 1.0}
 
     logger.info("Input shape to the model: " + str(input_shape))
-    model = get_model(input_shape, detector_label_map, classifier_label_map,
-                    detector_class_weight_dict, classifier_class_weight_dict)
+    model = get_model(input_shape,
+                        detector_metrics_list,
+                        classifier_metrics_list,
+                        label_map_detector, 
+                        label_map_classifier,
+                        detector_class_weights, 
+                        classifier_class_weights,
+                        cfg)
 
     # Create a trainer
     trainer = Trainer(max_epochs=1)
