@@ -1,0 +1,682 @@
+/staff/tord/miniconda3/envs/arces/lib/python3.11/site-packages/lightning_fabric/connector.py:563: `precision=16` is supported for historical reasons but its usage is discouraged. Please set your precision to 16-mixed instead!
+/staff/tord/miniconda3/envs/arces/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/accelerator_connector.py:552: You passed `Trainer(accelerator='cpu', precision='16-mixed')` but AMP with fp16 is not supported on CPU. Using `precision='bf16-mixed'` instead.
+Using bfloat16 Automatic Mixed Precision (AMP)
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/1
+----------------------------------------------------------------------------------------------------
+distributed_backend=gloo
+All distributed processes registered. Starting with 1 processes
+----------------------------------------------------------------------------------------------------
+Level 1:tensorflow:Registering FakeQuantWithMinMaxArgs (<function _FakeQuantWithMinMaxArgsGradient at 0x7fd49a6d6fc0>) in gradient.
+Level 1:tensorflow:Registering FakeQuantWithMinMaxVars (<function _FakeQuantWithMinMaxVarsGradient at 0x7fd49a6d72e0>) in gradient.
+Level 1:tensorflow:Registering FakeQuantWithMinMaxVarsPerChannel (<function _FakeQuantWithMinMaxVarsPerChannelGradient at 0x7fd49a6d7380>) in gradient.
+Level 1:tensorflow:Registering QuantizeAndDequantizeV4 (<function _QuantizeAndDequantizeV4Grad at 0x7fd49a5d8360>) in gradient.
+Level 1:tensorflow:Registering QuantizeAndDequantizeV4Grad (<function _QuantizeAndDequantizeV4GradGrad at 0x7fd49a5d8400>) in gradient.
+Level 1:tensorflow:Registering AccumulateNV2 (<function _accumulate_n_grad at 0x7fd49a46fce0>) in gradient.
+Level 1:tensorflow:Registering TensorListConcatLists (None) in gradient.
+Level 1:tensorflow:Registering TensorListElementShape (None) in gradient.
+Level 1:tensorflow:Registering TensorListLength (None) in gradient.
+Level 1:tensorflow:Registering TensorListPushBackBatch (None) in gradient.
+Level 1:tensorflow:Registering TensorListPushBack (<function _PushBackGrad at 0x7fd49a1d7f60>) in gradient.
+Level 1:tensorflow:Registering TensorListPopBack (<function _PopBackGrad at 0x7fd49a1e8040>) in gradient.
+Level 1:tensorflow:Registering TensorListStack (<function _TensorListStackGrad at 0x7fd49a1e80e0>) in gradient.
+Level 1:tensorflow:Registering TensorListConcatV2 (<function _TensorListConcatGrad at 0x7fd49a1e8180>) in gradient.
+Level 1:tensorflow:Registering TensorListConcat (<function _TensorListConcatGrad at 0x7fd49a1e8180>) in gradient.
+Level 1:tensorflow:Registering TensorListSplit (<function _TensorListSplitGrad at 0x7fd49a1e8220>) in gradient.
+Level 1:tensorflow:Registering TensorListFromTensor (<function _TensorListFromTensorGrad at 0x7fd49a1e82c0>) in gradient.
+Level 1:tensorflow:Registering TensorListGetItem (<function _TensorListGetItemGrad at 0x7fd49a1e8360>) in gradient.
+Level 1:tensorflow:Registering TensorListSetItem (<function _TensorListSetItemGrad at 0x7fd49a1e8400>) in gradient.
+Level 1:tensorflow:Registering TensorListResize (<function _TensorListResizeGrad at 0x7fd49a1e84a0>) in gradient.
+Level 1:tensorflow:Registering TensorListGather (<function _TensorListGatherGrad at 0x7fd49a1e8540>) in gradient.
+Level 1:tensorflow:Registering TensorListScatterV2 (<function _TensorListScatterGrad at 0x7fd49a1e85e0>) in gradient.
+Level 1:tensorflow:Registering TensorListScatter (<function _TensorListScatterGrad at 0x7fd49a1e85e0>) in gradient.
+Level 1:tensorflow:Registering TensorListScatterIntoExistingList (<function _TensorListScatterIntoExistingListGrad at 0x7fd49a1e8680>) in gradient.
+Level 1:tensorflow:Registering cond_context ((<class 'tensorflow.core.protobuf.control_flow_pb2.CondContextDef'>, <function CondContext.to_proto at 0x7fd49a1f6a20>, <function CondContext.from_proto at 0x7fd49a1f6ac0>)) in proto functions.
+Level 1:tensorflow:Registering while_context ((<class 'tensorflow.core.protobuf.control_flow_pb2.WhileContextDef'>, <function WhileContext.to_proto at 0x7fd49a1f7880>, <function WhileContext.from_proto at 0x7fd49a1f79c0>)) in proto functions.
+Level 1:tensorflow:Registering ReadVariableOp (<function _ReadGrad at 0x7fd49a26e160>) in gradient.
+Level 1:tensorflow:Registering ResourceGather (<function _GatherGrad at 0x7fd49a26f060>) in gradient.
+Level 1:tensorflow:Registering Assert (None) in gradient.
+Level 1:tensorflow:Registering VarIsInitializedOp (None) in gradient.
+Level 1:tensorflow:Registering VariableShape (None) in gradient.
+Level 1:tensorflow:Registering EnsureShape (<function _ensure_shape_grad at 0x7fd49a11dc60>) in gradient.
+Level 1:tensorflow:Registering RaggedTensorToSparse (<function _ragged_tensor_to_sparse_gradient at 0x7fd49a1a9d00>) in gradient.
+Level 1:tensorflow:Registering _identity_resolver (<function _identity_resolver at 0x7fd49984cf40>) in acd_resource_resolvers.
+Level 1:tensorflow:Registering BitwiseAnd (None) in gradient.
+Level 1:tensorflow:Registering BitwiseOr (None) in gradient.
+Level 1:tensorflow:Registering BitwiseXor (None) in gradient.
+Level 1:tensorflow:Registering Invert (None) in gradient.
+Level 1:tensorflow:Registering PopulationCount (None) in gradient.
+Level 1:tensorflow:Registering LeftShift (None) in gradient.
+Level 1:tensorflow:Registering RightShift (None) in gradient.
+Level 1:tensorflow:Registering StatelessMultinomial (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomBinomial (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomNormal (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomPoisson (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniform (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniformInt (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniformFullInt (None) in gradient.
+Level 1:tensorflow:Registering StatelessTruncatedNormal (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomNormalV2 (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniformV2 (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniformIntV2 (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomUniformFullIntV2 (None) in gradient.
+Level 1:tensorflow:Registering StatelessTruncatedNormalV2 (None) in gradient.
+Level 1:tensorflow:Registering StatelessRandomShuffle (None) in gradient.
+Level 1:tensorflow:Registering RandomIndexShuffle (None) in gradient.
+Level 1:tensorflow:Registering RandomStandardNormal (None) in gradient.
+Level 1:tensorflow:Registering ParameterizedTruncatedNormal (None) in gradient.
+Level 1:tensorflow:Registering TruncatedNormal (None) in gradient.
+Level 1:tensorflow:Registering RandomUniform (None) in gradient.
+Level 1:tensorflow:Registering RandomShuffle (None) in gradient.
+Level 1:tensorflow:Registering Multinomial (None) in gradient.
+Level 1:tensorflow:Registering variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering trainable_variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering moving_average_variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering local_variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering model_variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering global_step ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering metric_variables ((<class 'tensorflow.core.framework.variable_pb2.VariableDef'>, <function _to_proto_fn at 0x7fd4997271a0>, <function _from_proto_fn at 0x7fd499726e80>)) in proto functions.
+Level 1:tensorflow:Registering CompositeTensorVariantFromComponents (<function _composite_tensor_to_variants_grad at 0x7fd499542ca0>) in gradient.
+Level 1:tensorflow:Registering CompositeTensorVariantToComponents (<function _composite_tensor_from_variant_grad at 0x7fd499542d40>) in gradient.
+Level 1:tensorflow:Registering XlaEinsum (<function _einsum_grad at 0x7fd4995059e0>) in gradient.
+Level 1:tensorflow:Registering Conv3D,flops (<function _calc_conv3d_flops at 0x7fd4993d0360>) in statistical functions.
+Level 1:tensorflow:Registering Conv2D,flops (<function _calc_conv_flops at 0x7fd4993d0540>) in statistical functions.
+Level 1:tensorflow:Registering DepthwiseConv2dNative,flops (<function _calc_depthwise_conv_flops at 0x7fd4993d05e0>) in statistical functions.
+Level 1:tensorflow:Registering BiasAdd,flops (<function _calc_bias_add_flops at 0x7fd4993d0900>) in statistical functions.
+Level 1:tensorflow:Registering Dilation2D,flops (<function _calc_dilation2d_flops at 0x7fd4993d2200>) in statistical functions.
+Level 1:tensorflow:Registering RaggedRange (None) in gradient.
+Level 1:tensorflow:Registering DecodeRaw (None) in gradient.
+Level 1:tensorflow:Registering DecodePaddedRaw (None) in gradient.
+Level 1:tensorflow:Registering ParseTensor (None) in gradient.
+Level 1:tensorflow:Registering SerializeTensor (None) in gradient.
+Level 1:tensorflow:Registering StringToNumber (None) in gradient.
+Level 1:tensorflow:Registering ReaderRead (None) in gradient.
+Level 1:tensorflow:Registering ReaderReadUpTo (None) in gradient.
+Level 1:tensorflow:Registering ReaderNumRecordsProduced (None) in gradient.
+Level 1:tensorflow:Registering ReaderNumWorkUnitsCompleted (None) in gradient.
+Level 1:tensorflow:Registering ReaderSerializeState (None) in gradient.
+Level 1:tensorflow:Registering ReaderRestoreState (None) in gradient.
+Level 1:tensorflow:Registering ReaderReset (None) in gradient.
+Level 1:tensorflow:Registering WholeFileReader (None) in gradient.
+Level 1:tensorflow:Registering TextLineReader (None) in gradient.
+Level 1:tensorflow:Registering FixedLengthRecordReader (None) in gradient.
+Level 1:tensorflow:Registering TFRecordReader (None) in gradient.
+Level 1:tensorflow:Registering LMDBReader (None) in gradient.
+Level 1:tensorflow:Registering IdentityReader (None) in gradient.
+Level 1:tensorflow:Registering RegexReplace (None) in gradient.
+Level 1:tensorflow:Registering StringToHashBucket (None) in gradient.
+Level 1:tensorflow:Registering StringToHashBucketFast (None) in gradient.
+Level 1:tensorflow:Registering StringToHashBucketStrong (None) in gradient.
+Level 1:tensorflow:Registering ReduceJoin (None) in gradient.
+Level 1:tensorflow:Registering StringJoin (None) in gradient.
+Level 1:tensorflow:Registering StringSplit (None) in gradient.
+Level 1:tensorflow:Registering AsString (None) in gradient.
+Level 1:tensorflow:Registering EncodeBase64 (None) in gradient.
+Level 1:tensorflow:Registering DecodeBase64 (None) in gradient.
+Level 1:tensorflow:Registering savers ((<class 'tensorflow.core.protobuf.saver_pb2.SaverDef'>, <function Saver.to_proto at 0x7fd499039800>, <function Saver.from_proto at 0x7fd4990398a0>)) in proto functions.
+Level 1:tensorflow:Registering AllToAll (<function _all_to_all_grad at 0x7fd49898f560>) in gradient.
+Level 1:tensorflow:Registering CollectivePermute (<function _collective_permute_grad at 0x7fd49898f7e0>) in gradient.
+Level 1:tensorflow:Registering CrossReplicaSum (<function _cross_replica_sum_grad at 0x7fd49898f740>) in gradient.
+Level 1:tensorflow:Registering TPUEmbeddingActivations (<function _embedding_activations_grad at 0x7fd49898f880>) in gradient.
+Level 1:tensorflow:Registering ClipByValue (<function _clip_by_value_grad at 0x7fd4986e3740>) in gradient.
+Level 1:tensorflow:Registering XlaVariadicReduce (None) in gradient.
+Level 1:tensorflow:Registering XlaSharding (<function _sharding_grad at 0x7fd4985eb060>) in gradient.
+Level 1:tensorflow:Registering XlaSpmdFullToShardShape (<function _spmd_full_to_shard_shape_grad at 0x7fd4985eb100>) in gradient.
+Level 1:tensorflow:Registering XlaSpmdShardToFullShape (<function _spmd_shard_to_full_shape_grad at 0x7fd4985eb1a0>) in gradient.
+Level 1:tensorflow:Registering Pack (<function _PackGrad at 0x7fd4984b39c0>) in gradient.
+Level 1:tensorflow:Registering Unpack (<function _UnpackGrad at 0x7fd4984b3ce0>) in gradient.
+Level 1:tensorflow:Registering Concat (<function _ConcatGrad at 0x7fd4984dc040>) in gradient.
+Level 1:tensorflow:Registering ConcatV2 (<function _ConcatGradV2 at 0x7fd4984dc0e0>) in gradient.
+Level 1:tensorflow:Registering ConcatOffset (None) in gradient.
+Level 1:tensorflow:Registering Slice (<function _SliceGrad at 0x7fd4984dc180>) in gradient.
+Level 1:tensorflow:Registering StridedSlice (<function _StridedSliceGrad at 0x7fd4984dc220>) in gradient.
+Level 1:tensorflow:Registering StridedSliceGrad (<function _StridedSliceGradGrad at 0x7fd4984dc2c0>) in gradient.
+Level 1:tensorflow:Registering TensorStridedSliceUpdate (<function _TensorStridedSliceUpdateGrad at 0x7fd4984dc360>) in gradient.
+Level 1:tensorflow:Registering Split (<function _SplitGrad at 0x7fd4984dc400>) in gradient.
+Level 1:tensorflow:Registering SplitV (<function _SplitVGrad at 0x7fd4984dc4a0>) in gradient.
+Level 1:tensorflow:Registering Const (None) in gradient.
+Level 1:tensorflow:Registering Diag (<function _DiagGrad at 0x7fd4984dc540>) in gradient.
+Level 1:tensorflow:Registering DiagPart (<function _DiagPartGrad at 0x7fd4984dc5e0>) in gradient.
+Level 1:tensorflow:Registering MatrixDiag (<function _MatrixDiagGrad at 0x7fd4984dc680>) in gradient.
+Level 1:tensorflow:Registering MatrixDiagV2 (<function _MatrixDiagV2Grad at 0x7fd4984dc720>) in gradient.
+Level 1:tensorflow:Registering MatrixDiagV3 (<function _MatrixDiagV3Grad at 0x7fd4984dc7c0>) in gradient.
+Level 1:tensorflow:Registering MatrixDiagPart (<function _MatrixDiagPartGrad at 0x7fd4984dc860>) in gradient.
+Level 1:tensorflow:Registering MatrixDiagPartV2 (<function _MatrixDiagPartV2Grad at 0x7fd4984dc900>) in gradient.
+Level 1:tensorflow:Registering MatrixDiagPartV3 (<function _MatrixDiagPartV3Grad at 0x7fd4984dc9a0>) in gradient.
+Level 1:tensorflow:Registering MatrixSetDiag (<function _MatrixSetDiagGrad at 0x7fd4984dca40>) in gradient.
+Level 1:tensorflow:Registering MatrixSetDiagV2 (<function _MatrixSetDiagGradV2 at 0x7fd4984dcae0>) in gradient.
+Level 1:tensorflow:Registering MatrixSetDiagV3 (<function _MatrixSetDiagGradV3 at 0x7fd4984dcb80>) in gradient.
+Level 1:tensorflow:Registering MatrixBandPart (<function _MatrixBandPartGrad at 0x7fd4984dcc20>) in gradient.
+Level 1:tensorflow:Registering EditDistance (None) in gradient.
+Level 1:tensorflow:Registering Fill (<function _FillGrad at 0x7fd4984dccc0>) in gradient.
+Level 1:tensorflow:Registering ZerosLike (None) in gradient.
+Level 1:tensorflow:Registering OnesLike (None) in gradient.
+Level 1:tensorflow:Registering PreventGradient (<function _PreventGradientGrad at 0x7fd4984dcd60>) in gradient.
+Level 1:tensorflow:Registering Gather (<function _GatherGrad at 0x7fd4984dcea0>) in gradient.
+Level 1:tensorflow:Registering GatherV2 (<function _GatherV2Grad at 0x7fd4984dd080>) in gradient.
+Level 1:tensorflow:Registering GatherNd (<function _GatherNdGrad at 0x7fd4984dd120>) in gradient.
+Level 1:tensorflow:Registering ResourceGatherNd (<function _ResourceGatherNdGrad at 0x7fd4984dd1c0>) in gradient.
+Level 1:tensorflow:Registering CheckNumerics (<function _CheckNumericsGrad at 0x7fd4984dd260>) in gradient.
+Level 1:tensorflow:Registering CheckNumericsV2 (<function _CheckNumericsV2Grad at 0x7fd4984dd300>) in gradient.
+Level 1:tensorflow:Registering Identity (<function _IdGrad at 0x7fd4984dd3a0>) in gradient.
+Level 1:tensorflow:Registering PlaceholderWithDefault (<function _IdGrad at 0x7fd4984dd3a0>) in gradient.
+Level 1:tensorflow:Registering _EagerConst (<function _EagerConstGrad at 0x7fd4984dd440>) in gradient.
+Level 1:tensorflow:Registering RefIdentity (<function _RefIdGrad at 0x7fd4984dd4e0>) in gradient.
+Level 1:tensorflow:Registering IdentityN (<function _IdNGrad at 0x7fd4984dd580>) in gradient.
+Level 1:tensorflow:Registering StopGradient (None) in gradient.
+Level 1:tensorflow:Registering Reshape (<function _ReshapeGrad at 0x7fd4984dd620>) in gradient.
+Level 1:tensorflow:Registering InvertPermutation (None) in gradient.
+Level 1:tensorflow:Registering ExpandDims (<function _ExpandDimsGrad at 0x7fd4984dd760>) in gradient.
+Level 1:tensorflow:Registering Squeeze (<function _SqueezeGrad at 0x7fd4984dd800>) in gradient.
+Level 1:tensorflow:Registering Transpose (<function _TransposeGrad at 0x7fd4984dd8a0>) in gradient.
+Level 1:tensorflow:Registering ConjugateTranspose (<function _ConjugateTransposeGrad at 0x7fd4984dd940>) in gradient.
+Level 1:tensorflow:Registering Shape (None) in gradient.
+Level 1:tensorflow:Registering ShapeN (None) in gradient.
+Level 1:tensorflow:Registering Rank (None) in gradient.
+Level 1:tensorflow:Registering Size (None) in gradient.
+Level 1:tensorflow:Registering Tile (<function _TileGrad at 0x7fd4984dd9e0>) in gradient.
+Level 1:tensorflow:Registering BroadcastGradientArgs (None) in gradient.
+Level 1:tensorflow:Registering Pad (<function _PadGrad at 0x7fd4984dda80>) in gradient.
+Level 1:tensorflow:Registering PadV2 (<function _PadGrad at 0x7fd4984dda80>) in gradient.
+Level 1:tensorflow:Registering ReverseSequence (<function _ReverseSequenceGrad at 0x7fd4984ddb20>) in gradient.
+Level 1:tensorflow:Registering Reverse (<function _ReverseGrad at 0x7fd4984ddbc0>) in gradient.
+Level 1:tensorflow:Registering ReverseV2 (<function _ReverseV2Grad at 0x7fd4984ddc60>) in gradient.
+Level 1:tensorflow:Registering SpaceToBatch (<function _SpaceToBatchGrad at 0x7fd4984ddd00>) in gradient.
+Level 1:tensorflow:Registering SpaceToBatchND (<function _SpaceToBatchNDGrad at 0x7fd4984ddda0>) in gradient.
+Level 1:tensorflow:Registering BatchToSpace (<function _BatchToSpaceGrad at 0x7fd4984dde40>) in gradient.
+Level 1:tensorflow:Registering BatchToSpaceND (<function _BatchToSpaceNDGrad at 0x7fd4984ddee0>) in gradient.
+Level 1:tensorflow:Registering SpaceToDepth (<function _SpaceToDepthGrad at 0x7fd4984ddf80>) in gradient.
+Level 1:tensorflow:Registering DepthToSpace (<function _DepthToSpaceGrad at 0x7fd4984de020>) in gradient.
+Level 1:tensorflow:Registering OneHot (None) in gradient.
+Level 1:tensorflow:Registering MirrorPad (<function _MirrorPadGrad at 0x7fd4984de0c0>) in gradient.
+Level 1:tensorflow:Registering MirrorPadGrad (<function _MirrorPadGradGrad at 0x7fd4984de160>) in gradient.
+Level 1:tensorflow:Registering QuantizeAndDequantize (<function _QuantizeAndDequantizeGrad at 0x7fd4984de200>) in gradient.
+Level 1:tensorflow:Registering QuantizeAndDequantizeV2 (<function _QuantizeAndDequantizeV2Grad at 0x7fd4984de2a0>) in gradient.
+Level 1:tensorflow:Registering QuantizeAndDequantizeV3 (<function _QuantizeAndDequantizeV3Grad at 0x7fd4984de340>) in gradient.
+Level 1:tensorflow:Registering ExtractImagePatches (<function _ExtractImagePatchesGrad at 0x7fd4984de3e0>) in gradient.
+Level 1:tensorflow:Registering ExtractVolumePatches (<function _ExtractVolumePatchesGrad at 0x7fd4984de480>) in gradient.
+Level 1:tensorflow:Registering ScatterNd (<function _ScatterNdGrad at 0x7fd4984de520>) in gradient.
+Level 1:tensorflow:Registering TensorScatterUpdate (<function _TensorScatterUpdateGrad at 0x7fd4984de5c0>) in gradient.
+Level 1:tensorflow:Registering TensorScatterAdd (<function _TensorScatterAddGrad at 0x7fd4984de660>) in gradient.
+Level 1:tensorflow:Registering TensorScatterMax (<function _TensorScatterMaxGrad at 0x7fd4984de7a0>) in gradient.
+Level 1:tensorflow:Registering TensorScatterMin (<function _TensorScatterMinGrad at 0x7fd4984de840>) in gradient.
+Level 1:tensorflow:Registering TensorScatterSub (<function _TensorScatterSubGrad at 0x7fd4984de8e0>) in gradient.
+Level 1:tensorflow:Registering ScatterNdNonAliasingAdd (<function _ScatterNdNonAliasingAddGrad at 0x7fd4984de980>) in gradient.
+Level 1:tensorflow:Registering BroadcastTo (<function _BroadcastToGrad at 0x7fd4984dea20>) in gradient.
+Level 1:tensorflow:Registering Switch (<function _SwitchGrad at 0x7fd4984dec00>) in gradient.
+Level 1:tensorflow:Registering RefSwitch (<function _SwitchGrad at 0x7fd4984dec00>) in gradient.
+Level 1:tensorflow:Registering Merge (<function _MergeGrad at 0x7fd4984dede0>) in gradient.
+Level 1:tensorflow:Registering RefMerge (<function _RefMergeGrad at 0x7fd4984dee80>) in gradient.
+Level 1:tensorflow:Registering Exit (<function _ExitGrad at 0x7fd4984defc0>) in gradient.
+Level 1:tensorflow:Registering RefExit (<function _ExitGrad at 0x7fd4984defc0>) in gradient.
+Level 1:tensorflow:Registering NextIteration (<function _NextIterationGrad at 0x7fd4984def20>) in gradient.
+Level 1:tensorflow:Registering RefNextIteration (<function _RefNextIterationGrad at 0x7fd4984df060>) in gradient.
+Level 1:tensorflow:Registering Enter (<function _EnterGrad at 0x7fd4984df100>) in gradient.
+Level 1:tensorflow:Registering RefEnter (<function _RefEnterGrad at 0x7fd4984df1a0>) in gradient.
+Level 1:tensorflow:Registering LoopCond (<function _LoopCondGrad at 0x7fd4984df240>) in gradient.
+Level 1:tensorflow:Registering ResizeNearestNeighbor (<function _ResizeNearestNeighborGrad at 0x7fd4984df600>) in gradient.
+Level 1:tensorflow:Registering ResizeBilinear (<function _ResizeBilinearGrad at 0x7fd4984df740>) in gradient.
+Level 1:tensorflow:Registering ScaleAndTranslate (<function _ScaleAndTranslateGrad at 0x7fd4984df880>) in gradient.
+Level 1:tensorflow:Registering ResizeBicubic (<function _ResizeBicubicGrad at 0x7fd4984df9c0>) in gradient.
+Level 1:tensorflow:Registering CropAndResize (<function _CropAndResizeGrad at 0x7fd4984df920>) in gradient.
+Level 1:tensorflow:Registering RGBToHSV (<function _RGBToHSVGrad at 0x7fd4984dfb00>) in gradient.
+Level 1:tensorflow:Registering MatrixInverse (<function _MatrixInverseGrad at 0x7fd4984deb60>) in gradient.
+Level 1:tensorflow:Registering Einsum (<function _EinsumGrad at 0x7fd4983089a0>) in gradient.
+Level 1:tensorflow:Registering MatrixDeterminant (<function _MatrixDeterminantGrad at 0x7fd49830ab60>) in gradient.
+Level 1:tensorflow:Registering MatrixSquareRoot (<function _MatrixSquareRootGrad at 0x7fd49830b1a0>) in gradient.
+Level 1:tensorflow:Registering LogMatrixDeterminant (<function _LogMatrixDeterminantGrad at 0x7fd49830b240>) in gradient.
+Level 1:tensorflow:Registering Cholesky (<function _CholeskyGrad at 0x7fd49830b2e0>) in gradient.
+Level 1:tensorflow:Registering Qr (<function _QrGrad at 0x7fd49830b380>) in gradient.
+Level 1:tensorflow:Registering MatrixSolve (<function _MatrixSolveGrad at 0x7fd49830b420>) in gradient.
+Level 1:tensorflow:Registering MatrixSolveLs (<function _MatrixSolveLsGrad at 0x7fd49830b4c0>) in gradient.
+Level 1:tensorflow:Registering BandedTriangularSolve (<function _BandedTriangularSolveGrad at 0x7fd49830b560>) in gradient.
+Level 1:tensorflow:Registering MatrixTriangularSolve (<function _MatrixTriangularSolveGrad at 0x7fd49830b600>) in gradient.
+Level 1:tensorflow:Registering Eig (<function _EigGrad at 0x7fd49830b740>) in gradient.
+Level 1:tensorflow:Registering SelfAdjointEigV2 (<function _SelfAdjointEigV2Grad at 0x7fd49830b7e0>) in gradient.
+Level 1:tensorflow:Registering Svd (<function _SvdGrad at 0x7fd49830b880>) in gradient.
+Level 1:tensorflow:Registering TridiagonalMatMul (<function _TridiagonalMatMulGrad at 0x7fd49830ba60>) in gradient.
+Level 1:tensorflow:Registering TridiagonalSolve (<function _TridiagonalSolveGrad at 0x7fd49830bb00>) in gradient.
+Level 1:tensorflow:Registering Print (<function _PrintGrad at 0x7fd49834c180>) in gradient.
+Level 1:tensorflow:Registering HistogramSummary (None) in gradient.
+Level 1:tensorflow:Registering ImageSummary (None) in gradient.
+Level 1:tensorflow:Registering AudioSummary (None) in gradient.
+Level 1:tensorflow:Registering AudioSummaryV2 (None) in gradient.
+Level 1:tensorflow:Registering MergeSummary (None) in gradient.
+Level 1:tensorflow:Registering ScalarSummary (None) in gradient.
+Level 1:tensorflow:Registering TensorSummary (None) in gradient.
+Level 1:tensorflow:Registering TensorSummaryV2 (None) in gradient.
+Level 1:tensorflow:Registering Timestamp (None) in gradient.
+Level 1:tensorflow:Registering Roll (<function _RollGrad at 0x7fd49834d3a0>) in gradient.
+Level 1:tensorflow:Registering ArgMax (<function _ArgMaxGrad at 0x7fd49834dbc0>) in gradient.
+Level 1:tensorflow:Registering ArgMin (<function _ArgMinGrad at 0x7fd49834dd00>) in gradient.
+Level 1:tensorflow:Registering EuclideanNorm (<function _EuclideanNormGrad at 0x7fd49834dda0>) in gradient.
+Level 1:tensorflow:Registering Sum (<function _SumGrad at 0x7fd49834e160>) in gradient.
+Level 1:tensorflow:Registering Max (<function _MaxGrad at 0x7fd49834e2a0>) in gradient.
+Level 1:tensorflow:Registering Min (<function _MinGrad at 0x7fd49834e340>) in gradient.
+Level 1:tensorflow:Registering Mean (<function _MeanGrad at 0x7fd49834e3e0>) in gradient.
+Level 1:tensorflow:Registering Prod (<function _ProdGrad at 0x7fd49834e480>) in gradient.
+Level 1:tensorflow:Registering SegmentSum (<function _SegmentSumGrad at 0x7fd49834e520>) in gradient.
+Level 1:tensorflow:Registering SegmentMean (<function _SegmentMeanGrad at 0x7fd49834e5c0>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentSum (<function _SparseSegmentSumGrad at 0x7fd49834e660>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentSumWithNumSegments (<function _SparseSegmentSumWithNumSegmentsGrad at 0x7fd49834e700>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentMean (<function _SparseSegmentMeanGrad at 0x7fd49834e7a0>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentMeanWithNumSegments (<function _SparseSegmentMeanWithNumSegmentsGrad at 0x7fd49834e840>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentSqrtN (<function _SparseSegmentSqrtNGrad at 0x7fd49834e8e0>) in gradient.
+Level 1:tensorflow:Registering SparseSegmentSqrtNWithNumSegments (<function _SparseSegmentSqrtNWithNumSegmentsGrad at 0x7fd49834e980>) in gradient.
+Level 1:tensorflow:Registering SegmentMin (<function _SegmentMinGrad at 0x7fd49834eac0>) in gradient.
+Level 1:tensorflow:Registering SegmentMax (<function _SegmentMaxGrad at 0x7fd49834eb60>) in gradient.
+Level 1:tensorflow:Registering SegmentProd (<function _SegmentProdGrad at 0x7fd49834ec00>) in gradient.
+Level 1:tensorflow:Registering UnsortedSegmentSum (<function _UnsortedSegmentSumGrad at 0x7fd49834ede0>) in gradient.
+Level 1:tensorflow:Registering UnsortedSegmentMax (<function _UnsortedSegmentMaxGrad at 0x7fd49834ee80>) in gradient.
+Level 1:tensorflow:Registering UnsortedSegmentMin (<function _UnsortedSegmentMinGrad at 0x7fd49834ef20>) in gradient.
+Level 1:tensorflow:Registering UnsortedSegmentProd (<function _UnsortedSegmentProdGrad at 0x7fd49834efc0>) in gradient.
+Level 1:tensorflow:Registering Abs (<function _AbsGrad at 0x7fd49834f060>) in gradient.
+Level 1:tensorflow:Registering Neg (<function _NegGrad at 0x7fd49834f100>) in gradient.
+Level 1:tensorflow:Registering Inv (<function _InvGrad at 0x7fd49834f1a0>) in gradient.
+Level 1:tensorflow:Registering Reciprocal (<function _ReciprocalGrad at 0x7fd49834f240>) in gradient.
+Level 1:tensorflow:Registering InvGrad (<function _InvGradGrad at 0x7fd49834f2e0>) in gradient.
+Level 1:tensorflow:Registering ReciprocalGrad (<function _ReciprocalGradGrad at 0x7fd49834f380>) in gradient.
+Level 1:tensorflow:Registering Square (<function _SquareGrad at 0x7fd49834f420>) in gradient.
+Level 1:tensorflow:Registering Sqrt (<function _SqrtGrad at 0x7fd49834f4c0>) in gradient.
+Level 1:tensorflow:Registering SqrtGrad (<function _SqrtGradGrad at 0x7fd49834f560>) in gradient.
+Level 1:tensorflow:Registering Rsqrt (<function _RsqrtGrad at 0x7fd49834f600>) in gradient.
+Level 1:tensorflow:Registering RsqrtGrad (<function _RsqrtGradGrad at 0x7fd49834f6a0>) in gradient.
+Level 1:tensorflow:Registering Exp (<function _ExpGrad at 0x7fd49834f740>) in gradient.
+Level 1:tensorflow:Registering Expm1 (<function _Expm1Grad at 0x7fd49834f7e0>) in gradient.
+Level 1:tensorflow:Registering Log (<function _LogGrad at 0x7fd49834f880>) in gradient.
+Level 1:tensorflow:Registering Log1p (<function _Log1pGrad at 0x7fd49834f920>) in gradient.
+Level 1:tensorflow:Registering Xlogy (<function _XLogyGrad at 0x7fd49834f9c0>) in gradient.
+Level 1:tensorflow:Registering Xlog1py (<function _XLog1pyGrad at 0x7fd49834fa60>) in gradient.
+Level 1:tensorflow:Registering Xdivy (<function _XDivyGrad at 0x7fd49834fb00>) in gradient.
+Level 1:tensorflow:Registering Sinh (<function _SinhGrad at 0x7fd49834fba0>) in gradient.
+Level 1:tensorflow:Registering Cosh (<function _CoshGrad at 0x7fd49834fc40>) in gradient.
+Level 1:tensorflow:Registering Tanh (<function _TanhGrad at 0x7fd49834fce0>) in gradient.
+Level 1:tensorflow:Registering Asinh (<function _AsinhGrad at 0x7fd49834fd80>) in gradient.
+Level 1:tensorflow:Registering Acosh (<function _AcoshGrad at 0x7fd49834fe20>) in gradient.
+Level 1:tensorflow:Registering Atanh (<function _AtanhGrad at 0x7fd49834fec0>) in gradient.
+Level 1:tensorflow:Registering TanhGrad (<function _TanhGradGrad at 0x7fd49834ff60>) in gradient.
+Level 1:tensorflow:Registering Erf (<function _ErfGrad at 0x7fd4983a8040>) in gradient.
+Level 1:tensorflow:Registering Erfc (<function _ErfcGrad at 0x7fd4983a80e0>) in gradient.
+Level 1:tensorflow:Registering Erfinv (<function _ErfinvGrad at 0x7fd4983a8180>) in gradient.
+Level 1:tensorflow:Registering Ndtri (<function _NdtriGrad at 0x7fd4983a8220>) in gradient.
+Level 1:tensorflow:Registering Lgamma (<function _LgammaGrad at 0x7fd4983a82c0>) in gradient.
+Level 1:tensorflow:Registering Digamma (<function _DigammaGrad at 0x7fd4983a8360>) in gradient.
+Level 1:tensorflow:Registering Dawsn (<function _DawsnGrad at 0x7fd4983a8400>) in gradient.
+Level 1:tensorflow:Registering Expint (<function _ExpintGrad at 0x7fd4983a84a0>) in gradient.
+Level 1:tensorflow:Registering FresnelCos (<function _FresnelCosGrad at 0x7fd4983a8540>) in gradient.
+Level 1:tensorflow:Registering FresnelSin (<function _FresnelSinGrad at 0x7fd4983a85e0>) in gradient.
+Level 1:tensorflow:Registering Spence (<function _SpenceGrad at 0x7fd4983a8680>) in gradient.
+Level 1:tensorflow:Registering BesselI0 (<function _BesselI0Grad at 0x7fd4983a8720>) in gradient.
+Level 1:tensorflow:Registering BesselI0e (<function _BesselI0eGrad at 0x7fd4983a87c0>) in gradient.
+Level 1:tensorflow:Registering BesselI1 (<function _BesselI1Grad at 0x7fd4983a8860>) in gradient.
+Level 1:tensorflow:Registering BesselI1e (<function _BesselI1eGrad at 0x7fd4983a8900>) in gradient.
+Level 1:tensorflow:Registering BesselK0 (<function _BesselK0Grad at 0x7fd4983a89a0>) in gradient.
+Level 1:tensorflow:Registering BesselK0e (<function _BesselK0eGrad at 0x7fd4983a8a40>) in gradient.
+Level 1:tensorflow:Registering BesselK1 (<function _BesselK1Grad at 0x7fd4983a8ae0>) in gradient.
+Level 1:tensorflow:Registering BesselK1e (<function _BesselK1eGrad at 0x7fd4983a8b80>) in gradient.
+Level 1:tensorflow:Registering BesselJ0 (<function _BesselJ0Grad at 0x7fd4983a8c20>) in gradient.
+Level 1:tensorflow:Registering BesselJ1 (<function _BesselJ1Grad at 0x7fd4983a8cc0>) in gradient.
+Level 1:tensorflow:Registering BesselY0 (<function _BesselY0Grad at 0x7fd4983a8d60>) in gradient.
+Level 1:tensorflow:Registering BesselY1 (<function _BesselY1Grad at 0x7fd4983a8e00>) in gradient.
+Level 1:tensorflow:Registering Igamma (<function _IgammaGrad at 0x7fd4983a8ea0>) in gradient.
+Level 1:tensorflow:Registering Igammac (<function _IgammacGrad at 0x7fd4983a8f40>) in gradient.
+Level 1:tensorflow:Registering Betainc (<function _BetaincGrad at 0x7fd4983a8fe0>) in gradient.
+Level 1:tensorflow:Registering Zeta (<function _ZetaGrad at 0x7fd4983a9080>) in gradient.
+Level 1:tensorflow:Registering Polygamma (<function _PolygammaGrad at 0x7fd4983a9120>) in gradient.
+Level 1:tensorflow:Registering Sigmoid (<function _SigmoidGrad at 0x7fd4983a91c0>) in gradient.
+Level 1:tensorflow:Registering SigmoidGrad (<function _SigmoidGradGrad at 0x7fd4983a9260>) in gradient.
+Level 1:tensorflow:Registering Sign (<function _SignGrad at 0x7fd4983a9300>) in gradient.
+Level 1:tensorflow:Registering Sin (<function _SinGrad at 0x7fd4983a93a0>) in gradient.
+Level 1:tensorflow:Registering Cos (<function _CosGrad at 0x7fd4983a9440>) in gradient.
+Level 1:tensorflow:Registering Tan (<function _TanGrad at 0x7fd4983a94e0>) in gradient.
+Level 1:tensorflow:Registering Asin (<function _AsinGrad at 0x7fd4983a9580>) in gradient.
+Level 1:tensorflow:Registering Acos (<function _AcosGrad at 0x7fd4983a9620>) in gradient.
+Level 1:tensorflow:Registering Atan (<function _AtanGrad at 0x7fd4983a96c0>) in gradient.
+Level 1:tensorflow:Registering Atan2 (<function _Atan2Grad at 0x7fd4983a9760>) in gradient.
+Level 1:tensorflow:Registering AddN (<function _AddNGrad at 0x7fd4983a9800>) in gradient.
+Level 1:tensorflow:Registering AddV2 (<function _AddGrad at 0x7fd4983a9940>) in gradient.
+Level 1:tensorflow:Registering Add (<function _AddGrad at 0x7fd4983a9940>) in gradient.
+Level 1:tensorflow:Registering Sub (<function _SubGrad at 0x7fd4983a99e0>) in gradient.
+Level 1:tensorflow:Registering Mul (<function _MulGrad at 0x7fd4983a9a80>) in gradient.
+Level 1:tensorflow:Registering MulNoNan (<function _MulNoNanGrad at 0x7fd4983a9b20>) in gradient.
+Level 1:tensorflow:Registering Div (<function _DivGrad at 0x7fd4983a9bc0>) in gradient.
+Level 1:tensorflow:Registering FloorDiv (<function _FloorDivGrad at 0x7fd4983a9c60>) in gradient.
+Level 1:tensorflow:Registering FloorMod (<function _FloorModGrad at 0x7fd4983a9d00>) in gradient.
+Level 1:tensorflow:Registering TruncateDiv (<function _TruncateDivGrad at 0x7fd4983a9da0>) in gradient.
+Level 1:tensorflow:Registering RealDiv (<function _RealDivGrad at 0x7fd4983a9e40>) in gradient.
+Level 1:tensorflow:Registering DivNoNan (<function _DivNoNanGrad at 0x7fd4983a9ee0>) in gradient.
+Level 1:tensorflow:Registering Pow (<function _PowGrad at 0x7fd4983a9f80>) in gradient.
+Level 1:tensorflow:Registering Maximum (<function _MaximumGrad at 0x7fd4983aa160>) in gradient.
+Level 1:tensorflow:Registering Minimum (<function _MinimumGrad at 0x7fd4983aa200>) in gradient.
+Level 1:tensorflow:Registering SquaredDifference (<function _SquaredDifferenceGrad at 0x7fd4983aa2a0>) in gradient.
+Level 1:tensorflow:Registering Less (None) in gradient.
+Level 1:tensorflow:Registering LessEqual (None) in gradient.
+Level 1:tensorflow:Registering Greater (None) in gradient.
+Level 1:tensorflow:Registering GreaterEqual (None) in gradient.
+Level 1:tensorflow:Registering Equal (None) in gradient.
+Level 1:tensorflow:Registering ApproximateEqual (None) in gradient.
+Level 1:tensorflow:Registering NotEqual (None) in gradient.
+Level 1:tensorflow:Registering LogicalAnd (None) in gradient.
+Level 1:tensorflow:Registering LogicalOr (None) in gradient.
+Level 1:tensorflow:Registering LogicalNot (None) in gradient.
+Level 1:tensorflow:Registering Select (<function _SelectGrad at 0x7fd4983aa340>) in gradient.
+Level 1:tensorflow:Registering SelectV2 (<function _SelectGradV2 at 0x7fd4983aa3e0>) in gradient.
+Level 1:tensorflow:Registering MatMul (<function _MatMulGrad at 0x7fd4983aa5c0>) in gradient.
+Level 1:tensorflow:Registering SparseMatMul (<function _SparseMatMulGrad at 0x7fd4983aa660>) in gradient.
+Level 1:tensorflow:Registering Floor (<function _FloorGrad at 0x7fd4983aa700>) in gradient.
+Level 1:tensorflow:Registering Ceil (<function _CeilGrad at 0x7fd4983aa7a0>) in gradient.
+Level 1:tensorflow:Registering Round (<function _RoundGrad at 0x7fd4983aa840>) in gradient.
+Level 1:tensorflow:Registering Rint (<function _RintGrad at 0x7fd4983aa8e0>) in gradient.
+Level 1:tensorflow:Registering BatchMatMul (<function _BatchMatMul at 0x7fd4983aa980>) in gradient.
+Level 1:tensorflow:Registering BatchMatMulV3 (<function _BatchMatMulV2 at 0x7fd4983aaa20>) in gradient.
+Level 1:tensorflow:Registering BatchMatMulV2 (<function _BatchMatMulV2 at 0x7fd4983aaa20>) in gradient.
+Level 1:tensorflow:Registering Range (None) in gradient.
+Level 1:tensorflow:Registering LinSpace (None) in gradient.
+Level 1:tensorflow:Registering Complex (<function _ComplexGrad at 0x7fd4983aaac0>) in gradient.
+Level 1:tensorflow:Registering Real (<function _RealGrad at 0x7fd4983aab60>) in gradient.
+Level 1:tensorflow:Registering Imag (<function _ImagGrad at 0x7fd4983aac00>) in gradient.
+Level 1:tensorflow:Registering Angle (<function _AngleGrad at 0x7fd4983aaca0>) in gradient.
+Level 1:tensorflow:Registering Conj (<function _ConjGrad at 0x7fd4983aad40>) in gradient.
+Level 1:tensorflow:Registering ComplexAbs (<function _ComplexAbsGrad at 0x7fd4983aade0>) in gradient.
+Level 1:tensorflow:Registering Cast (<function _CastGrad at 0x7fd4983aae80>) in gradient.
+Level 1:tensorflow:Registering Cross (<function _CrossGrad at 0x7fd4983aaf20>) in gradient.
+Level 1:tensorflow:Registering Cumsum (<function _CumsumGrad at 0x7fd4983aafc0>) in gradient.
+Level 1:tensorflow:Registering Cumprod (<function _CumprodGrad at 0x7fd4983ab060>) in gradient.
+Level 1:tensorflow:Registering CumulativeLogsumexp (<function _CumulativeLogsumexpGrad at 0x7fd4983ab100>) in gradient.
+Level 1:tensorflow:Registering NextAfter (<function _NextAfterGrad at 0x7fd4983ab1a0>) in gradient.
+Level 1:tensorflow:Registering OptionalFromValue (<function _OptionalFromValueGrad at 0x7fd4983ab420>) in gradient.
+Level 1:tensorflow:Registering OptionalGetValue (<function _OptionalGetValueGrad at 0x7fd4983ab560>) in gradient.
+Level 1:tensorflow:Registering RandomGamma (<function _RandomGammaGrad at 0x7fd4983ab920>) in gradient.
+Level 1:tensorflow:Registering StatelessRandomGammaV2 (<function _StatelessRandomGammaV2Grad at 0x7fd4983aba60>) in gradient.
+Level 1:tensorflow:Registering StatelessRandomGammaV3 (<function _StatelessRandomGammaV3Grad at 0x7fd4983abb00>) in gradient.
+Level 1:tensorflow:Registering StatelessParameterizedTruncatedNormal (<function _StatelessParameterizedTruncatedNormalGrad at 0x7fd4983abce0>) in gradient.
+Level 1:tensorflow:Registering EagerPyFunc (<function _EagerPyFuncGrad at 0x7fd4983c2ca0>) in gradient.
+Level 1:tensorflow:Registering PyFunc (None) in gradient.
+Level 1:tensorflow:Registering PyFuncStateless (None) in gradient.
+Level 1:tensorflow:Registering ReduceDataset (None) in gradient.
+Level 1:tensorflow:Registering _resource_resolver (<function _resource_resolver at 0x7fd49826c360>) in acd_resource_resolvers.
+Level 1:tensorflow:Registering LookupTableFind (None) in gradient.
+Level 1:tensorflow:Registering LookupTableFindV2 (None) in gradient.
+Level 1:tensorflow:Registering LookupTableInsert (None) in gradient.
+Level 1:tensorflow:Registering LookupTableInsertV2 (None) in gradient.
+Level 1:tensorflow:Registering LookupTableSize (None) in gradient.
+Level 1:tensorflow:Registering LookupTableSizeV2 (None) in gradient.
+Level 1:tensorflow:Registering HashTable (None) in gradient.
+Level 1:tensorflow:Registering HashTableV2 (None) in gradient.
+Level 1:tensorflow:Registering InitializeTable (None) in gradient.
+Level 1:tensorflow:Registering InitializeTableV2 (None) in gradient.
+Level 1:tensorflow:Registering InitializeTableFromTextFile (None) in gradient.
+Level 1:tensorflow:Registering InitializeTableFromTextFileV2 (None) in gradient.
+Level 1:tensorflow:Registering MutableDenseHashTable (None) in gradient.
+Level 1:tensorflow:Registering MutableDenseHashTableV2 (None) in gradient.
+Level 1:tensorflow:Registering MutableHashTable (None) in gradient.
+Level 1:tensorflow:Registering MutableHashTableV2 (None) in gradient.
+Level 1:tensorflow:Registering MutableHashTableOfTensors (None) in gradient.
+Level 1:tensorflow:Registering MutableHashTableOfTensorsV2 (None) in gradient.
+Level 1:tensorflow:Registering DynamicPartition (<function _DynamicPartitionGrads at 0x7fd49743ab60>) in gradient.
+Level 1:tensorflow:Registering ParallelDynamicStitch (<function _DynamicStitchGrads at 0x7fd49743aca0>) in gradient.
+Level 1:tensorflow:Registering DynamicStitch (<function _DynamicStitchGrads at 0x7fd49743aca0>) in gradient.
+Level 1:tensorflow:Registering Queue (None) in gradient.
+Level 1:tensorflow:Registering QueueEnqueue (None) in gradient.
+Level 1:tensorflow:Registering QueueEnqueueMany (None) in gradient.
+Level 1:tensorflow:Registering QueueDequeue (None) in gradient.
+Level 1:tensorflow:Registering QueueDequeueMany (None) in gradient.
+Level 1:tensorflow:Registering QueueDequeueUpTo (None) in gradient.
+Level 1:tensorflow:Registering QueueClose (None) in gradient.
+Level 1:tensorflow:Registering QueueSize (None) in gradient.
+Level 1:tensorflow:Registering Stack (None) in gradient.
+Level 1:tensorflow:Registering StackPush (None) in gradient.
+Level 1:tensorflow:Registering StackPop (None) in gradient.
+Level 1:tensorflow:Registering StackClose (None) in gradient.
+Level 1:tensorflow:Registering GetSessionHandle (None) in gradient.
+Level 1:tensorflow:Registering GetSessionHandleV2 (None) in gradient.
+Level 1:tensorflow:Registering GetSessionTensor (None) in gradient.
+Level 1:tensorflow:Registering DeleteSessionTensor (None) in gradient.
+Level 1:tensorflow:Registering queue_runners ((<class 'tensorflow.core.protobuf.queue_runner_pb2.QueueRunnerDef'>, <function QueueRunner.to_proto at 0x7fd497345f80>, <function QueueRunner.from_proto at 0x7fd497346020>)) in proto functions.
+Level 1:tensorflow:Registering RaggedFillEmptyRows (<function _ragged_fill_empty_rows_grad at 0x7fd4973b65c0>) in gradient.
+Level 1:tensorflow:Registering RaggedGather (<function _ragged_gather_grad at 0x7fd4973b7d80>) in gradient.
+Level 1:tensorflow:Registering Conv2DBackpropInput (<function _Conv2DBackpropInputGrad at 0x7fd497216520>) in gradient.
+Level 1:tensorflow:Registering Conv2DBackpropFilter (<function _Conv2DBackpropFilterGrad at 0x7fd497216a20>) in gradient.
+Level 1:tensorflow:Registering DepthwiseConv2dNativeBackpropInput (<function _DepthwiseConv2dNativeBackpropInputGrad at 0x7fd497216ac0>) in gradient.
+Level 1:tensorflow:Registering DepthwiseConv2dNativeBackpropFilter (<function _DepthwiseConv2dNativeBackpropFilterGrad at 0x7fd497216c00>) in gradient.
+Level 1:tensorflow:Registering Conv3D (<function _Conv3DGrad at 0x7fd497216b60>) in gradient.
+Level 1:tensorflow:Registering Conv3DBackpropInputV2 (<function _Conv3DBackpropInputGrad at 0x7fd497216ca0>) in gradient.
+Level 1:tensorflow:Registering Conv3DBackpropFilterV2 (<function _Conv3DBackpropFilterGrad at 0x7fd497216d40>) in gradient.
+Level 1:tensorflow:Registering AvgPool3D (<function _AvgPool3DGrad at 0x7fd497216de0>) in gradient.
+Level 1:tensorflow:Registering AvgPool3DGrad (<function _AvgPool3DGradGrad at 0x7fd497216e80>) in gradient.
+Level 1:tensorflow:Registering MaxPool3D (<function _MaxPool3DGrad at 0x7fd497216f20>) in gradient.
+Level 1:tensorflow:Registering MaxPool3DGrad (<function _MaxPool3DGradGrad at 0x7fd497216fc0>) in gradient.
+Level 1:tensorflow:Registering MaxPool3DGradGrad (<function _MaxPool3DGradGradGrad at 0x7fd497217060>) in gradient.
+Level 1:tensorflow:Registering Softmax (<function _SoftmaxGrad at 0x7fd497217100>) in gradient.
+Level 1:tensorflow:Registering LogSoftmax (<function _LogSoftmaxGrad at 0x7fd4972171a0>) in gradient.
+Level 1:tensorflow:Registering BiasAdd (<function _BiasAddGrad at 0x7fd497217240>) in gradient.
+Level 1:tensorflow:Registering BiasAddGrad (<function _BiasAddGradGrad at 0x7fd4972172e0>) in gradient.
+Level 1:tensorflow:Registering BiasAddV1 (<function _BiasAddGradV1 at 0x7fd497217380>) in gradient.
+Level 1:tensorflow:Registering Relu (<function _ReluGrad at 0x7fd497217420>) in gradient.
+Level 1:tensorflow:Registering EluGrad (<function _EluGradGrad at 0x7fd4972174c0>) in gradient.
+Level 1:tensorflow:Registering SeluGrad (<function _SeluGradGrad at 0x7fd497217560>) in gradient.
+Level 1:tensorflow:Registering Relu6 (<function _Relu6Grad at 0x7fd497217600>) in gradient.
+Level 1:tensorflow:Registering Relu6Grad (<function _Relu6GradGrad at 0x7fd4972176a0>) in gradient.
+Level 1:tensorflow:Registering LeakyRelu (<function _LeakyReluGrad at 0x7fd497217740>) in gradient.
+Level 1:tensorflow:Registering LeakyReluGrad (<function _LeakyReluGradGrad at 0x7fd4972177e0>) in gradient.
+Level 1:tensorflow:Registering Elu (<function _EluGrad at 0x7fd497217880>) in gradient.
+Level 1:tensorflow:Registering Selu (<function _SeluGrad at 0x7fd497217920>) in gradient.
+Level 1:tensorflow:Registering Softplus (<function _SoftplusGrad at 0x7fd4972179c0>) in gradient.
+Level 1:tensorflow:Registering SoftplusGrad (<function _SoftplusGradGrad at 0x7fd497217a60>) in gradient.
+Level 1:tensorflow:Registering Softsign (<function _SoftsignGrad at 0x7fd497217b00>) in gradient.
+Level 1:tensorflow:Registering ReluGrad (<function _ReluGradGrad at 0x7fd497217ba0>) in gradient.
+Level 1:tensorflow:Registering SoftmaxCrossEntropyWithLogits (<function _SoftmaxCrossEntropyWithLogitsGrad at 0x7fd497217ce0>) in gradient.
+Level 1:tensorflow:Registering SparseSoftmaxCrossEntropyWithLogits (<function _SparseSoftmaxCrossEntropyWithLogitsGrad at 0x7fd497217d80>) in gradient.
+Level 1:tensorflow:Registering Conv2D (<function _Conv2DGrad at 0x7fd497217e20>) in gradient.
+Level 1:tensorflow:Registering DepthwiseConv2dNative (<function _DepthwiseConv2dNativeGrad at 0x7fd497217ec0>) in gradient.
+Level 1:tensorflow:Registering Dilation2D (<function _Dilation2DGrad at 0x7fd497217f60>) in gradient.
+Level 1:tensorflow:Registering LRN (<function _LRNGrad at 0x7fd497248040>) in gradient.
+Level 1:tensorflow:Registering AvgPool (<function _AvgPoolGrad at 0x7fd4972480e0>) in gradient.
+Level 1:tensorflow:Registering AvgPoolGrad (<function _AvgPoolGradGrad at 0x7fd497248180>) in gradient.
+Level 1:tensorflow:Registering MaxPool (<function _MaxPoolGrad at 0x7fd497248220>) in gradient.
+Level 1:tensorflow:Registering MaxPoolV2 (<function _MaxPoolGradV2 at 0x7fd4972482c0>) in gradient.
+Level 1:tensorflow:Registering MaxPoolWithArgmax (<function _MaxPoolGradWithArgmax at 0x7fd497248360>) in gradient.
+Level 1:tensorflow:Registering MaxPoolGrad (<function _MaxPoolGradGrad at 0x7fd497248400>) in gradient.
+Level 1:tensorflow:Registering MaxPoolGradV2 (<function _MaxPoolGradGradV2 at 0x7fd4972484a0>) in gradient.
+Level 1:tensorflow:Registering MaxPoolGradGrad (<function _MaxPoolGradGradGrad at 0x7fd497248540>) in gradient.
+Level 1:tensorflow:Registering FractionalMaxPool (<function _FractionalMaxPoolGrad at 0x7fd4972485e0>) in gradient.
+Level 1:tensorflow:Registering FractionalAvgPool (<function _FractionalAvgPoolGrad at 0x7fd497248680>) in gradient.
+Level 1:tensorflow:Registering BatchNormWithGlobalNormalization (<function _BatchNormWithGlobalNormalizationGrad at 0x7fd497248720>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNorm (<function _FusedBatchNormGrad at 0x7fd497248860>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNormV2 (<function _FusedBatchNormV2Grad at 0x7fd497248900>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNormV3 (<function _FusedBatchNormV3Grad at 0x7fd4972489a0>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNormGrad (<function _FusedBatchNormGradGrad at 0x7fd497248ae0>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNormGradV2 (<function _FusedBatchNormGradGradV2 at 0x7fd497248b80>) in gradient.
+Level 1:tensorflow:Registering FusedBatchNormGradV3 (<function _FusedBatchNormGradGradV3 at 0x7fd497248c20>) in gradient.
+Level 1:tensorflow:Registering L2Loss (<function _L2LossGrad at 0x7fd497248cc0>) in gradient.
+Level 1:tensorflow:Registering TopKV2 (<function _TopKGrad at 0x7fd497248d60>) in gradient.
+Level 1:tensorflow:Registering TopK (<function _TopKGrad at 0x7fd497248d60>) in gradient.
+Level 1:tensorflow:Registering ApproxTopK (<function _ApproxTopKGradient at 0x7fd497248e00>) in gradient.
+Level 1:tensorflow:Registering NthElement (<function _NthElementGrad at 0x7fd497248ea0>) in gradient.
+Level 1:tensorflow:Registering IsotonicRegression (<function _IsotonicRegressionGrad at 0x7fd497248fe0>) in gradient.
+Level 1:tensorflow:Registering CTCLoss (<function _CTCLossGrad at 0x7fd4972493a0>) in gradient.
+Level 1:tensorflow:Registering CTCLossV2 (<function _CTCLossV2Grad at 0x7fd497249440>) in gradient.
+Level 1:tensorflow:Registering CTCGreedyDecoder (None) in gradient.
+Level 1:tensorflow:Registering CTCBeamSearchDecoder (None) in gradient.
+Level 1:tensorflow:Registering RandomCrop (None) in gradient.
+Level 1:tensorflow:Registering HSVToRGB (None) in gradient.
+Level 1:tensorflow:Registering DrawBoundingBoxes (None) in gradient.
+Level 1:tensorflow:Registering SampleDistortedBoundingBox (None) in gradient.
+Level 1:tensorflow:Registering SampleDistortedBoundingBoxV2 (None) in gradient.
+Level 1:tensorflow:Registering ExtractGlimpse (None) in gradient.
+Level 1:tensorflow:Registering NonMaxSuppression (None) in gradient.
+Level 1:tensorflow:Registering NonMaxSuppressionV2 (None) in gradient.
+Level 1:tensorflow:Registering NonMaxSuppressionWithOverlaps (None) in gradient.
+Level 1:tensorflow:Registering GenerateBoundingBoxProposals (None) in gradient.
+Level 1:tensorflow:Registering ImageProjectiveTransformV2 (<function _image_projective_transform_grad at 0x7fd4971b7d80>) in gradient.
+Level 1:tensorflow:Registering ImageProjectiveTransformV3 (<function _image_projective_transform_v3_grad at 0x7fd4971b7f60>) in gradient.
+Level 1:tensorflow:Registering TensorArray (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayGrad (None) in gradient.
+Level 1:tensorflow:Registering TensorArraySize (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayClose (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayV2 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayGradV2 (None) in gradient.
+Level 1:tensorflow:Registering TensorArraySizeV2 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayCloseV2 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayV3 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayGradV3 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayGradWithShape (None) in gradient.
+Level 1:tensorflow:Registering TensorArraySizeV3 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayCloseV3 (None) in gradient.
+Level 1:tensorflow:Registering TensorArrayReadV3 (<function _TensorArrayReadGrad at 0x7fd4971cc400>) in gradient.
+Level 1:tensorflow:Registering TensorArrayReadV2 (<function _TensorArrayReadGrad at 0x7fd4971cc400>) in gradient.
+Level 1:tensorflow:Registering TensorArrayRead (<function _TensorArrayReadGrad at 0x7fd4971cc400>) in gradient.
+Level 1:tensorflow:Registering TensorArrayWriteV3 (<function _TensorArrayWriteGrad at 0x7fd4971cc540>) in gradient.
+Level 1:tensorflow:Registering TensorArrayWriteV2 (<function _TensorArrayWriteGrad at 0x7fd4971cc540>) in gradient.
+Level 1:tensorflow:Registering TensorArrayWrite (<function _TensorArrayWriteGrad at 0x7fd4971cc540>) in gradient.
+Level 1:tensorflow:Registering TensorArrayGatherV3 (<function _TensorArrayGatherGrad at 0x7fd4971cc4a0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayGatherV2 (<function _TensorArrayGatherGrad at 0x7fd4971cc4a0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayGather (<function _TensorArrayGatherGrad at 0x7fd4971cc4a0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayScatterV3 (<function _TensorArrayScatterGrad at 0x7fd4971cc5e0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayScatterV2 (<function _TensorArrayScatterGrad at 0x7fd4971cc5e0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayScatter (<function _TensorArrayScatterGrad at 0x7fd4971cc5e0>) in gradient.
+Level 1:tensorflow:Registering TensorArrayConcatV3 (<function _TensorArrayConcatGrad at 0x7fd4971cc680>) in gradient.
+Level 1:tensorflow:Registering TensorArrayConcatV2 (<function _TensorArrayConcatGrad at 0x7fd4971cc680>) in gradient.
+Level 1:tensorflow:Registering TensorArrayConcat (<function _TensorArrayConcatGrad at 0x7fd4971cc680>) in gradient.
+Level 1:tensorflow:Registering TensorArraySplitV3 (<function _TensorArraySplitGrad at 0x7fd4971cc720>) in gradient.
+Level 1:tensorflow:Registering TensorArraySplitV2 (<function _TensorArraySplitGrad at 0x7fd4971cc720>) in gradient.
+Level 1:tensorflow:Registering TensorArraySplit (<function _TensorArraySplitGrad at 0x7fd4971cc720>) in gradient.
+Level 1:tensorflow:Registering XlaClusterOutput (<function _XlaClusterOutputGrad at 0x7fd4971cf6a0>) in gradient.
+Level 1:tensorflow:Registering SetSize (None) in gradient.
+Level 1:tensorflow:Registering DenseToDenseSetOperation (None) in gradient.
+Level 1:tensorflow:Registering DenseToSparseSetOperation (None) in gradient.
+Level 1:tensorflow:Registering SparseToSparseSetOperation (None) in gradient.
+Level 1:tensorflow:Registering NcclAllReduce (<function _all_sum_grad at 0x7fd496ef7ce0>) in gradient.
+Level 1:tensorflow:Registering NcclReduce (<function _reduce_sum_grad at 0x7fd496c009a0>) in gradient.
+Level 1:tensorflow:Registering NcclBroadcast (<function _broadcast_grad at 0x7fd496c00ae0>) in gradient.
+Level 1:tensorflow:Registering TPUReplicatedInput (None) in gradient.
+Level 1:tensorflow:Registering tpu_replicated_input_resolver (<function tpu_replicated_input_resolver at 0x7fd6f6a20860>) in acd_resource_resolvers.
+DEBUG:tensorflow:Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+Level 1:tensorflow:Registering CudnnRNN (<function _cudnn_rnn_backward at 0x7fd4964099e0>) in gradient.
+Level 1:tensorflow:Registering CudnnRNNV2 (<function _cudnn_rnn_backward_v2 at 0x7fd49640ade0>) in gradient.
+Level 1:tensorflow:Registering CudnnRNNV3 (<function _cudnn_rnn_backwardv3 at 0x7fd49643ed40>) in gradient.
+Level 1:tensorflow:Registering BlockLSTM (<function _block_lstm_grad at 0x7fd49640a8e0>) in gradient.
+Level 1:tensorflow:Registering BlockLSTMV2 (<function _block_lstm_grad at 0x7fd49640a8e0>) in gradient.
+Level 1:tensorflow:Registering SparseAddGrad (None) in gradient.
+Level 1:tensorflow:Registering SparseConcat (None) in gradient.
+Level 1:tensorflow:Registering SparseReorder (<function _SparseReorderGrad at 0x7fd496466d40>) in gradient.
+Level 1:tensorflow:Registering SparseAdd (<function _SparseAddGrad at 0x7fd496466e80>) in gradient.
+Level 1:tensorflow:Registering SparseTensorDenseAdd (<function _SparseTensorDenseAddGrad at 0x7fd496467060>) in gradient.
+Level 1:tensorflow:Registering SparseReduceSum (<function _SparseReduceSumGrad at 0x7fd496466fc0>) in gradient.
+Level 1:tensorflow:Registering SparseSlice (<function _SparseSliceGrad at 0x7fd496467100>) in gradient.
+Level 1:tensorflow:Registering SparseTensorDenseMatMul (<function _SparseTensorDenseMatMulGrad at 0x7fd4964671a0>) in gradient.
+Level 1:tensorflow:Registering SparseDenseCwiseAdd (<function _SparseDenseCwiseAddGrad at 0x7fd496467240>) in gradient.
+Level 1:tensorflow:Registering SparseDenseCwiseMul (<function _SparseDenseCwiseMulGrad at 0x7fd496467380>) in gradient.
+Level 1:tensorflow:Registering SparseDenseCwiseDiv (<function _SparseDenseCwiseDivGrad at 0x7fd496467420>) in gradient.
+Level 1:tensorflow:Registering SparseSoftmax (<function _SparseSoftmaxGrad at 0x7fd4964674c0>) in gradient.
+Level 1:tensorflow:Registering SparseSparseMaximum (<function _SparseSparseMaximumGrad at 0x7fd496467560>) in gradient.
+Level 1:tensorflow:Registering SparseSparseMinimum (<function _SparseSparseMinimumGrad at 0x7fd496467600>) in gradient.
+Level 1:tensorflow:Registering SparseFillEmptyRows (<function _SparseFillEmptyRowsGrad at 0x7fd4964676a0>) in gradient.
+Level 1:tensorflow:Registering SparseToDense (<function _SparseToDenseGrad at 0x7fd496467740>) in gradient.
+Level 1:tensorflow:Registering Assign (None) in gradient.
+Level 1:tensorflow:Registering AssignAdd (None) in gradient.
+Level 1:tensorflow:Registering AssignSub (None) in gradient.
+Level 1:tensorflow:Registering ScatterAdd (None) in gradient.
+Level 1:tensorflow:Registering ScatterSub (None) in gradient.
+Level 1:tensorflow:Registering ScatterMul (None) in gradient.
+Level 1:tensorflow:Registering ScatterDiv (None) in gradient.
+Level 1:tensorflow:Registering ScatterNdUpdate (None) in gradient.
+Level 1:tensorflow:Registering ScatterNdAdd (None) in gradient.
+Level 1:tensorflow:Registering ScatterNdSub (None) in gradient.
+Level 1:tensorflow:Registering ScatterNdMul (None) in gradient.
+Level 1:tensorflow:Registering ScatterNdDiv (None) in gradient.
+Level 1:tensorflow:Registering DecodeProtoV2 (None) in gradient.
+Level 1:tensorflow:Registering EncodeProto (None) in gradient.
+Level 1:tensorflow:Registering If (<function _IfGrad at 0x7fd495bf1a80>) in gradient.
+Level 1:tensorflow:Registering StatelessIf (<function _IfGrad at 0x7fd495bf1a80>) in gradient.
+Level 1:tensorflow:Registering StatelessCase (<function _CaseGrad at 0x7fd495bf3ce0>) in gradient.
+Level 1:tensorflow:Registering Case (<function _CaseGrad at 0x7fd495bf3ce0>) in gradient.
+Level 1:tensorflow:Registering While (<function _WhileGrad at 0x7fd495a73d80>) in gradient.
+Level 1:tensorflow:Registering StatelessWhile (<function _WhileGrad at 0x7fd495a73d80>) in gradient.
+Level 1:tensorflow:Registering FFT (<function _fft_grad at 0x7fd49598af20>) in gradient.
+Level 1:tensorflow:Registering IFFT (<function _ifft_grad at 0x7fd49598afc0>) in gradient.
+Level 1:tensorflow:Registering FFT2D (<function _fft2d_grad at 0x7fd49598b060>) in gradient.
+Level 1:tensorflow:Registering IFFT2D (<function _ifft2d_grad at 0x7fd49598b100>) in gradient.
+Level 1:tensorflow:Registering FFT3D (<function _fft3d_grad at 0x7fd49598b240>) in gradient.
+Level 1:tensorflow:Registering IFFT3D (<function _ifft3d_grad at 0x7fd49598b2e0>) in gradient.
+Level 1:tensorflow:Registering RFFT (<function _rfft_grad_helper.<locals>._grad at 0x7fd49598b740>) in gradient.
+Level 1:tensorflow:Registering IRFFT (<function _irfft_grad_helper.<locals>._grad at 0x7fd49598b920>) in gradient.
+Level 1:tensorflow:Registering RFFT2D (<function _rfft_grad_helper.<locals>._grad at 0x7fd49598b9c0>) in gradient.
+Level 1:tensorflow:Registering IRFFT2D (<function _irfft_grad_helper.<locals>._grad at 0x7fd49598ba60>) in gradient.
+Level 1:tensorflow:Registering DenseToCSRSparseMatrix (<function _DenseToCSRSparseMatrixGrad at 0x7fd495a387c0>) in gradient.
+Level 1:tensorflow:Registering CSRSparseMatrixToDense (<function _CSRSparseMatrixToDenseGrad at 0x7fd495a38900>) in gradient.
+Level 1:tensorflow:Registering SparseTensorToCSRSparseMatrix (<function _SparseTensorToCSRSparseMatrixGrad at 0x7fd495860360>) in gradient.
+Level 1:tensorflow:Registering CSRSparseMatrixToSparseTensor (<function _CSRSparseMatrixToSparseTensorGrad at 0x7fd495861120>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixNNZ (None) in gradient.
+Level 1:tensorflow:Registering SparseMatrixZeros (None) in gradient.
+Level 1:tensorflow:Registering SparseMatrixAdd (<function _SparseMatrixAddGrad at 0x7fd495861260>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixTranspose (<function _SparseMatrixTransposeGrad at 0x7fd4958613a0>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixSoftmax (<function _SparseMatrixSoftmaxGrad at 0x7fd495861440>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixMatMul (<function _SparseMatrixMatMulGrad at 0x7fd4958614e0>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixSparseMatMul (<function _SparseMatrixSparseMatMulGrad at 0x7fd495861580>) in gradient.
+Level 1:tensorflow:Registering SparseMatrixMul (<function _SparseMatrixMulGrad at 0x7fd495861620>) in gradient.
+Level 1:tensorflow:Registering RaggedTensorToTensor (<function _ragged_tensor_to_tensor_grad at 0x7fd4958637e0>) in gradient.
+Level 1:tensorflow:Registering RaggedTensorFromVariant (<function _ragged_tensor_from_variant_grad at 0x7fd495863b00>) in gradient.
+Level 1:tensorflow:Registering RaggedTensorToVariant (<function _ragged_tensor_to_variant_grad at 0x7fd495863c40>) in gradient.
+Level 1:tensorflow:Registering Reciprocal,flops (<function _reciprocal_flops at 0x7fd4958e5440>) in statistical functions.
+Level 1:tensorflow:Registering Square,flops (<function _square_flops at 0x7fd4958e54e0>) in statistical functions.
+Level 1:tensorflow:Registering Rsqrt,flops (<function _rsqrt_flops at 0x7fd4958e5580>) in statistical functions.
+Level 1:tensorflow:Registering Log,flops (<function _log_flops at 0x7fd4958e56c0>) in statistical functions.
+Level 1:tensorflow:Registering Neg,flops (<function _neg_flops at 0x7fd4958e5620>) in statistical functions.
+Level 1:tensorflow:Registering AssignSub,flops (<function _assign_sub_flops at 0x7fd4958e5760>) in statistical functions.
+Level 1:tensorflow:Registering AssignAdd,flops (<function _assign_add_flops at 0x7fd4958e5800>) in statistical functions.
+Level 1:tensorflow:Registering L2Loss,flops (<function _l2_loss_flops at 0x7fd4958e58a0>) in statistical functions.
+Level 1:tensorflow:Registering Softmax,flops (<function _softmax_flops at 0x7fd4958e5940>) in statistical functions.
+Level 1:tensorflow:Registering AddV2,flops (<function _add_flops at 0x7fd4958e5a80>) in statistical functions.
+Level 1:tensorflow:Registering Add,flops (<function _add_flops at 0x7fd4958e5a80>) in statistical functions.
+Level 1:tensorflow:Registering Sub,flops (<function _sub_flops at 0x7fd4958c3ec0>) in statistical functions.
+Level 1:tensorflow:Registering Mul,flops (<function _mul_flops at 0x7fd4958c3d80>) in statistical functions.
+Level 1:tensorflow:Registering RealDiv,flops (<function _real_div_flops at 0x7fd4958c3ba0>) in statistical functions.
+Level 1:tensorflow:Registering Maximum,flops (<function _maximum_flops at 0x7fd4958c39c0>) in statistical functions.
+Level 1:tensorflow:Registering Minimum,flops (<function _minimum_flops at 0x7fd4958e5b20>) in statistical functions.
+Level 1:tensorflow:Registering Pow,flops (<function _pow_flops at 0x7fd4958e4720>) in statistical functions.
+Level 1:tensorflow:Registering RsqrtGrad,flops (<function _rsqrt_grad_flops at 0x7fd4958e45e0>) in statistical functions.
+Level 1:tensorflow:Registering GreaterEqual,flops (<function _greater_equal_flops at 0x7fd4958e5bc0>) in statistical functions.
+Level 1:tensorflow:Registering Greater,flops (<function _greater_flops at 0x7fd4958e5c60>) in statistical functions.
+Level 1:tensorflow:Registering LessEqual,flops (<function _less_equal_flops at 0x7fd4958e5d00>) in statistical functions.
+Level 1:tensorflow:Registering Less,flops (<function _less_flops at 0x7fd4958e5da0>) in statistical functions.
+Level 1:tensorflow:Registering Equal,flops (<function _equal_flops at 0x7fd4958e5e40>) in statistical functions.
+Level 1:tensorflow:Registering NotEqual,flops (<function _not_equal_flops at 0x7fd4958e5ee0>) in statistical functions.
+Level 1:tensorflow:Registering SquaredDifference,flops (<function _squared_difference_flops at 0x7fd4958e5f80>) in statistical functions.
+Level 1:tensorflow:Registering Mean,flops (<function _mean_flops at 0x7fd4958e60c0>) in statistical functions.
+Level 1:tensorflow:Registering Sum,flops (<function _sum_flops at 0x7fd4958e6160>) in statistical functions.
+Level 1:tensorflow:Registering ArgMax,flops (<function _arg_max_flops at 0x7fd4958e6200>) in statistical functions.
+Level 1:tensorflow:Registering ArgMin,flops (<function _arg_min_flops at 0x7fd4958e62a0>) in statistical functions.
+Level 1:tensorflow:Registering BiasAddGrad,flops (<function _bias_add_grad_flops at 0x7fd4958e6340>) in statistical functions.
+Level 1:tensorflow:Registering AvgPool,flops (<function _avg_pool_flops at 0x7fd4958e6520>) in statistical functions.
+Level 1:tensorflow:Registering MaxPool,flops (<function _max_pool_flops at 0x7fd4958e65c0>) in statistical functions.
+Level 1:tensorflow:Registering AvgPoolGrad,flops (<function _avg_pool_grad_flops at 0x7fd4958e6660>) in statistical functions.
+Level 1:tensorflow:Registering MaxPoolGrad,flops (<function _max_pool_grad_flops at 0x7fd4958e6700>) in statistical functions.
+Level 1:tensorflow:Registering Conv2DBackpropInput,flops (<function _conv_2d_backprop_input_flops at 0x7fd4958e67a0>) in statistical functions.
+Level 1:tensorflow:Registering Conv2DBackpropFilter,flops (<function _conv_2d_backprop_filter_flops at 0x7fd4958e6840>) in statistical functions.
+Level 1:tensorflow:Registering AddN,flops (<function _add_n_flops at 0x7fd4958e68e0>) in statistical functions.
+Level 1:tensorflow:Registering MatMul,flops (<function _calc_mat_mul_flops at 0x7fd4958e6980>) in statistical functions.
+Level 1:tensorflow:Registering BatchMatMulV3,flops (<function _calc_batch_mat_mul_flops at 0x7fd4958e6a20>) in statistical functions.
+Level 1:tensorflow:Registering BatchMatMulV2,flops (<function _calc_batch_mat_mul_flops at 0x7fd4958e6a20>) in statistical functions.
+Level 1:tensorflow:Registering BatchMatMul,flops (<function _calc_batch_mat_mul_flops at 0x7fd4958e6a20>) in statistical functions.
+Level 1:tensorflow:Registering SdcaFprint (None) in gradient.
+Level 1:tensorflow:Registering SdcaOptimizer (None) in gradient.
+Level 1:tensorflow:Registering SdcaOptimizerV2 (None) in gradient.
+Level 1:tensorflow:Registering SdcaShrinkL1 (None) in gradient.
+Level 1:tensorflow:Registering GenerateVocabRemapping (None) in gradient.
+Level 1:tensorflow:Registering LoadAndRemapMatrix (None) in gradient.
+Level 1:tensorflow:Registering DebugGradientIdentity (<function _identify_gradient_grad at 0x7fd494ef6840>) in gradient.
+Level 1:tensorflow:Registering DebugGradientRefIdentity (<function _identify_gradient_grad_ref at 0x7fd494ef7100>) in gradient.
+Level 1:tensorflow:Registering DebugIdentityV2 (<function _debug_identity_v2_grad at 0x7fd494f98680>) in gradient.
+Level 1:tensorflow:Registering AudioMicrofrontend (None) in gradient.
+Level 1:tensorflow:Registering Relayout (<function _relayout_gradient at 0x7fd4878d91c0>) in gradient.
+Level 1:tensorflow:Registering RelayoutGrad (<function _relayout_grad_gradient at 0x7fd4878b9440>) in gradient.
+Level 1:tensorflow:Registering CopyToMesh (<function _copy_to_mesh_gradient at 0x7fd4878b9300>) in gradient.
+Level 1:tensorflow:Registering CopyToMeshGrad (<function _copy_to_mesh_grad_gradient at 0x7fd4878d9300>) in gradient.
+Level 1:tensorflow:Enabling eager execution
+Level 1:tensorflow:Enabling v2 tensorshape
+Level 1:tensorflow:Enabling resource variables
+Level 1:tensorflow:Enabling tensor equality

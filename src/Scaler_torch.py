@@ -1,5 +1,5 @@
 # Your existing imports and setup here
-from global_config import logger, cfg
+from global_config import logger
 import numpy as np
 import torch
 import pickle 
@@ -10,13 +10,14 @@ class Scaler:
     # TODO: Memory leak present. If you need to run transform multiple times 
     # TODO: Shape is only correct for minmax scaler. Need to fix for all
     # (i.e. you cannot hold all of your data in memory) resolve the leak issue
-    def __init__(self):
+    def __init__(self, cfg):
         """
         Initializes the Scaler object with configuration settings.
         """
-        self.global_or_local = cfg.scaling.global_or_local
-        self.per_channel = cfg.scaling.per_channel
-        self.scaler_type = cfg.scaling.scaler_type
+        self.cfg = cfg
+        self.global_or_local = self.cfg.scaling.global_or_local
+        self.per_channel = self.cfg.scaling.per_channel
+        self.scaler_type = self.cfg.scaling.scaler_type
         self.parameter_validation()
         self.scaler = self.get_scaler()
 
@@ -67,7 +68,7 @@ class Scaler:
         Loads a previously fitted scaler from a file.
         """
         logger.info("Loading fitted scaler.")
-        scaler_path = os.path.join(cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
+        scaler_path = os.path.join(self.cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
         self.scaler = pickle.load(open(scaler_path, "rb"))
         logger.info("Scaler loaded.")
 
@@ -76,7 +77,7 @@ class Scaler:
         Saves the fitted scaler to a file.
         """
         logger.info("Saving fitted scaler.")
-        scaler_path = os.path.join(cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
+        scaler_path = os.path.join(self.cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
         with open(scaler_path, 'wb') as f:
             pickle.dump(self.scaler, f)
         logger.info(f"Scaler saved to {scaler_path}.")
@@ -99,23 +100,23 @@ class MinMaxScaler(Scaler):
         pass
 
     def fit(self, X: torch.Tensor):
-        if cfg.scaling.global_or_local == "global":
+        if self.cfg.scaling.global_or_local == "global":
             x1 = X[:,0]
             x2 = X[:,1]
             x3 = X[:,2]
             max_1, max_2, max_3 = torch.max(x1), torch.max(x2), torch.max(x3)
             min_1, min_2, min_3 = torch.min(x1), torch.min(x2), torch.min(x3)
 
-            if cfg.scaling.per_channel:    
+            if self.cfg.scaling.per_channel:    
                 self.maxs = torch.tensor([max_1, max_2, max_3])
                 self.mins = torch.tensor([min_1, min_2, min_3])
             else:
                 self.maxs = torch.tensor([max_1, max_2, max_3]).max()
                 self.mins = torch.tensor([min_1, min_2, min_3]).min()
-        if cfg.scaling.global_or_local == "local":
+        if self.cfg.scaling.global_or_local == "local":
             logger.info("Local minmax; skipping fit")
 
-    def transform(self, X: torch.Tensor) -> torch.Tensor:
+    def transform(self, X: torch.Tensor, cfg) -> torch.Tensor:
         X = X.float()
         transformed_X = torch.empty_like(X)
 
@@ -159,20 +160,20 @@ class StandardScaler(Scaler):
         Args:
             X (np.ndarray): The data to fit the scaler on.
         """
-        if cfg.scaling.global_or_local == "global":
+        if self.cfg.scaling.global_or_local == "global":
             x1 = X[:,:,0]
             x2 = X[:,:,1]
             x3 = X[:,:,2]
             mean_1, mean_2, mean_3 = torch.mean(x1), torch.mean(x2), torch.mean(x3)
             std_1, std_2, std_3 = torch.std(x1), torch.std(x2), torch.std(x3)
 
-            if cfg.scaling.per_channel:    
+            if self.cfg.scaling.per_channel:    
                 self.means = torch.tensor([mean_1, mean_2, mean_3])
                 self.stds = torch.tensor([std_1, std_2, std_3])
             else:
                 self.means = torch.tensor([mean_1, mean_2, mean_3]).mean()
                 self.stds = torch.tensor([std_1, std_2, std_3]).mean()
-        if cfg.scaling.global_or_local == "local":
+        if self.cfg.scaling.global_or_local == "local":
             logger.info("Local standard; skipping fit")
 
     def transform(self, X: torch.Tensor) -> torch.Tensor:
@@ -186,8 +187,8 @@ class StandardScaler(Scaler):
             torch.Tensor: The transformed data.
         """
         transformed_X = torch.empty_like(X)
-        if cfg.scaling.global_or_local == "global":
-            if cfg.scaling.per_channel:
+        if self.cfg.scaling.global_or_local == "global":
+            if self.cfg.scaling.per_channel:
                 transformed_X = torch.stack([
                     (X[:,:,0] - self.means[0]) / self.stds[0],
                     (X[:,:,1] - self.means[1]) / self.stds[1],
@@ -195,9 +196,9 @@ class StandardScaler(Scaler):
                 ], dim=-1)
             else:
                 transformed_X = (X - self.means) / self.stds
-        if cfg.scaling.global_or_local == "local":
+        if self.cfg.scaling.global_or_local == "local":
             for idx, x in enumerate(X):
-                if cfg.scaling.per_channel:
+                if self.cfg.scaling.per_channel:
                     transformed_X[idx,:,0] = (x[:,0] - torch.mean(x[:,0])) / torch.std(x[:,0])
                     transformed_X[idx,:,1] = (x[:,1] - torch.mean(x[:,1])) / torch.std(x[:,1])
                     transformed_X[idx,:,2] = (x[:,2] - torch.mean(x[:,2])) / torch.std(x[:,2])
@@ -208,7 +209,7 @@ class StandardScaler(Scaler):
 class LogScaler(Scaler):
     def __init__(self):
         pass
-
+    
     def fit(self, X: torch.Tensor):
         logger.info("Log scaler; skipping fit")
 

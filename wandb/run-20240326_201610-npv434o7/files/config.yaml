@@ -1,0 +1,110 @@
+wandb_version: 1
+
+model_name:
+  desc: null
+  value: alexnet
+pretrained_model_name:
+  desc: null
+  value: best_alexnet_epoch_30.hdf5
+seed:
+  desc: null
+  value: 42
+predict:
+  desc: null
+  value: false
+device:
+  desc: null
+  value: cuda
+num_workers:
+  desc: null
+  value: 12
+run_id:
+  desc: null
+  value: test
+project_paths:
+  desc: null
+  value: '{''output_folder'': ''output/'', ''output_folders'': {''data_csv'': ''data.csv'',
+    ''model_save_folder'': ''models/'', ''logs_folder'': ''logs/'', ''predictions_folder'':
+    ''predictions/'', ''plots_folder'': ''plots/''}, ''live_test_path'': ''live_test/'',
+    ''scaler_path'': ''saved_scalers/''}'
+data_paths:
+  desc: null
+  value: '{''data_path'': ''/projects/Array/ML_DataSet/data/'', ''loaded_path'': ''/projects/Array/ML_DataSet/data/loaded/'',
+    ''map_folder'': ''/projects/Array/ML_DataSet/data/maps/'', ''metadata_folder'':
+    ''/projects/Array/ML_DataSet/metadata/''}'
+data:
+  desc: null
+  value: '{''debug'': True, ''include_induced'': True, ''load_filtered'': True, ''load_testset'':
+    False, ''model_threshold'': 0.5, ''val_years'': [2013], ''test_years'': [2014],
+    ''SNR_threshold'': 0.5, ''coda_factor'': 1.4, ''default_length_seconds'': 180,
+    ''sample_rate'': 40}'
+live:
+  desc: null
+  value: '{''live'': True, ''array'': ''ARCES'', ''step'': 5, ''length'': 240, ''edge'':
+    10, ''delay'': 5, ''event_buffer'': 30, ''p_vel'': 6.45, ''s_vel'': 3.7}'
+filters:
+  desc: null
+  value: '{''use_filters'': True, ''detrend'': True, ''taper'': True, ''taper_max_percentage'':
+    0.05, ''highpass_or_bandpass'': ''bandpass'', ''band_kwargs'': {''min'': 2, ''max'':
+    8}, ''high_kwargs'': {''high_freq'': 1.0}}'
+wandb:
+  desc: null
+  value: '{''active'': True, ''project'': ''arces_classification'', ''entity'': ''norsar_ai''}'
+callbacks:
+  desc: null
+  value: '{''early_stopping_patience'': 7, ''umap'': False, ''umap_interval'': 5,
+    ''wandb_n_batches_per_update'': 50, ''reduce_lr_patience'': 1}'
+scaling:
+  desc: null
+  value: '{''scaler_type'': ''minmax'', ''per_channel'': False, ''global_or_local'':
+    ''local''}'
+augment:
+  desc: null
+  value: '{''random_crop_kwargs'': {''timesteps'': 4000, ''end_buffers'': 50, ''must_include_entire_event'':
+    True, ''inclusion_proportion'': 0.5, ''min_event_length'': 20}, ''zero_channel'':
+    True, ''zero_channel_kwargs'': {''prob'': 0.1}, ''add_gap'': False, ''add_gap_kwargs'':
+    {''prob'': 0, ''max_size'': 0.01}, ''add_noise'': True, ''add_noise_kwargs'':
+    {''prob'': 0.2, ''noise_std'': 0.1}, ''taper'': True, ''taper_kwargs'': {''prob'':
+    1, ''alpha'': 0.04}, ''bandpass'': True, ''bandpass_kwargs'': {''prob'': 0.5,
+    ''default_min'': 2, ''default_max'': 8, ''optional_min'': [1, 3, 4], ''optional_max'':
+    [6, 10, 14, 21]}}'
+optimizer:
+  desc: null
+  value: '{''max_epochs'': 100, ''batch_size'': 128, ''optimizer'': ''adam'', ''optimizer_kwargs'':
+    {''warmup'': False, ''max_lr'': 0.0001, ''min_lr'': 5e-06, ''weight_decay'': 1e-06},
+    ''scheduler'': {''use_scheduler'': True, ''warmup'': False, ''warmup_epochs'':
+    5, ''scheduler_type'': ''cosine''}}'
+_wandb:
+  desc: null
+  value:
+    python_version: 3.11.4
+    cli_version: 0.15.9
+    framework: lightning
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1711480570.798358
+    t:
+      1:
+      - 1
+      - 5
+      - 9
+      - 41
+      - 53
+      - 55
+      - 103
+      2:
+      - 1
+      - 5
+      - 9
+      - 41
+      - 53
+      - 55
+      - 103
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.11.4
+      5: 0.15.9
+      8:
+      - 8

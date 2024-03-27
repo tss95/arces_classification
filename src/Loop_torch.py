@@ -10,15 +10,15 @@ from typing import List, Dict, Any, Tuple, Union
 
 # Dictionary to map metric names to their respective torchmetrics classes
 prob_metrics = {
-    'auroc': AUROC,
-    'average_precision': AveragePrecision,
+    'auroc': AUROC(task='binary', average='macro'),
+    'average_precision': AveragePrecision(task='binary', average='macro')
 }
 
 pred_metrics = {
-    'accuracy': Accuracy,
-    'precision': Precision(task='binary', average='macro', num_classes=2),
-    'recall': Recall(task='binary', average='macro', num_classes=2),
-    'f1': F1Score(task='binary', average='macro', num_classes=2),
+    'accuracy': Accuracy(task='binary'),
+    'precision': Precision(task='binary', average='macro'),
+    'recall': Recall(task='binary', average='macro'),
+    'f1': F1Score(task='binary', average='macro'),
     'matthews': matthews_corrcoef,
 }
 
@@ -64,10 +64,10 @@ class Loop(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        if self.cfg.optimizer.lower() == "adam":
+        if self.cfg.optimizer.optimizer == "adam":
             optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg.optimizer.optimizer_kwargs.max_lr, 
                                          weight_decay = self.cfg.optimizer.optimizer_kwargs.weight_decay)
-        elif self.cfg.optimizer.lower() == "sgd":
+        elif self.cfg.optimizer.optimizer == "sgd":
             optimizer = torch.optim.SGD(self.parameters(), lr=self.cfg.optimizer.optimizer_kwargs.max_lr, 
                                         momentum=self.cfg.optimizer.optimizer_kwargs.momentum, 
                                         weight_decay = self.cfg.optimizer.optimizer_kwargs.weight_decay)
@@ -88,7 +88,7 @@ class Loop(pl.LightningModule):
         return optimizer
     
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, _ = batch
         y_pred = self(x, training=True)
         total_loss, loss_detector, loss_classifier = self.calculate_loss(y, y_pred)
         self.log(f'train_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -101,7 +101,7 @@ class Loop(pl.LightningModule):
         }
         return outputs
     
-    def training_epoch_end(self, training_step_outputs):
+    def on_train_epoch_end(self, training_step_outputs):
         y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(training_step_outputs)
         self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='train')
 
@@ -111,7 +111,7 @@ class Loop(pl.LightningModule):
         return outputs
     
     def _evaluate_step(self, batch, batch_idx, prefix: str):
-        x, y = batch
+        x, y, _ = batch
         # Perform the forward pass
         y_pred = self(x, training=False)
         total_loss, loss_detector, loss_classifier = self.calculate_loss(y, y_pred)
@@ -136,7 +136,7 @@ class Loop(pl.LightningModule):
         return outputs
 
         
-    def validation_epoch_end(self, validation_step_outputs):
+    def on_validation_epoch_end(self, validation_step_outputs):
         y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(validation_step_outputs)
         self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='val')
 
@@ -168,7 +168,7 @@ class Loop(pl.LightningModule):
         outputs = self._evaluate_step(batch, batch_idx, prefix='test')
         return outputs
     
-    def test_epoch_end(self, test_step_outputs):
+    def on_test_epoch_end(self, test_step_outputs):
         y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(test_step_outputs)
         self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='test')
 

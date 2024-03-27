@@ -1,5 +1,5 @@
 
-model_name: "cnn_dense" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
+model_name: "alexnet" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
 pretrained_model_name: "best_alexnet_epoch_30.hdf5" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
 predict: False # Whether or not to make predictions. Needed for live.
@@ -30,19 +30,20 @@ data: # None of these are needed for live
   debug: True # If true, only 10% of the data is loaded
   include_induced: True # Whether or not induced events are included (as earthquake)
   load_filtered: True # Whether or not to load filtered data, or unfilitered data.
-  what_to_load: ["train", "val"] # Which datasets should be loaded. Currently does not support "test"
-  train_prop: 0.8 # Proportion of data to use for training
-  val_prop: 0.6 # Proportion of non training data to be used for validation. Remaining data is used for testing. Testing pipeline not set up.
+  load_testset: False # Whether or not to load the test set
   model_threshold: 0.5 # Threshold for model prediction to be considered a positive prediction
   val_years: [2013] # Years included in the validation set
   test_years: [2014] # Years included in the test set
   SNR_threshold: 0.5 # Threshold for event to be included in dataset
+  coda_factor: 1.4
+  default_length_seconds: 180 
+  sample_rate: 40 # Sample rate of the data
+
 
 live: # Needed for live
   live: True # Alters the pipeline to be used for live data
   array: "ARCES" # Which array to use. Currently only ARCES is supported
   step: 5 # How many seconds between each prediction
-  sample_rate: 40 # Sample rate of the data
   length: 240 # Length of the data to be used for each prediction (seconds)
   edge: 10 # Additional seconds of data to load, which will be cut due to tapering.
   delay: 5 # TODO: Figure out if this is used.
@@ -61,6 +62,11 @@ filters: # Needed for live
     max: 8 # Maximum frequency of the bandpass filter
   high_kwargs:
     high_freq: 1.0 # High frequency of the highpass filter
+  
+wandb:
+  active: True
+  project: "arces_classification"
+  entity: "norsar_ai"
 
 callbacks: # Not needed for live
   early_stopping_patience: 7 # Number of epochs without improvement before early stopping
@@ -78,6 +84,9 @@ augment: # Not needed for live
   random_crop_kwargs:
     timesteps: 4000 # Number of final timesteps
     end_buffers: 50 # Minimum number of timesteps before or after the end of the event.
+    must_include_entire_event: true # Whether or not the entire event must be included in the crop
+    inclusion_proportion: 0.5 # Proportion of the event that must be included in the crop if must_include is false
+    min_event_length: 20 # Minimum length in seconds an event can be
   zero_channel: True # Whether or not to zero out a random channel
   zero_channel_kwargs:
     prob: 0.1 # Probability of zeroing out a channel

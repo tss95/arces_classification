@@ -1,0 +1,6 @@
+/staff/tord/miniconda3/envs/arces/lib/python3.11/site-packages/lightning_fabric/connector.py:563: `precision=16` is supported for historical reasons but its usage is discouraged. Please set your precision to 16-mixed instead!
+/staff/tord/miniconda3/envs/arces/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/accelerator_connector.py:552: You passed `Trainer(accelerator='cpu', precision='16-mixed')` but AMP with fp16 is not supported on CPU. Using `precision='bf16-mixed'` instead.
+Using bfloat16 Automatic Mixed Precision (AMP)
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
