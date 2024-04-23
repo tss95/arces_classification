@@ -37,17 +37,18 @@ class Loop(pl.LightningModule):
         super().__init__()
         self.cfg = cfg
                # Initialize MetricCollections for detector
-        self.detector_prob_metrics = MetricCollection({name: prob_metrics[name]() for name in detector_metrics_list if name in prob_metrics})
-        self.detector_pred_metrics = MetricCollection({name: pred_metrics[name]() for name in detector_metrics_list if name in pred_metrics})
+        self.detector_prob_metrics = MetricCollection({name: prob_metrics[name] for name in detector_metrics_list if name in prob_metrics})
+        self.detector_pred_metrics = MetricCollection({name: pred_metrics[name] for name in detector_metrics_list if name in pred_metrics})
 
         # Initialize MetricCollections for classifier
-        self.classifier_prob_metrics = MetricCollection({name: prob_metrics[name]() for name in classifier_metrics_list if name in prob_metrics})
-        self.classifier_pred_metrics = MetricCollection({name: pred_metrics[name]() for name in classifier_metrics_list if name in pred_metrics})
+        self.classifier_prob_metrics = MetricCollection({name: prob_metrics[name] for name in classifier_metrics_list if name in prob_metrics})
+        self.classifier_pred_metrics = MetricCollection({name: pred_metrics[name] for name in classifier_metrics_list if name in pred_metrics})
         # Reverse mapping for label maps
         self.channels, self.timesteps = input_shape
-        self.label_map_detector = {v: k for k, v in label_map_detector.items()}
-        self.label_map_classifier = {v: k for k, v in label_map_classifier.items()}
-        
+        #self.label_map_detector = {v: k for k, v in label_map_detector.items()}
+        #self.label_map_classifier = {v: k for k, v in label_map_classifier.items()}
+        self.label_map_detector = label_map_detector
+        self.label_map_classifier = label_map_classifier
         # Initialize class weights as tensors and register them as buffers
         detector_weights_tensor = torch.tensor(
             [detector_class_weights[key] for key in sorted(detector_class_weights.keys())],
@@ -60,6 +61,11 @@ class Loop(pl.LightningModule):
         
         self.register_buffer("detector_class_weights", detector_weights_tensor)
         self.register_buffer("classifier_class_weights", classifier_weights_tensor)
+        self.setup()
+        
+    def setup(self, stage=None):
+        torch.set_float32_matmul_precision('medium')
+        
         
 
 
@@ -88,32 +94,44 @@ class Loop(pl.LightningModule):
         return optimizer
     
     def training_step(self, batch, batch_idx):
+        self.train()
         x, y, _ = batch
-        y_pred = self(x, training=True)
+        y_pred = self(x)
         total_loss, loss_detector, loss_classifier = self.calculate_loss(y, y_pred)
-        self.log(f'train_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log(f'train_detector_loss', loss_detector, on_step=True, on_epoch=True, prog_bar=False, logger=True)
-        self.log(f'train_classifier_loss', loss_classifier, on_step=True, on_epoch=True, prog_bar=False, logger=True)
-        outputs = {
+        self.log('train_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+        self.log('train_detector_loss', loss_detector, on_step=True, on_epoch=True, prog_bar=False, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+        self.log('train_classifier_loss', loss_classifier, on_step=True, on_epoch=True, prog_bar=False, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+
+        # Save outputs for later aggregation
+        if not hasattr(self, '_train_outputs'):
+            self._train_outputs = []
+        self._train_outputs.append({
             'y_true': y,  # Assuming y is a dictionary like {'detector': ..., 'classifier': ...}
-            'y_pred': y_pred,  # Similarly structured dictionary
+            'y_pred': y_pred,
             'loss': total_loss
-        }
-        return outputs
+        })
+        return total_loss
     
-    def on_train_epoch_end(self, training_step_outputs):
-        y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(training_step_outputs)
-        self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='train')
+    def on_train_epoch_end(self):
+        if hasattr(self, '_train_outputs') and self._train_outputs:
+            # Aggregate and compute metrics using saved outputs
+            y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(self._train_outputs)
+            self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='train')
+            # Clear the saved outputs after processing
+            del self._train_outputs
 
     def validation_step(self, batch, batch_idx):
-        # Your _evaluate_step logic, simplified to focus on collecting outputs
+        self.eval()
         outputs = self._evaluate_step(batch, batch_idx, prefix='val')
-        return outputs
+        if not hasattr(self, '_val_outputs'):
+            self._val_outputs = []
+        self._val_outputs.append(outputs)
+        return outputs['losses']['total_loss']
     
     def _evaluate_step(self, batch, batch_idx, prefix: str):
         x, y, _ = batch
         # Perform the forward pass
-        y_pred = self(x, training=False)
+        y_pred = self(x)
         total_loss, loss_detector, loss_classifier = self.calculate_loss(y, y_pred)
         
         # Prepare the outputs. This structure allows for easy aggregation in the epoch-end step.
@@ -129,16 +147,20 @@ class Loop(pl.LightningModule):
         
         # Optionally log losses here if you want them logged per-step, but as mentioned, aggregation is better
         if prefix == 'val':  # Example conditional logging based on prefix
-            self.log(f'{prefix}_total_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f'{prefix}_detector_loss', loss_detector, on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log(f'{prefix}_classifier_loss', loss_classifier, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(f'{prefix}_total_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+            self.log(f'{prefix}_detector_loss', loss_detector, on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+            self.log(f'{prefix}_classifier_loss', loss_classifier, on_step=False, on_epoch=True, prog_bar=False, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
         
         return outputs
 
         
-    def on_validation_epoch_end(self, validation_step_outputs):
-        y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(validation_step_outputs)
-        self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='val')
+    def on_validation_epoch_end(self):
+        # Make sure the attribute exists and has content
+        if hasattr(self, '_val_outputs') and self._val_outputs:
+            y_true_aggregated, y_pred_aggregated = self.aggregate_outputs(self._val_outputs)
+            self.compute_metrics(y_true_aggregated, y_pred_aggregated, stage='val')
+            # Clear the saved outputs after processing them
+            del self._val_outputs
 
         
     
@@ -199,12 +221,32 @@ class Loop(pl.LightningModule):
 
         # Loss computation for classifier with class weights
         instance_weights_classifier = self.classifier_class_weights[y_true_classifier.long()]
-        loss_classifier = torch.nn.functional.binary_cross_entropy_with_logits(y_pred_classifier, y_true_classifier, weight=instance_weights_classifier)
+        if mask_not_noise.any():
+            # Proceed with classifier loss computation
+            loss_classifier = torch.nn.functional.binary_cross_entropy_with_logits(
+                y_pred_classifier, y_true_classifier, weight=instance_weights_classifier)
+        else:
+            # Default classifier loss to 0 or another placeholder value when not applicable
+            loss_classifier = 0.0
+            # Convert to a tensor if necessary, matching the device and dtype of loss_detector
+            loss_classifier = torch.tensor(loss_classifier).to(loss_detector.device, dtype=loss_detector.dtype)
 
-        # Total loss calculation
-        loss_detector = loss_detector.mean()
-        loss_classifier = loss_classifier.mean()
         total_loss = loss_detector + loss_classifier
+        
+        # Check for NaN in detector loss
+        if torch.isnan(loss_detector).any():
+            print("NaN detected in loss_detector")
+            # Log or print additional info as needed
+            #print(f"y['detector']: {y['detector']}")
+            #print(f"y_pred['detector']: {y_pred['detector']}")
+            #print(f"Instance weights (detector): {instance_weights_detector}")
+        # Check for NaN in classifier loss
+        if torch.isnan(loss_classifier).any():
+            print("NaN detected in loss_classifier")
+            # Log or print additional info as needed
+            #print(f"y['classifier']: {y['classifier']}")
+            #print(f"y_pred['classifier']: {y_pred['classifier']}")
+            #print(f"Instance weights (classifier): {instance_weights_classifier}")
         
         return total_loss, loss_detector, loss_classifier
     
@@ -217,13 +259,20 @@ class Loop(pl.LightningModule):
         detector_pred = (detector_prob > 0.5).int()
         classifier_pred = (classifier_prob > 0.5).int()
 
-        # Detector Metrics
-        for name, metric in self.detector_metrics.items():
-            if "auroc" in name or "average_precision" in name:  # Metrics that require probabilities
-                result = metric(detector_prob, y_true['detector'])
-            else:  # Metrics that require binary predictions
-                result = metric(detector_pred, y_true['detector'])
-            self.log(f'{stage}_detector_{name}', result, on_step = False, on_epoch = True, logger=True)
+        # Detector Metrics: Update then Compute
+        self.detector_prob_metrics.update(detector_prob, y_true['detector'])
+        self.detector_pred_metrics.update(detector_pred, y_true['detector'])
+        
+        detector_prob_results = self.detector_prob_metrics.compute()
+        detector_pred_results = self.detector_pred_metrics.compute()
+        
+        # Reset metrics for next computation
+        self.detector_prob_metrics.reset()
+        self.detector_pred_metrics.reset()
+
+        # Log detector results
+        for name, result in {**detector_prob_results, **detector_pred_results}.items():
+            self.log(f'{stage}_detector_{name}', result, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
 
         # Classifier Metrics
         mask_not_noise = detector_pred != self.label_map_detector["noise"]
@@ -232,12 +281,10 @@ class Loop(pl.LightningModule):
             classifier_prob_filtered = classifier_prob[mask_not_noise]
             classifier_pred_filtered = classifier_pred[mask_not_noise]
 
-            for name, metric in self.classifier_metrics.items():
-                if "auroc" in name or "average_precision" in name:  # Metrics that require probabilities
-                    result = metric(classifier_prob_filtered, classifier_true_filtered)
-                else:  # Metrics that require binary predictions
-                    result = metric(classifier_pred_filtered, classifier_true_filtered)
-                self.log(f'{stage}_classifier_{name}', result, on_step = False, on_epoch = True, logger=True)
+            classifier_results = self.classifier_prob_metrics(classifier_prob_filtered, classifier_true_filtered)
+            classifier_results.update(self.classifier_pred_metrics(classifier_pred_filtered, classifier_true_filtered))
+            for name, result in classifier_results.items():
+                self.log(f'{stage}_classifier_{name}', result, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
             
             
             

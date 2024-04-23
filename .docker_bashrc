@@ -44,6 +44,6 @@ fi
 export TF_CPP_MIN_LOG_LEVEL=3
 
 cd /tf
-
-export ROOT_DIR=/tf/
-export STORAGE_DIR=/tf/
+export NCCL_P2P_DISABLE=1
+export PROJECT_DIR=/tf/
+export DATA_DIR=/tf/data/

@@ -1,11 +1,11 @@
 
 model_name: "alexnet" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
-pretrained_model_name: "best_alexnet_epoch_30.hdf5" # Name of the weights file to be loaded. Needed for live.
+pretrained_model_name: "output/alexnet/keeper/models/alexnet_broken-frog-1462_epoch=97_val_total_loss=0.29.ckpt" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
-predict: False # Whether or not to make predictions. Needed for live.
+predict: False
 device: "cuda"
-num_workers: 12 # Number of workers for the dataloader. Needed for live.
-run_id: "test"
+num_workers: 30 # Number of workers for the dataloader. Needed for live.
+run_id: "analysis_test"
 
 
 project_paths:
@@ -22,18 +22,19 @@ project_paths:
 
 data_paths: # Needed for live
   data_path: data/ # Directory for training, validation and test data. Not needed for live
-  loaded_path: data/loaded/ # Where the loaded data is stored. Not needed for live
+  loaded_path: loaded_classifier/ # Where the loaded data is stored. Not needed for live
   map_folder: data/maps/ # Where the maps are stored. Not needed for live
   metadata_folder: metadata/ # Where the metadata is stored. Not needed for live
 
 data: # None of these are needed for live
-  debug: True # If true, only 10% of the data is loaded
+  debug: False # If true, only 10% of the data is loaded
+  preloaded: True # If true, we want to load preprocessed data.
   include_induced: True # Whether or not induced events are included (as earthquake)
   load_filtered: True # Whether or not to load filtered data, or unfilitered data.
   load_testset: False # Whether or not to load the test set
   model_threshold: 0.5 # Threshold for model prediction to be considered a positive prediction
-  val_years: [2013] # Years included in the validation set
-  test_years: [2014] # Years included in the test set
+  val_years: [2018] # Years included in the validation set
+  test_years: [2019] # Years included in the test set
   SNR_threshold: 0.5 # Threshold for event to be included in dataset
   coda_factor: 1.4
   default_length_seconds: 180 
@@ -83,18 +84,18 @@ scaling: # Needed for live
 augment: # Not needed for live
   random_crop_kwargs:
     timesteps: 4000 # Number of final timesteps
-    end_buffers: 50 # Minimum number of timesteps before or after the end of the event.
+    end_buffers: 100 # Minimum number of timesteps before or after the end of the event.
     must_include_entire_event: true # Whether or not the entire event must be included in the crop
     inclusion_proportion: 0.5 # Proportion of the event that must be included in the crop if must_include is false
-    min_event_length: 20 # Minimum length in seconds an event can be
-  zero_channel: True # Whether or not to zero out a random channel
+    min_event_length: 30 # Minimum length in seconds an event can be
+  zero_channel: False # Whether or not to zero out a random channel
   zero_channel_kwargs:
-    prob: 0.1 # Probability of zeroing out a channel
-  add_gap: False # Whether or not to add a gap to the data # TODO: This augemntation does not work as expected.
+    prob: 0.2 # Probability of zeroing out a channel
+  add_gap: False # Whether or not to add a gap to the data
   add_gap_kwargs:
-    prob: 0 # Probability of adding a gap
+    prob: 0.2 # Probability of adding a gap
     max_size: 0.01
-  add_noise: True # Whether or not to add noise to the data
+  add_noise: False # Whether or not to add noise to the data
   add_noise_kwargs:
     prob: 0.2 # Probability of adding noise
     noise_std: 0.1 # Standard deviation of the noise
@@ -113,6 +114,7 @@ augment: # Not needed for live
 optimizer: # Not needed for live
   max_epochs: 100 # Maximum number of epochs
   batch_size: 128 # Batch size
+  #batch_size: 32 # Batch size
   optimizer: adam # Which optimizer to use
   optimizer_kwargs: 
     warmup: False # Whether or not to use warmup

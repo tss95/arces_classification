@@ -8,6 +8,7 @@ from torch.nn import functional as F
 import torch.nn as nn
 from typing import Dict, List, Callable
 import torch.nn.init as init
+from torchsummary import summary
 
 
 def get_model(input_shape,
@@ -227,7 +228,7 @@ class AlexNet1D(Loop):
             filters = [96, 256, 384, 384, 256]
         
         self.conv_blocks = nn.ModuleDict()
-        self.pool_layers = nn.ModuleList()
+        self.pool_layers = nn.ModuleDict()
 
         pooling_layer = nn.MaxPool1d if pooling == 'max' else nn.AvgPool1d
         if pooling in [None, 'none']:
@@ -239,22 +240,26 @@ class AlexNet1D(Loop):
             self.conv_blocks[f"conv_block_{i}"] = nn.Sequential(
                 nn.Conv1d(in_channels=in_channels, out_channels=filter_size, kernel_size=kernel_size, stride=4 if i == 0 else 1, padding=padding if i != 0 else 0),
                 nn.ReLU(),
-                nn.BatchNorm1d(filter_size)
-            )
+                nn.BatchNorm1d(filter_size, eps=1e-5),
+                )
             if i < len(filters) - 1:
-                self.pool_layers.append(pooling_layer(kernel_size=3, stride=2))
+                self.pool_layers[f"pool_layer_{i}"] = pooling_layer(kernel_size=3, stride=2)
             in_channels = filter_size
 
         # Final pooling layer to ensure consistency in tensor shape before flattening
-        self.pool_layers.append(pooling_layer(kernel_size=3, stride=2))
+        self.pool_layers["pool_layer_before_flattening"] = pooling_layer(kernel_size=3, stride=2)
 
         self.flatten = nn.Flatten()
+        
+        with torch.no_grad():
+            dummy_input = torch.zeros(1, *input_shape)  # Create a dummy input of the correct shape
+            output_size = self._calculate_conv_output_size(dummy_input)
 
         # Define dense (fully connected) blocks for shared features
         self.dense_blocks = nn.ModuleDict({
             "dense_0": nn.Sequential(
                 nn.Dropout(0.5),
-                nn.Linear(filters[-1] * 16, 4096),  # Placeholder for actual calculation
+                nn.Linear(output_size, 4096),  # Placeholder for actual calculation
                 nn.ReLU(),
                 nn.Dropout(0.5)
             ),
@@ -268,15 +273,25 @@ class AlexNet1D(Loop):
         self.final_dense_detector = nn.Linear(4096, 1)
         self.final_dense_classifier = nn.Linear(4096, 1)
         self._initialize_weights()
-        self.to("cuda" if torch.cuda.is_available() else "cpu")
+        
+    def _calculate_conv_output_size(self, x):
+        # Simulate a forward pass through the conv and pool layers
+        for i in range(len(self.conv_blocks)):
+            x = self.conv_blocks[f"conv_block_{i}"](x)
+            if i < len(self.pool_layers) - 1:
+                x = self.pool_layers[f"pool_layer_{i}"](x)
+        x = self.pool_layers["pool_layer_before_flattening"](x)
+        x = self.flatten(x)
+        return x.numel()  # Return the total number of elements in the flattened output
+
     
     def forward(self, inputs):
         x = inputs
         for i in range(len(self.conv_blocks)):
             x = self.conv_blocks[f"conv_block_{i}"](x)
-            if i < len(self.pool_layers):
-                x = self.pool_layers[i](x)
-        
+            if i < len(self.pool_layers) - 1:
+                x = self.pool_layers[f"pool_layer_{i}"](x)
+        x = self.pool_layers["pool_layer_before_flattening"](x)
         x = self.flatten(x)
 
         for i in range(len(self.dense_blocks)):
@@ -286,16 +301,60 @@ class AlexNet1D(Loop):
         output_classifier = self.final_dense_classifier(x)
 
         return {'detector': output_detector, 'classifier': output_classifier}
+        
     
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
                 init.constant_(m.bias, 0)
+                
+    def verbose_output(self, tensor, label):
+        # Check for NaN values in the tensor
+        has_nan = torch.isnan(tensor).any().item()
+        
+        # Print statistics about the tensor
+        print(f"{label} - Min: {tensor.min().item()}, Max: {tensor.max().item()}, Mean: {tensor.mean().item()}, Has NaN: {has_nan}")
+        
+        """
+    def forward(self, inputs):
+        x = inputs
+        self.verbose_output(x, "Input to Model")
+
+        # Iterate through each conv block
+        for i, conv_block in enumerate(self.conv_blocks.values()):
+            # Assuming conv_block is an instance of nn.Sequential or similar
+            for j, layer in enumerate(conv_block):
+                x = layer(x)
+                self.verbose_output(x, f"Conv Block {i}, Layer {j}")
+            
+            if i < len(self.pool_layers) - 1:
+                x = self.pool_layers[f"pool_layer_{i}"](x)
+                self.verbose_output(x, f"After Pool Layer {i}")
+        x = self.pool_layers["pool_layer_before_flattening"](x)
+        self.verbose_output(x, "Pool before Flattening")
+        x = self.flatten(x)
+        self.verbose_output(x, "After Flattening")
+
+        # Iterate through each dense block
+        for i, dense_block in enumerate(self.dense_blocks.values()):
+            # Assuming dense_block is an instance of nn.Sequential or similar
+            for j, layer in enumerate(dense_block):
+                x = layer(x)
+                self.verbose_output(x, f"Dense Block {i}, Layer {j}")
+        
+        output_detector = self.final_dense_detector(x)
+        output_classifier = self.final_dense_classifier(x)
+
+        self.verbose_output(output_detector, "Output Detector")
+        self.verbose_output(output_classifier, "Output Classifier")
+
+        return {'detector': output_detector, 'classifier': output_classifier}
+"""
         
 
 if __name__ == "__main__":
@@ -309,31 +368,35 @@ if __name__ == "__main__":
     label_maps = {"detector": detector_label_map, "classifier": classifier_label_map}
 
 
-    input_shape = (3, cfg.live.length*cfg.live.sample_rate + 1)
     detector_class_weight_dict = {"noise": 1.0, "event": 1.0}
     classifier_class_weight_dict = {"earthquake": 1.0, "explosion": 1.0}
+    detector_metrics_list = ["auroc","accuracy"]
+    classifier_metrics_list = ["auroc","accuracy"]
+    input_data = torch.randn((3, 4000), device="cuda" if torch.cuda.is_available() else "cpu")
+    
+    
 
-    logger.info("Input shape to the model: " + str(input_shape))
-    model = get_model(input_shape,
+    logger.info("Input shape to the model: " + str(input_data.shape))
+    model = get_model(input_data.shape,
                         detector_metrics_list,
                         classifier_metrics_list,
-                        label_map_detector, 
-                        label_map_classifier,
-                        detector_class_weights, 
-                        classifier_class_weights,
+                        detector_label_map, 
+                        classifier_label_map,
+                        detector_class_weight_dict, 
+                        classifier_class_weight_dict,
                         cfg)
-
+    summary(model, input_size=(input_data.shape))
+    
+    
     # Create a trainer
     trainer = Trainer(max_epochs=1)
 
     # Print model summary
-    print(model)
-
+    dummy_labels = {"detector": torch.tensor([1]), "classifier": torch.tensor([0])}
     # Test the model with a batch of random data
-    input_data = torch.randn(1, 3, 9601, device="cuda" if torch.cuda.is_available() else "cpu")
-    output = model(input_data)
-    print(output)
-    summary(model, input_size=(3, 9601))
+    input_data = input_data.unsqueeze(0)
+    print(f"batch_of_data shape: {input_data.shape}")
+    trainer.fit(model, torch.tensor(input_data), dummy_labels)
 
 
         

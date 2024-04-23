@@ -6,7 +6,41 @@ import numpy as np
 import datetime
 from h5py import File
 from torch import from_numpy
-from src.Transforms import BandpassFilterTransform, AddNoiseTransform, AddGapTransform, TaperTransform, ZeroChannelTransform
+from src.Transforms import BandpassFilterTransform, AddNoiseTransform, AddGapTransform, TaperTransform, ZeroChannelTransform, MinMaxPerChannelTransform
+from types import SimpleNamespace
+import socket
+import pickle
+
+
+def load_preprocessed_data(cfg):
+    filename = "preprocessed_data_full.pkl" if not cfg.data.debug else f"preprocessed_data_debug.pkl"
+    filename = os.path.join(cfg.data_paths.loaded_path, filename)
+    with open(filename, 'rb') as file:
+        data = pickle.load(file)
+    
+    # Extracting individual variables from the loaded data dictionary
+    train_events = data.get("train_events", None)
+    val_events = data.get("val_events", None)
+    test_events = data.get("test_events", None)
+    all_events = data.get("all_events", None)
+    label_dict = data.get("label_dict", None)
+    class_weights = data.get("class_weights", None)
+    classifier_label_map = data.get("classifier_label_map", None)
+    detector_label_map = data.get("detector_label_map", None)
+    
+    logger.info(f"Loaded preprocessed data from {filename}")
+    
+    return train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map
+
+def load_preprocessed_data_dict(cfg):
+    filename = os.path.join(cfg.data_paths.loaded_path, "key_dicts.pkl")
+    with open(filename, 'rb') as file:
+        data = pickle.load(file)
+    return data 
+    
+        
+    
+
 
 def setup_transforms(cfg):
     transforms = {"train": [], "val": [], "test": []}
@@ -26,16 +60,17 @@ def setup_transforms(cfg):
         if aug.add_gap:
             if transforms_key == "train":
                 transforms[transforms_key].append(AddGapTransform(aug.add_gap_kwargs.prob,
-                                                                  aug.add_gap_kwargs.max_gap))
+                                                                  aug.add_gap_kwargs.max_size))
         if aug.add_noise:
             if transforms_key == "train":
                 transforms[transforms_key].append(AddNoiseTransform(aug.add_noise_kwargs.prob,
                                                                    cfg.scaling.per_channel))
         if aug.taper:
             transforms[transforms_key].append(TaperTransform(aug.taper_kwargs.alpha))
+        transforms[transforms_key].append(MinMaxPerChannelTransform(cfg))
     return transforms
 
-def prepare_folders_paths_cfg(run_id, cfg, make_folders=True):
+def prepare_folders_paths_cfg(run_id, cfg: SimpleNamespace, make_folders=True) -> SimpleNamespace:
     """
     Prepare folders and paths for the seismic data classification project.
 
@@ -46,6 +81,7 @@ def prepare_folders_paths_cfg(run_id, cfg, make_folders=True):
 
     """
     project_path = os.environ.get('PROJECT_DIR')
+    cfg.pretrained_model_name = os.path.join(project_path, cfg.pretrained_model_name)
     output_path = os.path.join(project_path, cfg.project_paths.output_folder, cfg.model_name, run_id)
     cfg.project_paths.output_folder = output_path
     if make_folders:
@@ -60,7 +96,12 @@ def prepare_folders_paths_cfg(run_id, cfg, make_folders=True):
             cfg.project_paths[key] = os.path.join(output_path, cfg.project_paths[key])
             if make_folders:
                 os.makedirs(cfg.project_paths[key], exist_ok=True)
+    
     return cfg
+
+
+    
+    
 
 def get_pick_station(station):
     if station == "ARCES" or station == "ARA0" or station == "ARE0" or station == "ARA1":
@@ -160,6 +201,8 @@ def event_mapper(noise_beams, labels_event_types, metadata, cfg):
         year = int(label_path.split("/")[-1].split("_")[1])
         metadata_df = pd.read_csv(get_file_by_year(metadata, year))
         with File(label_path, 'r') as f:
+            print(label_path)
+            print(f.keys())
             labels = f['labels'][:]
             ids = f['event_id'][:]
             windows = f['window'][:]
@@ -225,7 +268,11 @@ def get_file_names(cfg):
     beams_noise, beams, labels_event_type, metadata = [], [], [], []
     file_endings = ["_beams.hdf5", "_beams_noise.hdf5", "_labels_event_type.hdf5"]
     file_endings_metadata = ["snrupdate.csv"]
+    logger.info(f"Data path: {cfg.data_paths.data_path}")
     for file in os.listdir(cfg.data_paths.data_path):
+        year = int(file.split("_")[1])
+        if year >= 2020:
+            continue
         path = cfg.data_paths.data_path + file
         if file.endswith(tuple(file_endings)):
             if file.endswith("_beams.hdf5"):
@@ -239,7 +286,7 @@ def get_file_names(cfg):
         if file.endswith(tuple(file_endings_metadata)):
             metadata.append(path)
     if cfg.data.debug:
-        years_to_load = cfg.data.val_years + [2010]
+        years_to_load = cfg.data.val_years + [2000, 2001]
         if cfg.data.load_testset:
             years_to_load.extend(cfg.data.test_years)
         b = [get_file_by_year(beams, year) for year in years_to_load]
@@ -254,6 +301,7 @@ def calculate_class_weights(train_events):
     # Initialize counts
     detector_counts = {'noise': 0, 'not_noise': 0}
     classifier_counts = {'earthquake': 0, 'explosion': 0}
+    unique_labels = []
 
     # Count occurrences
     for event_id in train_events.keys():
@@ -262,10 +310,13 @@ def calculate_class_weights(train_events):
             detector_counts['noise'] += 1
         else:
             detector_counts['not_noise'] += 1
-            if label == 'earthquake':
-                classifier_counts['earthquake'] += 1
-            else:
+            if label == 'explosion':
                 classifier_counts['explosion'] += 1
+            else:
+                classifier_counts['earthquake'] += 1
+        if label not in unique_labels:
+            unique_labels.append(label)
+    logger.info(f"Unique labels: {unique_labels}")
 
     # Calculate total samples for each task
     total_detector = sum(detector_counts.values())
@@ -274,11 +325,16 @@ def calculate_class_weights(train_events):
     # Calculate class weights for each task
     detector_weights = {label: total_detector / count for label, count in detector_counts.items()}
     classifier_weights = {label: total_classifier / count for label, count in classifier_counts.items()}
+    logger.info(f"Detector weights: {detector_weights}")
+    logger.info(f"Classifier weights: {classifier_weights}")
+    logger.info("==================================================================")
 
     return {'detector': detector_weights, 'classifier': classifier_weights}, {'detector': detector_counts, 'classifier': classifier_counts}
 
 
 def preprocessing_pipeline(cfg):
+    if cfg.data.preloaded:
+        return load_preprocessed_data(cfg)
     beams_noise, beams, labels_event_type, metadata = get_file_names(cfg)
     all_events = event_mapper(beams_noise, labels_event_type, metadata, cfg)
     train_events, val_events, test_events = train_val_test_split(all_events, cfg)
@@ -294,7 +350,7 @@ def preprocessing_pipeline(cfg):
     val_events = load_data_set(val_events, beams, beams_noise)
     test_events = load_data_set(test_events, beams, beams_noise)
     detector_label_map = {"noise" : 0, "event" : 1}
-    classifier_label_map = {"earthquake" : 0, "exlposion" : 1}
+    classifier_label_map = {"earthquake" : 0, "explosion" : 1}
     return train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map
 
 def load_data_set(events, beams, beams_noise):

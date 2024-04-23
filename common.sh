@@ -1,18 +1,17 @@
 # DEFINE THESE
 USER=$(whoami)
-PROJECT_PATH=$ROOT_DIR
-DATA_PATH=$STORAGE_DIR/data/loaded
-CONFIG_PATH=$ROOT_DIR/config
-CONFIG_MAIN=$CONFIG_PATH/data_config.yaml
-PROJECTNAME=arces_classification
-SCRIPT_LOCATION=$PROJECT_PATH
-REQUIREMENTS=$PROJECT_PATH/requirements.txt
+PROJECT_PATH="$PROJECT_DIR"
+CONFIG_PATH="$PROJECT_DIR/config"
+SATURN_OUTPUT_DIR=$PROJECT_PATH/output
+CONFIG_MAIN="$CONFIG_PATH/data_config.yaml"
+PROJECTNAME="arces_classification_pytorch"
+SCRIPT_LOCATION="$PROJECT_PATH"
+REQUIREMENTS="$PROJECT_PATH/requirements.txt"
 
-GLOBAL_CONFIG=$PROJECT_PATH/global_config.py
-PROJECT_SETUP=$PROJECT_PATH/project_setup.py
-LOGGER=$CONFIG_PATH/logging_config.py
+GLOBAL_CONFIG="$PROJECT_PATH/global_config.py"
+PROJECT_SETUP="$PROJECT_PATH/project_setup.py"
+LOGGER="$CONFIG_PATH/logging_config.py"
 
-OUTPUT=$STORAGE_DIR/output
 
 # Create directory if it doesn't exist
 mkdir_if_not_exist() {
@@ -31,17 +30,19 @@ sync_directories() {
 
 # LOGIC (DO NOT CHANGE)
 BASE_DIR=/nobackup2/$USER/$PROJECTNAME
-mkdir_if_not_exist $BASE_DIR/data
-mkdir_if_not_exist $BASE_DIR/output
-mkdir_if_not_exist $BASE_DIR/logs
-mkdir_if_not_exist $BASE_DIR/src
-mkdir_if_not_exist $BASE_DIR/config
-mkdir_if_not_exist $BASE_DIR/config/models
-mkdir_if_not_exist $OUTPUT/plots
-mkdir_if_not_exist $OUTPUT/models
-mkdir_if_not_exist $OUTPUT/predictions
-mkdir_if_not_exist $OUTPUT/logs
-mkdir_if_not_exist $BASE_DIR/data/maps
+mkdir_if_not_exist "$BASE_DIR/data"
+mkdir_if_not_exist "$BASE_DIR/data/data"
+mkdir_if_not_exist "$BASE_DIR/data/metadata"
+mkdir_if_not_exist "$BASE_DIR/data/loaded_classifier"
+mkdir_if_not_exist "$BASE_DIR/output"
+mkdir_if_not_exist "$BASE_DIR/logs"
+mkdir_if_not_exist "$BASE_DIR/src"
+mkdir_if_not_exist "$BASE_DIR/config"
+mkdir_if_not_exist "$BASE_DIR/config/models"
+mkdir_if_not_exist "$BASE_DIR/output/plots"
+mkdir_if_not_exist "$BASE_DIR/output/models"
+mkdir_if_not_exist "$BASE_DIR/output/predictions"
+mkdir_if_not_exist "$BASE_DIR/output/logs"
 
 # Default mode is not predict
 PREDICT_MODE="False"
@@ -57,6 +58,12 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+# Rsync of data directory:
+rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_DIR/data/" "$BASE_DIR/data/data/"
+rsync -ahr --include='*snrupdate*' --exclude='*' "$DATA_DIR/metadata/" "$BASE_DIR/data/metadata/"
+rsync -ahr $DATA_DIR/loaded_classifier/* $BASE_DIR/data/loaded_classifier/
+
 
 echo "Options: $@"
 # Now use the PREDICT_MODE variable to alter script behavior
@@ -75,10 +82,11 @@ echo "Folders created"
 cp $SCRIPT_LOCATION/$SCRIPT_NAME $BASE_DIR/run_script.py
 rsync -ahr $GLOBAL_CONFIG $BASE_DIR/global_config.py
 rsync -ahr $PROJECT_SETUP $BASE_DIR/project_setup.py
-rsync -ahr $PROJECT_PATH/data/maps/* $BASE_DIR/data/maps/
+#rsync -ahr $PROJECT_PATH/data/maps/* $BASE_DIR/data/maps/
 rsync -ahr $LOGGER $BASE_DIR/config/logging_config.py
 rsync -ahr $CONFIG_MAIN $BASE_DIR/config/data_config.yaml
-cp -r $PROJECT_PATH/src $BASE_DIR
+rsync -ahr $CONFIG_PATH/models/* $BASE_DIR/config/models/
+cp -r $PROJECT_PATH/src $BASE_DIR                                                                                                                                                                                                                                                                                                                                                                   
 
 # Syncing configs and requirements
 rsync -ahr $REQUIREMENTS $BASE_DIR/requirements.txt
@@ -87,12 +95,12 @@ cp -v $PROJECT_PATH/.dockerignore $BASE_DIR/.dockerignore
 cp $PROJECT_PATH/.docker_bashrc $BASE_DIR/.docker_bashrc
 
 # Paths
-SOURCE_OUTPUT_DIR=$STORAGE_DIR/output
+SOURCE_OUTPUT_DIR=$SATURN_OUTPUT_DIR
 TARGET_OUTPUT_DIR=$BASE_DIR/output
 
 # Sync Source to Target before Docker run
-echo "Syncing files from $OUTPUT to $TARGET_OUTPUT_DIR"
-sync_directories "$OUTPUT" "$TARGET_OUTPUT_DIR"
+echo "Syncing files from $SOURCE_OUTPUT_DIR to $TARGET_OUTPUT_DIR"
+sync_directories "$SOURCE_OUTPUT_DIR" "$TARGET_OUTPUT_DIR"
 echo "Files synced"
 
 
@@ -108,7 +116,7 @@ echo "Hash computed."
 if [ "$HASH_ON_GPU_MACHINE" != "$HASH_ON_LOCAL_MACHINE" ] || [ "$FORCE_BUILD" = "True" ]; then
   cp $PROJECT_PATH/docker.dockerfile $BASE_DIR/docker.dockerfile
   cp $REQUIREMENTS $BASE_DIR/requirements.txt
-  docker build -t $PROJECTNAME:latest-gpu -f $BASE_DIR/docker.dockerfile .
+  docker build -t $PROJECTNAME:latest -f $BASE_DIR/docker.dockerfile .
 fi
 
 # Check if WANDB_API_KEY is set and export it
@@ -121,13 +129,12 @@ else
 fi
 
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
-docker run -e TF_CPP_MIN_LOG_LEVEL=3 -it --ipc=host --rm --gpus ${GPU_DEVICE} -v $BASE_DIR:/tf $PROJECTNAME:latest-gpu bash -c "$WANDB_EXPORT
-                                                                                                                                source /root/.bashrc &&
-                                                                                                                                find /tf/data -name 'Thumbs.db' -type f -delete &&
-                                                                                                                                export TF_CPP_MIN_LOG_LEVEL=3 &&
-                                                                                                                                python /tf/run_script.py &&
-                                                                                                                                chmod -R 777 /tf/output/* &&
-                                                                                                                                bash"
+docker run -e -it --ipc=host --rm --gpus=${GPU_DEVICE} -v $BASE_DIR:/tf $PROJECTNAME:latest bash -c "$WANDB_EXPORT
+                                                                                                     source /root/.bashrc &&
+                                                                                                     find /tf/data -name 'Thumbs.db' -type f -delete &&
+                                                                                                     python /tf/run_script.py &&
+                                                                                                     chmod -R 777 /tf/* &&
+                                                                                                     bash"
 
 
 # Extract model name using Python script
@@ -138,5 +145,5 @@ echo "Syncing files from $TARGET_OUTPUT_DIR to $SOURCE_OUTPUT_DIR"
 sync_directories "$TARGET_OUTPUT_DIR" "$SOURCE_OUTPUT_DIR"
 echo "Output synced"
 
-find "$SOURCE_OUTPUT_DIR/$model_name" -type d -empty -delete
-echo "Deleted empty directories in $SOURCE_OUTPUT_DIR/$model_name"
+#find "$SOURCE_OUTPUT_DIR/$model_name" -type d -empty -delete
+#echo "Deleted empty directories in $SOURCE_OUTPUT_DIR/$model_name"

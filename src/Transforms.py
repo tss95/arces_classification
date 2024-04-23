@@ -8,14 +8,17 @@ class MinMaxPerChannelTransform:
     def __init__(self, cfg):
         self.cfg = cfg 
         
-    def __call__(self, sample, event_start_index = None, event_end_index = None):
+    def __call__(self, sample):
         return self.sample_minmax_per_channel(sample)
 
     def sample_minmax_per_channel(self, X):
         X = X.float()
-        maxs = torch.max(X, dim=1).values.unsqueeze(1)
-        mins = torch.min(X, dim=1).values.unsqueeze(1)
-        return (X - mins) / (maxs - mins)
+        # Compute the max and min for each channel across all samples
+        maxs = torch.max(X, dim=2, keepdim=True).values
+        mins = torch.min(X, dim=2, keepdim=True).values
+        # Apply min-max normalization
+        normalized_X = (X - mins) / (maxs - mins)
+        return normalized_X
 
 
 class RandomCropTransform:
@@ -91,9 +94,13 @@ class BandpassFilterTransform:
             index_higher = random.randint(0, len(self.upper_bounds) - 1)
             low_freq = self.lower_bounds[index_lower]
             high_freq = self.upper_bounds[index_higher]
-
+        x = self.detrend_data(x)
         # Apply bandpass filter with selected bounds
         return self.bandpass_filter(x, low_freq, high_freq, self.sampling_rate)
+    
+    def detrend_data(self, x):
+        # Subtract the mean from each channel for each sample
+        return x - x.mean(dim=2, keepdim=True)
     
     def bandpass_filter(self, x, low_freq, high_freq, sampling_rate):
         batch_size, n_channels, timesteps = x.shape
@@ -182,13 +189,13 @@ class TaperTransform:
                  A value of 0 results in a rectangular window, and 1 results in a Hann window.
         """
         self.alpha = alpha
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __call__(self, x):
         _, _, timesteps = x.shape  # We don't need batch_size or n_channels here directly
+        device = x.device
 
         # Generate the taper window with the shape adjusted for broadcasting
-        w = self.tukey(timesteps, self.alpha).type(x.dtype)
+        w = self.tukey(timesteps, self.alpha, device=device).type(x.dtype)
         w = w.view(1, 1, -1)  # Adjust to shape (1, 1, timesteps) for broadcasting
 
         # Apply the taper window across the timesteps for the entire batch
@@ -196,15 +203,15 @@ class TaperTransform:
 
         return x
 
-    def tukey(self, M, alpha=0.5):
+    def tukey(self, M, alpha=0.5, device = "cpu"):
         # Create the Tukey window in PyTorch
         if alpha <= 0:
-            return torch.ones(M, device=self.device)
+            return torch.ones(M, device=device)
         elif alpha >= 1:
-            return torch.hann_window(M, device=self.device)
+            return torch.hann_window(M, device=device)
 
-        x = torch.linspace(0.0, 1.0, M, device=self.device)
-        w = torch.ones(x.shape, device=self.device)
+        x = torch.linspace(0.0, 1.0, M, device=device)
+        w = torch.ones(x.shape, device=device)
 
         # First condition 0 <= x < alpha/2
         first_condition = x < alpha / 2
@@ -235,7 +242,7 @@ class ZeroChannelTransform:
         for i, batch_index in enumerate(selected_indices):
             channel = channels_to_zero[i]
             # Zero out the selected channel
-            x[batch_index, channel, :] = 0  # Zero out across timesteps
+            x[batch_index, channel, :] = x[batch_index, channel, :].mean()
 
         return x
 

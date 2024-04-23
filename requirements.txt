@@ -30,3 +30,4 @@ torchvision
 torchaudio
 lightning
 torchsummary
+seaborn
