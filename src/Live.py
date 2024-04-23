@@ -95,7 +95,6 @@ def sanitize_filename(filename: str) -> str:
 def resize_image(image: np.ndarray, target_width: int) -> np.ndarray:
     """
     Resize an image to a specified width while maintaining the aspect ratio.
-
     This function calculates the target height to maintain the aspect ratio of the image,
     resizes the image using anti-aliasing, and converts it back to the appropriate data type.
 

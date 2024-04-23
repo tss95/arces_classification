@@ -257,12 +257,19 @@ class Analysis:
                 else:
                     pred_label = "explosion"
                     pred_prob = prob[2]
+                if true_label == "noise":
+                    true_prob = prob[0]
+                elif true_label == "earthquake":
+                    true_prob = prob[1]
+                else:
+                    true_prob = prob[2]
                 
                 pred_prob = str(np.round(pred_prob, 3)*100)
+                true_prob = str(np.round(true_prob, 3)*100)
                 snr = self.snrs_by_id[id_]
                 if snr == None:
                     snr = "N/A"
-                title_text = f"ID: {id_}, Start: {event_start_time}\nTrue: {true_label}, Predicted: {pred_label},{pred_label}_prob: {pred_prob}%, \n SNR: {snr}"
+                title_text = f"ID: {id_}, Start: {event_start_time}\nTrue: {true_label}, Predicted: {pred_label}\n {true_label}_prob: {true_prob}%, {pred_label}_prob: {pred_prob}%, \n SNR: {snr}"
                 axes_for_waveform[0].set_title(title_text, fontsize=15, pad=20)
                 
                 index += num_channels
@@ -356,7 +363,7 @@ class Analysis:
     def plot_snr_distributions(self, detector_or_classifier):
         non_noise_indexes = np.array([i for i, label in enumerate(self.y_true_string) if label != "noise"]).flatten()
         y_true = np.array(self.y_true[detector_or_classifier])[non_noise_indexes]
-        y_pred = np.array(self.y_pred[detector_or_classifier])[non_noise_indexes]
+        y_pred = (np.array(self.y_pred[detector_or_classifier])[non_noise_indexes]).flatten()
         snrs = self.get_snrs(non_noise_indexes, self.cfg)
 
         # Define logarithmic bins
@@ -369,9 +376,9 @@ class Analysis:
         y_pred = self.threshold_output(y_pred, self.cfg.data.model_threshold)
         # Identify correctly predicted events and plot their distribution
         correct_predictions = y_true == y_pred
-        correct_snrs = snrs[correct_predictions[0]]
-        plt.hist(snrs, bins=bins, color='red', alpha=0.5, label='All SNRs', zorder=1)
-        plt.hist(correct_snrs, bins=bins, color='green', alpha=1, label='Correct Predictions', zorder=2)        
+        correct_snrs = snrs[correct_predictions]
+        plt.hist(snrs, bins=bins, color='red', alpha=0.5, label='All SNRs', zorder=1, edgecolor = "black")
+        plt.hist(correct_snrs, bins=bins, color='green', alpha=1, label='Correct Predictions', zorder=2, edgecolor="black")        
         # Logarithmic scale and labels
         plt.xscale('log')
         plt.xlabel('SNR (log scale)')
@@ -383,7 +390,7 @@ class Analysis:
     def plot_snr_incorrect_predictions(self, detector_or_classifier):
         non_noise_indexes = np.array([i for i, label in enumerate(self.y_true_string) if label != "noise"]).flatten()
         y_true = np.array(self.y_true[detector_or_classifier])[non_noise_indexes]
-        y_pred = np.array(self.y_pred[detector_or_classifier])[non_noise_indexes]
+        y_pred = (np.array(self.y_pred[detector_or_classifier])[non_noise_indexes]).flatten()
         snrs = self.get_snrs(non_noise_indexes, self.cfg)
 
         # Apply threshold to predictions if needed
@@ -396,11 +403,11 @@ class Analysis:
 
         # Determine incorrect predictions
         incorrect_predictions = y_true != y_pred
-        incorrect_snrs = snrs[incorrect_predictions[0]]  # Extract SNRs for incorrect predictions
+        incorrect_snrs = snrs[incorrect_predictions]  # Extract SNRs for incorrect predictions
 
         # Plot the distribution of incorrect SNRs
         plt.figure(figsize=(12, 8))
-        plt.hist(incorrect_snrs, bins=bins, color='blue', alpha=0.7, label='Incorrect Predictions', zorder=2)
+        plt.hist(incorrect_snrs, bins=bins, color='blue', alpha=0.7, edgecolor='black', label='Incorrect Predictions', zorder=2)
         
         # Logarithmic scale and labels
         plt.xscale('log')

@@ -53,6 +53,5 @@ class BeamDatasetHDF5(Dataset):
         detector_label = torch.tensor([0 if label_str == "noise" else 1], dtype=torch.float32)
         classifier_label = torch.tensor([0 if label_str == "earthquake" else 1], dtype=torch.float32)
       
-
         processed_labels = {'detector': detector_label, 'classifier': classifier_label}
         return sample, processed_labels, event_id
