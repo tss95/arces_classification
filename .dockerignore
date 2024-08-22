@@ -6,3 +6,4 @@ output/
 *.pkl
 *.h5
 *.ckpt
+live_test/*
