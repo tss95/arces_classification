@@ -45,12 +45,13 @@ live: # Needed for live
   live: True # Alters the pipeline to be used for live data
   array: "ARCES" # Which array to use. Currently only ARCES is supported
   step: 5 # How many seconds between each prediction
-  length: 240 # Length of the data to be used for each prediction (seconds)
+  length: 100 # Length of the data to be used for each prediction (seconds)
   edge: 10 # Additional seconds of data to load, which will be cut due to tapering.
   delay: 5 # TODO: Figure out if this is used.
   event_buffer: 30 # Number of seconds to load before and after the area of interest, determined by length and pick.
   p_vel: 6.45 # Artificial velocity of P waves. Used to make beams.
   s_vel: 3.70 # Artificial velocity of S waves. Used to make beams.
+  sample_rate: 40 # Sample rate of the data
 
 filters: # Needed for live
   use_filters: True # Whether or not to use filters

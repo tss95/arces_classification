@@ -442,8 +442,9 @@ class LiveClassifier:
             mean prediction probabilities, individual predictions for each trace segment,
             individual prediction probabilities for each trace segment, and preprocessed input features.
         """
-        trace = trace.T
+        #trace = trace.T
         X = self.prepare_multiple_intervals(trace)
+        #X = self.scaler.transform(X)
         X = [self.local_minmax(x) for x in X]
         X = np.array(X)
         yhats, yprobas, final_yhat, mean_proba = self.ensamble_predict(self.model, X)
@@ -454,20 +455,23 @@ class LiveClassifier:
     def prepare_multiple_intervals(self, trace: np.ndarray) -> List[np.ndarray]:
         """
         Prepare multiple intervals from a single trace for ensemble prediction.
-
         Args:
-            trace (np.ndarray): Numpy array containing the seismic trace.
-
+            trace (np.ndarray): Numpy array containing the seismic trace of shape (channels, time_steps).
         Returns:
             List[np.ndarray]: List of sub-traces.
         """
         traces = []
-        # Creates equally sized intervals of the trace, using the user defined step size.
-        for start in range(0, len(trace) - (cfg.live.length*cfg.live.sample_rate)+1, (cfg.live.step*cfg.live.sample_rate)+1):
-            traces.append(trace[start:(start+cfg.live.length*cfg.live.sample_rate)+1])
-        return traces
+        channels, time_steps = trace.shape
+        interval_length = cfg.live.length * cfg.live.sample_rate
+        step_size = cfg.live.step * cfg.live.sample_rate
 
-    def ensamble_predict(self, model: Any, X: np.ndarray) -> Tuple[List[Any], dict, Any, np.ndarray]:
+        for start in range(0, time_steps - interval_length + 1, step_size):
+            end = start + interval_length
+            traces.append(trace[:, start:end])
+
+        return traces
+    
+    def ensamble_predict(self, model: Any, X: np.ndarray, is_torch = True) -> Tuple[List[Any], dict, Any, np.ndarray]:
         """
         Perform ensemble prediction on multiple intervals.
 
@@ -484,7 +488,7 @@ class LiveClassifier:
         # TODO: Consider weighing predictions higher around the center (assuming thats where the pick is).
         yhats, probas = [], {"detector": [], "classifier": []}
         for x in X:
-            yhat, proba = one_prediction(model, x, self.label_maps)
+            yhat, proba = one_prediction(model, x, self.label_maps, self.cfg, is_torch=is_torch)
             yhats.append(yhat)
             probas["detector"].append(proba["detector"])
             probas["classifier"].append(proba["classifier"])
@@ -524,6 +528,7 @@ class LiveClassifier:
         """
         frames = []
         for i, interval in enumerate(intervals):
+            interval = interval.T
             channel_names = ['P-beam, Z', 'S-beam, T', 'S-beam, R']
             stream = Stream()
             for j in range(3):
@@ -557,7 +562,7 @@ class LiveClassifier:
             frames.append(combined_image)
 
         safe_event_time = sanitize_filename(str(event_time))
-        output_path = os.path.join(cfg.paths.live_test_path, f'{safe_event_time}_{final_yhat}.mp4')
+        output_path = os.path.join(cfg.project_paths.live_test_path, f'{safe_event_time}_{final_yhat}.mp4')
 
         with get_writer(output_path, mode='I', fps=1, codec='libx264', pixelformat='yuv420p', format='FFMPEG') as writer:
             for frame in frames:

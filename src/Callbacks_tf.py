@@ -20,7 +20,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         label_maps (Dict[str, int]): Mapping of labels to integers.
         unswapped_labels (np.ndarray): Original labels before any swapping.
     """  
-    def __init__(self, val_gen, label_maps: Dict[str, int], unswapped_labels: List[str]):
+    def __init__(self, val_gen, label_maps: Dict[str, int], unswapped_labels: List[str], cfg):
         """
         Initialize the ValidationConfusionMatrixCallback.
 
@@ -33,6 +33,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
         self.val_gen = val_gen
         self.label_maps = label_maps
         self.unswapped_labels = np.array(unswapped_labels)
+        self.cfg = cfg
 
     def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
         """
@@ -43,7 +44,7 @@ class ValidationConfusionMatrixCallback(tf.keras.callbacks.Callback):
             logs (Optional[Dict[str, Any]]): Logs for the training epoch.
         """
         # Get true labels and predicted labels
-        y_true, y_pred, y_prob = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        y_true, y_pred, y_prob = get_y_and_ypred(self.model, self.val_gen, self.label_maps, self.cfg)
         self.wandb_conf_matrix(y_true, y_pred, epoch)
         self.explore_and_log_distributions(y_true, np.array(y_pred), y_prob, epoch)
         

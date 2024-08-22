@@ -1,0 +1,14 @@
+/env
+data/*
+*.pyc
+MTCT_env/*
+*.cpython-*
+*__pycache__/*
+.pytest_cache/*
+wandb/*
+*.pt
+*.txt
+checkpoints/*
+claude_chats/*
+output/*
+.git_backup/*

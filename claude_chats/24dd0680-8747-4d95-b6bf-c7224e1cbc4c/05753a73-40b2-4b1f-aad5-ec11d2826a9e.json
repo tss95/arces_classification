@@ -1,0 +1,12 @@
+{
+  "uuid": "05753a73-40b2-4b1f-aad5-ec11d2826a9e",
+  "text": "Check gbf_iter.py, which is my old implementation. I need to make this script but now for tensorflow. Check the Live.py as well as this should process the data from the server. The data to predict comes from get_data_to_predict, and should work for pytorch as well. I gather i can just iterate over the list of timeseries this function outputs almost the same as with tensorflow. I dont think i see a reason to create a dataloader. Or would this be good to do still? I could potentially paralell process then. It would also maybe help with scaling etc",
+  "sender": "human",
+  "index": 2,
+  "created_at": "2024-08-21T08:00:12.047412+00:00",
+  "updated_at": "2024-08-21T08:00:12.047412+00:00",
+  "truncated": false,
+  "attachments": [],
+  "files": [],
+  "parent_message_uuid": "278f1c0a-9aa2-4f2e-ab88-f36dfe3c7bab"
+}

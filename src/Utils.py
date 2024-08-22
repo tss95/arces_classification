@@ -132,7 +132,7 @@ def swap_labels(labels: List[str]) -> List[str]:
     return output
 
 
-def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dict[int, str]]) -> Tuple[List[str], Dict[str, np.ndarray]]:
+def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dict[int, str]], cfg) -> Tuple[List[str], Dict[str, np.ndarray]]:
     """
     Determine the final labels based on the predicted probabilities and label map.
 
@@ -149,10 +149,10 @@ def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dic
     """
     final_labels = []
     pred_probs_detector = torch.sigmoid(torch.tensor(pred_probs['detector'], dtype=torch.float32)).numpy()       
-    pred_labels_detector = apply_threshold(pred_probs_detector)
+    pred_labels_detector = apply_threshold(pred_probs_detector, cfg)
 
     pred_probs_classifier = torch.sigmoid(torch.tensor(pred_probs['classifier'], dtype=torch.float32)).numpy()
-    pred_labels_classifier = apply_threshold(pred_probs_classifier)
+    pred_labels_classifier = apply_threshold(pred_probs_classifier, cfg)
 
     final_labels = translate_labels(pred_labels_detector, pred_labels_classifier, label_map)
     return final_labels, {"detector": pred_probs_detector, "classifier": pred_probs_classifier}
@@ -225,7 +225,7 @@ def get_index_of_wrong_predictions(true_labels: List[str], pred_labels: List[str
             wrong_indices.append(i)
     return wrong_indices
 
-def get_y_and_ypred(model: Any, val_gen: Any, label_maps: Dict[str, Dict[int, str]]) -> Tuple[List[str], List[str], Dict[str, List[float]]]:
+def get_y_and_ypred(model: Any, val_gen: Any, label_maps: Dict[str, Dict[int, str]], cfg) -> Tuple[List[str], List[str], Dict[str, List[float]]]:
     """
     Generate true and predicted labels, along with predicted probabilities, from a validation generator.
 
@@ -251,7 +251,7 @@ def get_y_and_ypred(model: Any, val_gen: Any, label_maps: Dict[str, Dict[int, st
     
     for batch_data, batch_labels in val_gen:
         pred_probs = model.predict(batch_data, verbose=0)
-        labels, pred_probs = get_final_labels(pred_probs, label_maps)
+        labels, pred_probs = get_final_labels(pred_probs, label_maps, cfg)
         final_pred_labels.extend(labels)
 
         # Convert NumPy arrays to scalars and extend the list for 'detector'
@@ -266,7 +266,7 @@ def get_y_and_ypred(model: Any, val_gen: Any, label_maps: Dict[str, Dict[int, st
     return final_true_labels, final_pred_labels, final_pred_probs
 
 
-def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, str]]) -> Tuple[List[str], Dict[str, np.ndarray]]:
+def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, str]], cfg, is_torch=False) -> Tuple[List[str], Dict[str, np.ndarray]]:
     """
     Generate a prediction for a single data instance.
 
@@ -283,8 +283,12 @@ def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, st
         - A dictionary with the predicted probabilities for both 'detector' and 'classifier'.
     """
     x = np.reshape(x, (1, *x.shape))
+    if is_torch:
+        #x = x.reshape(x.shape[0], x.shape[2], x.shape[1])[:-1]
+        x = torch.tensor(x, dtype=torch.float32)
+        x = x.to("cuda" if torch.cuda.is_available() else "cpu")
     pred_probs = model(x)
-    labels, pred_probs = get_final_labels(pred_probs, label_maps)
+    labels, pred_probs = get_final_labels(pred_probs, label_maps, cfg)
     return labels, pred_probs
 
 
@@ -380,7 +384,7 @@ def prep_data(cfg) -> Tuple[Any, ...]:
     loadData = LoadData()
     train_dataset = loadData.get_train_dataset()
     val_dataset = loadData.get_val_dataset()
-    scaler = Scaler()
+    scaler = Scaler(cfg)
 
     # Section 2: Processing and preparing training data
     # This includes transposing data, label swapping, downsampling, and checking for debugging.

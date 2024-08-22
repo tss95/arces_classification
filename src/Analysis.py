@@ -15,13 +15,14 @@ import geopandas as gpd
 import contextily as ctx
 
 class Analysis:
-    def __init__(self, model, val_gen, val_meta, label_maps_dict, date_and_time):
+    def __init__(self, model, val_gen, val_meta, label_maps_dict, date_and_time, cfg):
         self.model = model
         self.val_gen = val_gen
         self.label_maps = label_maps_dict
         self.val_meta = val_meta
         self.date_and_time = date_and_time
-        self.final_true_labels, self.final_pred_labels, self.final_pred_probs = get_y_and_ypred(model, val_gen, label_maps_dict)
+        self.cfg = cfg
+        self.final_true_labels, self.final_pred_labels, self.final_pred_probs = get_y_and_ypred(model, val_gen, label_maps_dict, cfg)
 
 
     def collect_and_plot_samples(self, generator, metadata, num_samples=3):
@@ -323,7 +324,7 @@ class Analysis:
         self.val_gen.on_epoch_end()
 
     def plot_confusion_matrix(self):
-        final_true_labels, final_pred_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps)
+        final_true_labels, final_pred_labels, _ = get_y_and_ypred(self.model, self.val_gen, self.label_maps, self.cfg)
         # Convert lists to numpy arrays for sklearn functions
         final_pred_labels = np.array(final_pred_labels)
         final_true_labels = np.array(final_true_labels)

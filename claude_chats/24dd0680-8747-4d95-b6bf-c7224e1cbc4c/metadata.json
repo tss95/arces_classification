@@ -1,0 +1,20 @@
+{
+  "uuid": "24dd0680-8747-4d95-b6bf-c7224e1cbc4c",
+  "name": "Implementing LiveClassifier in PyTorch",
+  "summary": "",
+  "model": null,
+  "created_at": "2024-08-21T07:46:09.998468+00:00",
+  "updated_at": "2024-08-21T08:00:12.047412+00:00",
+  "settings": {
+    "preview_feature_uses_artifacts": true,
+    "preview_feature_uses_latex": null,
+    "preview_feature_uses_citations": null
+  },
+  "is_starred": false,
+  "project_uuid": "1887b534-cc63-40db-ae8f-06607f597b83",
+  "current_leaf_message_uuid": "bcf0e98f-5ad0-482f-ba6c-a738cc21a2e2",
+  "project": {
+    "uuid": "1887b534-cc63-40db-ae8f-06607f597b83",
+    "name": "ARCES Classification"
+  }
+}

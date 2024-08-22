@@ -1,0 +1,12 @@
+{
+  "uuid": "60ae01f4-6367-4a96-be2a-3c203a87813e",
+  "text": "As you can see i am working on convertin gmy project to pytorch, from tensorflow. I am now at the point of implementing the LiveClassifier. I have a few questions. I know how to implement the production live code in tensorflow, but what about pytorch? Do i still need a dataloader?",
+  "sender": "human",
+  "index": 0,
+  "created_at": "2024-08-21T07:46:46.453003+00:00",
+  "updated_at": "2024-08-21T07:46:46.453003+00:00",
+  "truncated": false,
+  "attachments": [],
+  "files": [],
+  "parent_message_uuid": "00000000-0000-4000-8000-000000000000"
+}
