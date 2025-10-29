@@ -108,6 +108,12 @@ This document orients a new maintainer to the core parts of the repository, how 
 - Alternative: use the Docker transfer scripts
   - `run.sh` (training), `run_predict.sh` (predict), `run_live.sh` (live) call `common.sh` to sync data, build images, execute, and sync outputs back.
   - Use `-b` to force a rebuild if dependencies changed.
+  - First run (Docker): ensure `$DATA_DIR/loaded_classifier/` contains HDF5 + index lists:
+    - `train_full_data.h5`, `train_full_index_list.pkl`
+    - `val_full_data.h5`, `val_full_index_list.pkl`
+    - `key_dicts.pkl`
+    - For debug mode, expect `*_debug_*` variants.
+  - Generate these with `python create_hdf5_files.py` (writes to `cfg.data_paths.loaded_path`).
 
 ## Known Existing Issues (quick start list)
 

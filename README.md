@@ -80,10 +80,10 @@ Optional: `WANDB_API_KEY` for Weights & Biases.
 
 ## 5) Training (PyTorch)
 
-Local:
+Local (direct on GPU host):
 ```bash
 cd $PROJECT_DIR
-python train_torch.py
+python code_test.py
 ```
 
 GPU host via Docker:
@@ -93,9 +93,26 @@ bash run.sh
 ```
 
 Notes:
-- `train_torch.py` builds datasets via `src/Utils.prep_data()`, constructs a Lightning model from `src/Models_torch.py`, and logs metrics (optionally to wandb).
-- Inputs are channel-first `(batch, channels, timesteps)`.
-- Outputs: `{'detector': logits, 'classifier': logits}`.
+- `code_test.py` is the current PyTorch training entrypoint. It uses a Lightning DataModule (`src/BeamModule.py`) that reads preprocessed HDF5/index files from `cfg.data_paths.loaded_path`, applies transforms, and trains a model from `src/Models_torch.py`.
+- Inputs are channel-first `(batch, channels, timesteps)`; outputs are `{'detector': logits, 'classifier': logits}`.
+- The older `train_torch.py` script is not recommended; it uses an outdated data pipeline and mismatched model signature.
+
+First Run (Docker) — expected files and how to generate
+- Location: `$DATA_DIR/loaded_classifier/` (synced by `common.sh`)
+- Expected files (debug=false):
+  - `train_full_data.h5`, `train_full_index_list.pkl`
+  - `val_full_data.h5`, `val_full_index_list.pkl`
+  - `key_dicts.pkl` (label maps, class weights)
+- For debug=true (cfg.data.debug), filenames use `*_debug_*` instead of `*_full_*`.
+- Generate from raw sources:
+  - Use `create_hdf5_files.py` to create the HDF5 and index list files for train/val (and test if used). It writes to `cfg.data_paths.loaded_path`.
+  - Ensure `PROJECT_DIR` and `DATA_DIR` are set and `config/data_config.yaml` points to your raw source locations under `data_paths`.
+  - Example:
+    ```bash
+    cd $PROJECT_DIR
+    python create_hdf5_files.py
+    ```
+  - This script saves the `*_data.h5`, `*_index_list.pkl`, and `key_dicts.pkl` artifacts. Confirm the files exist in `$DATA_DIR/loaded_classifier/` before running training.
 
 ## 6) Live Inference (GBF, PyTorch)
 
@@ -145,7 +162,6 @@ This is optional and can be done as time permits (Maikael may own this explorati
 - See `docs/handover_overview.md` for a system overview and TODOs for hardening.
 - See `docs/handover_overview.md` → Known Existing Issues for a quick start list of current gaps/quirks.
 - See `docs/live_serving.md` for the GBF live pipeline details.
-- See `docs/handover_agenda.md` for a suggested handover meeting checklist.
 
 ## 10) Operational Workflows
 
@@ -164,3 +180,12 @@ This is optional and can be done as time permits (Maikael may own this explorati
     - Training: `bash run.sh`
     - Predict: `bash run_predict.sh`
     - Live: `bash run_live.sh` (defaults to the Torch live script)
+  - Notes:
+    - `run.sh` already sets `SCRIPT_NAME=code_test.py` (the recommended Torch training script).
+  - Requirements for Option B:
+    - Environment variables: `PROJECT_DIR`, `DATA_DIR` (required); `WANDB_API_KEY` (optional).
+    - Directory layout under `$DATA_DIR` (if present, will be synced):
+      - `$DATA_DIR/data/` (only `eventclass_*` files are synced)
+      - `$DATA_DIR/metadata/` (only files matching `*snrupdate*` are synced)
+      - `$DATA_DIR/loaded_classifier/` (all contents)
+    - Writable workspace path on the GPU host (defaults to `/nobackup2/$USER/arces_classification_pytorch`; override by exporting `BASE_DIR`).

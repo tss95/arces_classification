@@ -1,5 +1,16 @@
 # DEFINE THESE
 USER=$(whoami)
+
+# Validate required environment variables
+if [ -z "$PROJECT_DIR" ]; then
+  echo "ERROR: PROJECT_DIR is not set. export PROJECT_DIR=/path/to/repo" >&2
+  exit 1
+fi
+if [ -z "$DATA_DIR" ]; then
+  echo "ERROR: DATA_DIR is not set. export DATA_DIR=/path/to/data" >&2
+  exit 1
+fi
+
 PROJECT_PATH="$PROJECT_DIR"
 CONFIG_PATH="$PROJECT_DIR/config"
 SATURN_OUTPUT_DIR=$PROJECT_PATH/output
@@ -29,7 +40,8 @@ sync_directories() {
 }
 
 # LOGIC (DO NOT CHANGE)
-BASE_DIR=/nobackup2/$USER/$PROJECTNAME
+# Allow override of BASE_DIR; default to /nobackup2/$USER/$PROJECTNAME
+BASE_DIR=${BASE_DIR:-/nobackup2/$USER/$PROJECTNAME}
 mkdir_if_not_exist "$BASE_DIR/data"
 mkdir_if_not_exist "$BASE_DIR/data/data"
 mkdir_if_not_exist "$BASE_DIR/data/metadata"
@@ -60,9 +72,22 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Rsync of data directory:
-rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_DIR/data/" "$BASE_DIR/data/data/"
-rsync -ahr --include='*snrupdate*' --exclude='*' "$DATA_DIR/metadata/" "$BASE_DIR/data/metadata/"
-rsync -ahr $DATA_DIR/loaded_classifier/* $BASE_DIR/data/loaded_classifier/
+# Conditional syncs based on source existence
+if [ -d "$DATA_DIR/data" ]; then
+  rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_DIR/data/" "$BASE_DIR/data/data/"
+else
+  echo "WARN: $DATA_DIR/data not found; skipping data sync"
+fi
+if [ -d "$DATA_DIR/metadata" ]; then
+  rsync -ahr --include='*snrupdate*' --exclude='*' "$DATA_DIR/metadata/" "$BASE_DIR/data/metadata/"
+else
+  echo "WARN: $DATA_DIR/metadata not found; skipping metadata sync"
+fi
+if [ -d "$DATA_DIR/loaded_classifier" ]; then
+  rsync -ahr "$DATA_DIR/loaded_classifier/" "$BASE_DIR/data/loaded_classifier/"
+else
+  echo "WARN: $DATA_DIR/loaded_classifier not found; skipping loaded_classifier sync"
+fi
 
 
 echo "Options: $@"

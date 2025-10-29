@@ -24,6 +24,11 @@ This is a concise, practical checklist to bring you up to speed quickly. You’r
   - Predict: `bash run_predict.sh`
   - Live: `bash run_live.sh` (now defaults to Torch live script)
   - See README “Operational Workflows” for details.
+  - First run (Docker) — ensure preprocessed files exist under `$DATA_DIR/loaded_classifier/`:
+    - `train_full_data.h5`, `train_full_index_list.pkl`
+    - `val_full_data.h5`, `val_full_index_list.pkl`
+    - `key_dicts.pkl` (label maps/weights)
+    - Generate with: `python create_hdf5_files.py` (writes to `cfg.data_paths.loaded_path`).
 
 ## 4) Code Orientation (10–15 min)
 - Live/GBF: `src/Live.py` → `ClassifyGBF` (fetch/beamform) and `LiveClassifier` (windowing, ensemble, viz).
@@ -62,4 +67,3 @@ This is a concise, practical checklist to bring you up to speed quickly. You’r
 - Confirm LR scheduler policy; fix typos and argument names.
 - Align config key usage or add compatibility shim.
 - Pick validation approach (one-shot vs live-sim) and document.
-
