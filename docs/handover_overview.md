@@ -62,6 +62,12 @@ This document orients a new maintainer to the core parts of the repository, how 
   - Optional MP4 visualization using ObsPy plots combined with model outputs. See `src/Live.py:520`.
 - Torch entry script: `gbf_iter_torch.py` builds `AlexNet1D`, loads Lightning checkpoint (`cfg.pretrained_model_name`), wraps in `LiveClassifier`, collects user time windows, and runs predictions with optional plots. See `gbf_iter_torch.py:1`.
 
+## Migration Status
+
+- PyTorch is the default for training and live inference on this branch. TensorFlow components remain in the tree for historical reference and are not required for the Torch flow.
+- Recommended usage: Torch scripts only (`train_torch.py`, `gbf_iter_torch.py`).
+- Optional simplification: archive or remove TF artifacts to reduce confusion.
+
 ## How to Run
 
 - Local, PyTorch live (recommended for quick iteration):
@@ -72,10 +78,10 @@ This document orients a new maintainer to the core parts of the repository, how 
   - `run.sh`/`run_predict.sh`/`run_live.sh` call `common.sh` which builds an image, syncs data/output, and runs the selected script.
   - To use Torch live via the wrapper: set `SCRIPT_NAME=gbf_iter_torch.py` in `run_live.sh:2`.
 
-## TODOs For Coworker (Production Readiness)
+## TODOs For Maikael (Production Readiness)
 
-- Unify live path on PyTorch:
-  - `src/Live.load_model(...)` still targets TF/Keras (`src/Models`); Torch live uses checkpoint load in `gbf_iter_torch.py`. Consider adding a Torch `load_model_torch(...)` in `src/Live.py` and deprecating TF usage on this branch.
+- Streamline live path on PyTorch:
+  - Optional: add a Torch `load_model_torch(...)` in `src/Live.py` and deprecate TF loader usage to remove remaining TF references in the live module.
 - Robustness and clarity:
   - Fix a likely typo in `get_data_to_predict`: `if traced is not isinstance(traced, str):` → `if not isinstance(traced, str):` (see `src/Live.py:274`).
   - Label typo in Torch script: `"exlposion"` → `"explosion"` (see `gbf_iter_torch.py:20`).
@@ -89,6 +95,43 @@ This document orients a new maintainer to the core parts of the repository, how 
   - Package as a CLI or service (e.g., FastAPI) with a preloaded model and a small stateful worker.
   - Add reproducible environments (conda/uv lock) and a slim runtime image.
   - Add unit/integration tests for windowing, label mapping, and end‑to‑end inference on a tiny sample.
+ - Simplify repo (optional): remove or archive legacy TF files not needed on this branch (`src/Models.py`, `src/Callbacks_tf.py`, `src/Scaler_tf.py`, `train.py`, `predict.py`, `gbf_iter.py`).
+ - Evaluation improvement (optional): simulate live‑mode evaluation on validation/test by running the windowed ensemble pipeline and computing metrics on aggregated predictions.
+
+## Operational Workflows
+
+- Preferred: work directly on the GPU machine
+  - SSH to the GPU host; set up/activate your Python environment.
+  - Set `PROJECT_DIR` and `DATA_DIR`; run `python train_torch.py` or `python gbf_iter_torch.py --plots`.
+  - For a simpler example of this style, see the minem_arraydetect repository (Tord’s branch): https://github.com/NorwegianSeismicArray/minem_arraydetect/tree/tord
+
+- Alternative: use the Docker transfer scripts
+  - `run.sh` (training), `run_predict.sh` (predict), `run_live.sh` (live) call `common.sh` to sync data, build images, execute, and sync outputs back.
+  - Use `-b` to force a rebuild if dependencies changed.
+
+## Known Existing Issues (quick start list)
+
+- Fixed in this handover:
+  - Live error handling: skip failed waveform retrievals in `get_data_to_predict` (string error returns are ignored). See `src/Live.py:299`.
+  - Label map typo in torch live script: `"explosion"` corrected. See `gbf_iter_torch.py:20`.
+
+- Training API mismatches to verify/align:
+  - `train_torch.py` → `src/Models_torch.get_model(...)` argument order/signature mismatch (metrics lists vs label maps/weights). Confirm and refactor to a clear, typed signature.
+  - `src/Loop_torch.configure_optimizers`: typo `self.cfg.optimzer` and warmup scheduler wiring likely incorrect; review and fix LR scheduling.
+
+- Scaling and inference:
+  - Live path uses per-window local min-max; consider standardizing on `src/Scaler_torch.Scaler` for consistency.
+  - `src/Scaler_torch`: API inconsistency — base `Scaler.transform(X)` forwards to scaler’s `transform(X)`, but `MinMaxScaler.transform` expects `(X, cfg)`. Align signatures and usage.
+
+- Config consistency:
+  - Some modules reference `cfg.paths.*` while YAML uses `project_paths`/`data_paths`. Add compatibility shim or unify references.
+
+- Robustness & operations:
+  - Add timeouts/retries and better exception handling around SeismonPy/Mongo fetch.
+  - Replace prints with structured logging; ensure logs include time/event context.
+
+- Performance (optional improvements):
+  - Micro-batch windows per event to reduce overhead; keep cadence; use `torch.no_grad()`.
 
 Notes on batching windows:
 - You can batch windows per event to shape `(N, C, T)` for a single forward pass; this typically reduces per‑event latency without hurting “live‑ness,” provided you still process at your cadence (e.g., every `cfg.live.step` seconds). Keep batches modest to avoid GPU memory spikes. Micro‑batches are a good compromise.

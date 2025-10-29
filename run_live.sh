@@ -1,5 +1,6 @@
 #!/bin/bash
-export SCRIPT_NAME=gbf_iter.py
+# Use the PyTorch live script by default
+export SCRIPT_NAME=gbf_iter_torch.py
 export MODEL_CONFIG=alexnet.yaml
 echo "Running live script"
 export GPU_DEVICE="device=0"

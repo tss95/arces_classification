@@ -1,213 +1,166 @@
+# ARCES Classification — PyTorch Branch
+
+End-to-end system for seismic event detection and classification on beamformed ARCES array data. This branch uses PyTorch and PyTorch Lightning for training and live inference. Live usage produces early label recommendations for GBF events (either incoming events or a selected bulletin).
+
 ## Table of Contents
 
-1. [General Information](#general-information)
-2. [Repository Structure](#repository-structure)
-3. [Setting Up the Environment Variable](#setting-up-the-environment-variable)
-4. [Training a Model](#training-a-model)
-5. [Predicting with a Model on Validation Set](#predicting-with-a-model-on-validation-set)
-6. [Running the Model on GBF](#running-the-model-on-gbf)
+1. Project Overview
+2. Requirements
+3. Environment & Config
+4. Repository Layout
+5. Training (PyTorch)
+6. Live Inference (GBF, PyTorch)
+7. Validation & Live-Mode Evaluation (Recommendation)
+8. Troubleshooting
+9. Maintainer Notes
+10. Operational Workflows
 
-## General Information
+## 1) Project Overview
 
-This project is a machine learning system for seismic event classification and detection. It is designed to be used with beamformed array data from the ARCES array, although with plans to extend the application to more arrays. The data is beamformed using the seismonpy software suite. The dataset is not yet made directly available to the public, but the user may generate their own dataset to be used. The system is designed to be run on NORSARs GPU server through a docker container, but can also be run on a local linux machine. This README will explain how to set up the environment and run the system but only for use within NORSARs ecosystem. For use outside of NORSAR, the user will need to make some changes to the code. Contact the author for more information.
+- Task: Binary detection (noise vs event) and binary classification (earthquake vs explosion) on array beams.
+- Live: Processes GBF events and outputs early label recommendations; optional visualizations.
+- Infra: Can run locally or via Docker on a GPU host using provided scripts.
 
-#### Author:
-**Tord Sture Stangeland**
-*tord.stangeland@norsar.no* | *tord.stangeland@gmail.com*
+## 2) Requirements
 
-## Repository Structure
-**This repository has the following structure:**
+- Python 3.10+ recommended.
+- Key packages: PyTorch, PyTorch Lightning, torchmetrics, ObsPy, SeismonPy, scikit-image, imageio.
+- Optional: Weights & Biases (wandb) for experiment tracking.
 
-- `config/`: This directory contains configuration files for the project.
-    - `models/`: This directory contains configuration files for the models. The files are named after the model name, and contain the configuration settings for the model. The settings relate specifically to the hyperparameters of the relevant model.
-    - `data_config.yaml`: This file contains the configuration settings for the data. It includes the following sections:
-        - `data`: This section contains the settings for the data. It includes the following main keys:
-        - `model`: Type of model to be used. Currenlty, only `alexnet` and `cnn_dense` is supported.
-        - `model_name`: Name of the pretrained model. This is used to load the model weights.
-        - `seed` : Set seed for reproducibility.
-        - `predict`: Whether or not the model should be used for prediction.
-        - `paths`: The paths which the project utilizes. These are extensions of the `ROOT_DIR` and `STORAGE_DIR`. More information can be found below regarding setting the environment variable.
-        - `data`: Parameters regarding data.
-        - `live`: Parameters regarding loading and handling of live data.
-        - `filters`: Parameters regarding filtering of data.
-        - `callbacks`: Parameters regarding callbacks.
-        - `scaling`: Parameters regarding scaling of data.
-        - `augment`: Parameters regarding data augmentation.
-        - `optimizer`: Parameters regarding the optimizer.
-    - `sweep_config`: Paremters for hyperparameter optimization using Weights & Biases (wandb).
-    - `logging_config.yaml`: Configuration settings for logging.
-- `src/`: This directory contains the source code of the project. It includes the following files:
-    - `Live.py`: The most important file in the project, which implements the system for GBF. It includes two main classes:
-        - **`ClassifyGBF` Class**: A class for processing and classifying seismic data using ground-based facilities. This class includes methods for retrieving seismic data, creating beams for P and S waves, and predicting seismic events using the ground-based facilities (GBF) approach.
-        - **`LiveClassifier` Class**: A class that handles the live classification of seismic data. It includes methods for loading the model, preprocessing the data, and making predictions in real-time.
-    - `Scaler.py`: This file contains various scalers available to the model. It includes four main classes:
-        - **`RobustScaler` Class**: A class that scales features using statistics that are robust to outliers. This Scaler removes the median and scales the data according to the Interquartile Range (IQR). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
-        - **`LogScaler` Class**: A class that scales the features using logarithmic scaling. This Scaler applies a logarithmic transformation to the data, which can be useful for reducing the impact of outliers and transforming the data to a more Gaussian-like distribution.
-        - **`MinMaxScaler` Class**: A class that scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
-        - **`StandardScaler` Class**: A class that standardizes features by removing the mean and scaling to unit variance. The standard score of a sample x is calculated as z = (x - u) / s, where u is the mean of the training samples, and s is the standard deviation of the training samples.
-    - `Models.py`: This file defines the architecture of neural network models for seismic event classification and detection. It includes key functions   like get_initializer for selecting weight initializers and get_model for creating model instances based on configuration settings. The file also contains custom model classes AlexNet and CNN_dense, tailored for handling seismic data. These classes extend from a base Loop class and implement specific structures and behaviors, including convolutional and dense layers, for effective seismic event analysis.
-    - `Utils.py`: Contains functions used throughout the project.
-    - `Loop.py`: Central to the model's training and evaluation processes, this file defines the Loop class, which extends tf.keras.Model. It implements custom training and testing steps, loss calculation, and metrics handling for both detector and classifier components of the model. The class also integrates with Weight & Biases (wandb) for metric tracking. Additionally, it includes the MetricsPipeline class, designed to initialize, update, and retrieve results for various metrics like precision, recall, and accuracy. The Loop class handles the complexities of training, including handling class weights, updating state for metrics, and customizing gradient updates and loss calculations specific to the project's needs.
-    - `Analysis.py`: Defines the Analysis class for evaluating and visualizing model performance. It includes methods for plotting seismic event samples, generating confusion matrices, precision-recall curves, and geographical maps of predictions. The class also provides exploratory analysis tools for specific seismic event types and detailed error analysis functionalities.
-    - `Augment.py`: Provides functions for data augmentation in seismic signal processing. This includes adding noise, tapering signals, creating gaps, and zeroing specific channels in the data. These augmentations are configurable through the `cfg` settings, allowing for flexible application to various datasets. The augmentation techniques enhance the robustness and generalizability of the model by introducing variability in the training data.
-    - `Callbacks.py`: Defines various TensorFlow Keras callbacks for enhancing the model training and evaluation process. These include:
-        - **`ValidationConfusionMatrixCallback` Class**: Calculates and logs confusion matrices and prediction distributions at the end of each epoch, useful for monitoring model performance and biases.
-        - **`InPlaceProgressCallback` Class**: Provides in-place progress updates during training, displaying current epoch progress and average training loss.
-        - **`WandbLoggingCallback` Class**: Integrates with Weights & Biases (wandb) for logging training and validation metrics, aiding in detailed monitoring and analysis of model performance over epochs.
-        - **`CosineAnnealingLearningRateScheduler` Class**: Implements a cosine annealing schedule for the learning rate, which can help in stabilizing and improving the training process.
-    
-    - `Generator.py`: Defines `Generator`, `TrainGenerator`, and `ValGenerator` classes for efficient data handling and batch generation in TensorFlow. These classes extend `tf.keras.utils.Sequence` and are crucial for loading and preprocessing data during model training and validation.
-
-        - **`Generator` Class**: Serves as a base class for creating data generators. It handles data shuffling, normalization (using a provided scaler), and batch-wise data retrieval. It also supports chunk-wise processing of large datasets to optimize memory usage.
-
-        - **`TrainGenerator` Class**: Inherits from `Generator` and is tailored for training data. It includes data augmentation methods to introduce variability and robustness in the training process. It ensures that data is shuffled and augmented in each epoch.
-
-        - **`ValGenerator` Class**: Also inheriting from `Generator`, this class is designed for validation data. It ensures that data is not shuffled or augmented, providing a consistent set of data for evaluating the model's performance.
-
-
-    - `LoadData.py`: Implements the `LoadData` class for managing the loading, preprocessing, and filtering of seismic data for machine learning models. The class is designed to handle different datasets (training, validation, test) and applies necessary preprocessing steps, such as filtering, based on the configuration specified in `data_config.py`.
-
-        - **Initialization and Data Processing**: The constructor initializes the class and decides which datasets (train, validation, test) to load based on the `cfg.data.what_to_load` setting. It loads the datasets and applies filtering as required.
-
-        - **Dataset Retrieval Methods**: Methods like `get_train_dataset`, `get_val_dataset`, and `get_test_dataset` provide easy access to the processed datasets.
-
-        - **Data Filtering**: The `filter_data` method applies the configured filters to the seismic data. This is important for preparing the data for model training and ensuring data quality.
-
-        - **Loading and Saving Datasets**: Methods like `load_data` and `save_filtered_data` handle the reading and writing of datasets to and from the disk, respectively.
-
-        - **Utility Functions**: Functions like `remove_induced_events` and `change_key_to_index` perform specific transformations on the data, aiding in data preparation and management.
-
-    - `UMAPCallback.py`: Defines the `UMAPCallback` class, a custom callback for TensorFlow Keras models. This callback integrates Uniform Manifold Approximation and Projection (UMAP) for dimensionality reduction and visualization, and logs the results to Weights & Biases (wandb). 
-
-        - **Initialization**: During the initialization phase, the callback takes validation data and labels, a label map for human-readable label names, and an interval specifying how frequently the UMAP visualization should be generated.
-
-        - **Epoch-End Action**: The `on_epoch_end` method, which is triggered at the end of each epoch, checks if the current epoch aligns with the specified interval. If it does, the method extracts outputs from the model's penultimate layer, applies UMAP to reduce the dimensionality of these outputs, and generates a scatter plot.
-
-        - **Visualization and Logging**: The scatter plot, where each point represents a validation data point and is color-coded based on its true label, is saved to a file. This file is then logged to wandb, providing a visual representation of how the model's embeddings of the validation data evolve over epochs.
-- `docker.dockerfile`: This is the Dockerfile for running the project on the GPU machine.
-- `.docker_bashrc`: This is the bashrc file for the docker container.
-- `.dockerignore`: This file contains the files that should be ignored by the docker container.
-- `data_analysis.ipynb`: This Jupyter notebook contains analysis code for looking at the model predictions.
-- `README.md`: This is the README file for the project.
-- `export_data.py`: Script used by Steffen Mæland to generate the original datset.
-- `gbf_iter.py`: This script is an example used to run the system, using command line inputs and keeping the model in memory.
-- `gbf_live.py`: This script is an example used to run the system on a specified time interval.
-- `generate_data_csv.py`: This script generates a CSV file from the model predictions for analysis.
-- `generate_datasets.py`: This script generates preloaded training, validation and test datasets. Used when a new dataset has been added. 
-- `get_model_name.py`: This script gets the model name for the bash scripts.
-- `global_config.py`: This script contains two lines of code to make the variables set in `project_setup.py` accessible across the project.
-- `predict.py`: This script runs the model exlusively on the validation set.
-- `project_setup.py`: This script is the setup file for the project. It loads the config files and addresses project file paths on different systems. It also loads the logger, and assigns a unique ID for the run.
-- `train.py`: Training script for one model.
-- `sweep_train.py`: This unfinished script is used to perform a sweep run, or hyperparamter optimization using WandB.
-- `common.sh`: This shell script handles creating folders and transferring files to the GPU machine. It then also runs the relevant code on the GPU machine. This script is used by all other shell scripts.
-- `run_live.sh`: This shell script is a wrapper for running the live version of the model on the GPU machine. May be deprecated.
-- `run_predict.sh`: This shell script runs the `predict.py` script on the GPU machine.
-- `run.sh`: This shell script runs the `train.py` script on the GPU machine. 
-- `sweep_run.sh`: This shell script runs the `sweep_train.py` script on the GPU machine. May be deprecated.
-- `requirements.txt`: This file lists the Python dependencies for the project. Not all modules are necessary for the live version. This needs to be addressed at some point.
-
-## Setting Up the Environment Variable
-
-The application uses two environment variables: `ROOT_DIR` to determine the root directory of the project, and `STORAGE_DIR` to point to where the output, data and stored scalers are located. You need to set this environment variable before running the application.
-
-### On Unix/Linux/macOS
-
-Open your terminal and enter the following command:
-
+Install locally (example):
 ```bash
-export ROOT_DIR=/path/to/your/root/respository/directory
-export STORAGE_DIR=/path/to/your/storage/directory 
-(for NORSAR employees this will be here: `/projects/active/Array/ML_methods/arces_classification`)
-```	
+pip install -r requirements.txt
+```
 
-Replace `/path/to/your/root/repository/directory` with the actual path to your root directory.
+## 3) Environment & Config
 
-Please note that these commands will only set the `ROOT_DIR` and `STORAGE_DIR` environment variables for the current session. If you open a new terminal or Command Prompt window, you will need to set the environment variable again.
+- Required environment variables (set before importing project code):
+  - `PROJECT_DIR` — repository root used to resolve configuration paths.
+  - `DATA_DIR` — base directory for data paths.
 
-To set the environment variable permanently, you can add the above command to your shell's startup file (like `~/.bashrc` or `~/.bash_profile` on Unix/Linux/macOS, or the Environment Variables on Windows).
+Example (shell):
+```bash
+export PROJECT_DIR=/path/to/this/repo
+export DATA_DIR=/path/to/data/root
+```
 
-#### In Jupyter Notebooks
-
-If you're running parts of the project in a Jupyter Notebook, you will need to set the environment variable in the notebook itself. You can do this by running the following code:
-
+Example (Jupyter):
 ```python
 import os
-os.environ['ROOT_DIR'] = '/path/to/your/root/dir'
-os.environ['STORAGE_DIR'] = '/path/to/your/storage/dir'
+os.environ['PROJECT_DIR'] = '/path/to/this/repo'
+os.environ['DATA_DIR'] = '/path/to/data/root'
 ```
-NOTE: This needs to be before you import any of the project files.
 
-#### Weights & Biases (wandb)
-If you have a Weights & Biases account, the project will use it as long as you export the api key as a environment variable. To do this, run the following command (recommended to add this to your .bashrc file):
+- Configuration files:
+  - `config/data_config.yaml` — main run config (live, filters, thresholds, paths, pretrained checkpoints, etc.).
+  - `config/models/*.yaml` — model hyperparameters (e.g., alexnet).
+  - `global_config.py` / `project_setup.py` — loads YAML into `cfg`/`model_cfg` and sets logging.
 
+Important fields:
+- `pretrained_model_name` — path to a Lightning checkpoint (`.ckpt`) used for live inference.
+- `live.*` — window length/step/sample rate and beamforming velocities.
+- `filters.*` — filter selection and parameters for live preprocessing.
+- `data.model_threshold` — sigmoid threshold for binary decisions.
+- `project_paths.*` / `data_paths.*` — output/data directories (resolved under `DATA_DIR`/`PROJECT_DIR`).
+
+Optional: `WANDB_API_KEY` for Weights & Biases.
+
+## 4) Repository Layout
+
+- `config/` — YAML configs and logging config.
+- `src/` — core modules:
+  - `Live.py` — GBF fetch/beamform (`ClassifyGBF`), live pipeline (`LiveClassifier`), plotting helpers.
+  - `Models_torch.py`, `Loop_torch.py` — Torch model definitions and Lightning training base.
+  - `Utils.py`, `BeamDataset.py`, `LoadData.py`, `Transforms.py`, `Scaler_torch.py` — utilities, datasets, scaling.
+- Scripts:
+  - Training: `train_torch.py`
+  - Live: `gbf_iter_torch.py` (interactive; recommended)
+  - Docker wrappers: `run.sh`, `run_predict.sh`, `run_live.sh` (via `common.sh`)
+- Legacy TF components (kept for reference only): `src/Models.py`, `src/Callbacks_tf.py`, `src/Scaler_tf.py`, `train.py`, `predict.py`, `gbf_iter.py`
+
+## 5) Training (PyTorch)
+
+Local:
 ```bash
-wandb_api_key=0o0o0oo00o0o0o0oYOUR_KEYo0o0o0o0o0o0o
-export WANDB_API_KEY=$wandb_api_key
+cd $PROJECT_DIR
+python train_torch.py
 ```
-The `common.sh` script will automatically install wandb if it is not installed, and log you in using the api key.
 
-Wandb is only used in `train.py` and `sweep_train.py` scripts for now. You need to set the details of your wandb call inside these functions. They are currently hard coded. 
-
-## Training a model
-
-### On GPU machine (recommended)
-To train a model, specify the parameters in the `config/data_config.yaml` file. Then edit the run.sh file to specify the name of the model you will train (this name should be the same in `data_config.yaml` - model_name). Then run the following command:
-
+GPU host via Docker:
 ```bash
-cd ROOT_DIR
+cd $PROJECT_DIR
 bash run.sh
-
-```
-If you added any new external models to the requirements.txt file, you need to add the -b flag to the above command to install them.
-
-
-#### On your local machine:
-To train a model, specify the parameters in the `config/data_config.yaml` file. Then run the following command:
-
-```
-cd ROOT_DIR
-python train.py
 ```
 
-#### For both cases:
-When the training is finished, the model will be saved in the directory defined by cfg.paths.model_save_folder in `data_config.yaml`. The model will be given a name that is defined by: `f"{cfg.model}_{haikunator.haikunate()}"`. The haikunator package is used to generate a random name for the model.
+Notes:
+- `train_torch.py` builds datasets via `src/Utils.prep_data()`, constructs a Lightning model from `src/Models_torch.py`, and logs metrics (optionally to wandb).
+- Inputs are channel-first `(batch, channels, timesteps)`.
+- Outputs: `{'detector': logits, 'classifier': logits}`.
 
-## Predicting with a model on validation set:
-This depends on what you want to predict on. To predict on the validation set, you need to run the `predict.py` file.
+## 6) Live Inference (GBF, PyTorch)
 
-#### On GPU machine:
-**Step 1:** Specify the model config parameter in `predict.sh` file. This file should be accessible through `config/models/` directory. For example, if you want to predict on a model named "model_1", then you should have a file named `model_1.yaml` in `config/models/` directory. This file should contain the parameters of the model you want to predict on.
-**Step 2:** Specify the name of the model weights file in `data_config.yaml`. E.g.: model_name: `"best_alexnet_epoch_30.hdf5"`
-**Step 3:** Run the following command:
+Purpose: provide early label recommendations for GBF events (incoming or from a chosen bulletin). Optionally saves MP4 visualizations per event.
 
+Local run:
 ```bash
-cd ROOT_DIR
-bash predict.sh
+cd $PROJECT_DIR
+python gbf_iter_torch.py --plots
 ```
-You can specify the -b flag to install any new external models you added to the requirements.txt file.
 
-#### On your local machine:
-**Step 1:** Specify the name of the model weights file in `data_config.yaml`. E.g.: model_name: `"best_alexnet_epoch_30.hdf5"`
-**Step 2:** Run the following command:
-    
+Docker on GPU host:
 ```bash
-cd ROOT_DIR
-python predict.py
+cd $PROJECT_DIR
+bash run_live.sh
 ```
 
-## Running the model on GBF:
-There are two options to run the model on GBF. The first option is to specify the time period you're interested in through the `gbf_live.py` file. The second option is to run `gbf_iter.py `where the script will prompt your for time periods. Currently, the output of both of these processeses is the same: gifs of the predictions are saved in the directory defined by `cfg.paths.live_test_path` in `data_config.yaml`. I recommend running on local machine, as GPU is overkill for this task.
+Configuration tips:
+- Set `pretrained_model_name` in `config/data_config.yaml` to a valid `.ckpt` (Lightning checkpoint with `state_dict`).
+- Visualizations go to `cfg.project_paths.live_test_path`.
 
-Run the command:
-    
-```bash
-cd ROOT_DIR
-python gbf_live.py
-```
-Alternatively, you can run:
+How it works (high level):
+- `ClassifyGBF.get_data_to_predict(...)` fetches events + inventory (SeismonPy/Mongo), preprocesses, and builds P/S beams.
+- `LiveClassifier` splits traces into windows (length = `cfg.live.length`, step = `cfg.live.step`), normalizes, and runs per-window inference.
+- Ensemble: majority vote across windows + mean probabilities; optional plot saved to video.
 
-```bash
-cd ROOT_DIR
-python gbf_iter.py
-```
+## 7) Validation & Live-Mode Evaluation (Recommendation)
+
+Standard validation uses single-window predictions. To better approximate “liveness” on labeled data, simulate the live pipeline on validation/test:
+
+- For each sample, run the same windowing + ensemble steps as in live.
+- Aggregate predictions as in live (majority vote; mean probabilities).
+- Compute metrics on aggregated predictions to estimate live performance.
+
+This is optional and can be done as time permits (Maikael may own this exploration).
+
+## 8) Troubleshooting
+
+- Environment variables not set → `project_setup.py` raises helpful errors; set `PROJECT_DIR`, `DATA_DIR` before imports.
+- Checkpoint loading → ensure `pretrained_model_name` points to a valid `.ckpt` file.
+- SeismonPy/Mongo access → the live fetch depends on internal services; configure credentials/endpoints as needed.
+- GPU issues → Lightning defaults to all available devices; set CUDA-visible devices or adjust `Trainer` args if necessary.
+
+## 9) Maintainer Notes
+
+- Primary maintainer for productionization: Maikael.
+- See `docs/handover_overview.md` for a system overview and TODOs for hardening.
+- See `docs/handover_overview.md` → Known Existing Issues for a quick start list of current gaps/quirks.
+- See `docs/live_serving.md` for the GBF live pipeline details.
+- See `docs/handover_agenda.md` for a suggested handover meeting checklist.
+
+## 10) Operational Workflows
+
+- Option A — develop directly on the GPU machine (simpler):
+  - SSH to the GPU host and work in-place (no local→remote transfer).
+  - Create/activate your environment, set `PROJECT_DIR` and `DATA_DIR`, then run Python scripts directly (`train_torch.py`, `gbf_iter_torch.py`).
+  - For a simpler template of this approach, refer to the minem_arraydetect repo (Tord’s branch): https://github.com/NorwegianSeismicArray/minem_arraydetect/tree/tord
+
+- Option B — use the existing Docker transfer flow (fast start):
+  - `run.sh` (training), `run_predict.sh` (predict), `run_live.sh` (live) wrap `common.sh` to:
+    - Sync input data from `$DATA_DIR` to a working path on the GPU host.
+    - Build the Docker image if the Dockerfile/requirements changed (use `-b` to force rebuild).
+    - Run the selected script inside the container with GPU access.
+    - Sync outputs back to `$PROJECT_DIR/output`.
+  - Typical commands:
+    - Training: `bash run.sh`
+    - Predict: `bash run_predict.sh`
+    - Live: `bash run_live.sh` (defaults to the Torch live script)

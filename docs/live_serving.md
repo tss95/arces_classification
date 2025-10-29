@@ -1,6 +1,6 @@
 # Live Serving — GBF Inference (PyTorch)
 
-This document explains how the live/GBF inference flow works in the PyTorch branch, where data is fetched and beamformed, windows are prepared, the model is run with ensemble voting, and results are optionally visualized.
+This document explains how the live/GBF inference flow works in the PyTorch branch, where data is fetched and beamformed, windows are prepared, the model is run with ensemble voting, and results are optionally visualized. The goal in operations is to provide early label recommendations for GBF events (either incoming events or a bulletin selected by your supervisor). Maikael will primarily maintain and productionize this path.
 
 ## Entry Points
 
@@ -57,12 +57,15 @@ Important functions and their locations:
 
 ## How to Run (Torch)
 
-- Quick local run:
+- Quick local run (direct on GPU host recommended):
   - Ensure `PROJECT_DIR` and `DATA_DIR` are set.
   - Update `config/data_config.yaml:1` → `pretrained_model_name` to a valid `.ckpt`.
   - Run: `python gbf_iter_torch.py --plots`.
 - Dockerized GPU flow:
   - Update `run_live.sh:2` to `SCRIPT_NAME=gbf_iter_torch.py` and run `bash run_live.sh` (uses `common.sh` to build/sync/run inside a container).
+
+Notes on workflows:
+- For a simpler in-place workflow, Maikael can work directly on the GPU machine (no local→remote sync). Tord can point to the minem_arraydetect repo branch as a reference template.
 
 ## Production Notes and Next Steps
 

@@ -1,6 +1,6 @@
 # Handover Meeting Agenda
 
-Use this as a time‑boxed checklist to bring your coworker up to speed and capture next steps.
+Use this as a time‑boxed checklist to bring Maikael up to speed and capture next steps.
 
 ## 1) Scope and Goals (5 min)
 - What the system does today (event detection/classification on ARCES beams).
@@ -32,7 +32,10 @@ Use this as a time‑boxed checklist to bring your coworker up to speed and capt
 - Consider CLI/API service for production (preloaded model, health endpoints).
 
 ## 6) Ownership and Next Steps (5 min)
-- Assign owners for each TODO.
+- Assign owners for each TODO (default owner: Maikael).
 - Agree on acceptance criteria for “production ready”.
 - Decide timeline and environments (dev/stage/prod) and monitoring.
 
+## 7) Choose Operational Workflow (5 min)
+- Option A (recommended): develop directly on GPU host (no transfer scripts). Review minem_arraydetect reference branch with Tord.
+- Option B: use Docker transfer scripts (`run.sh`, `run_live.sh`, `run_predict.sh`) and `common.sh`.
