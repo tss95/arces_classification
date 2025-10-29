@@ -296,7 +296,8 @@ class ClassifyGBF:
         tracedata, streams = [], []
         for i, (starttime, endtime) in enumerate(zip(starttimes, endtimes)):
             traced, stream = self.get_beam(starttime, endtime, filtered_events[i], inventory)
-            if traced is not isinstance(traced, str):
+            # Ignore failed retrievals where a string error message is returned
+            if not isinstance(traced, str):
                 tracedata.append(traced)
                 streams.append(stream)
         return tracedata, streams, starttimes, endtimes
@@ -621,7 +622,6 @@ class LiveClassifier:
         plt.close(fig)
         
         return image
-
 
 
 

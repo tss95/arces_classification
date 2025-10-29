@@ -5,3 +5,4 @@ __pycache__
 .git_backup
 wandb/
 lightning_logs/
+claude_chats/

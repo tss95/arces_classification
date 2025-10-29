@@ -15,7 +15,7 @@ args = parser.parse_args()
 scaler = Scaler(cfg)
 
 detector_label_map = {0: "noise", 1: "event"}
-classifier_label_map = {0:"earthquake", 1:"exlposion"}
+classifier_label_map = {0:"earthquake", 1:"explosion"}
 label_maps = {"detector": detector_label_map, "classifier": classifier_label_map}
 
 
