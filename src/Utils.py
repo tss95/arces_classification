@@ -111,101 +111,12 @@ def prepare_labels_and_weights(labels: List[str], label_encoder: Optional[Dict[s
     return nested_label_dict, detector_class_weights, classifier_class_weights, label_encoder, detector_label_map, classifier_label_map
 
 
-def swap_labels(labels: List[str]) -> List[str]:
-    """
-    Swap specific labels in the provided list.
-
-    This function is designed to replace 'induced or triggered event' labels with 'earthquake'. It's used in the context of seismic data where such a substitution is relevant.
-
-    Args:
-    labels: A list of string labels.
-
-    Returns:
-    A list of string labels where 'induced or triggered event' has been replaced with 'earthquake'.
-    """
-    output = []
-    for label in labels:
-        if label == 'induced or triggered event':
-            output.append('earthquake')
-        else:
-            output.append(label)
-    return output
-
-
-def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dict[int, str]], cfg) -> Tuple[List[str], Dict[str, np.ndarray]]:
-    """
-    Determine the final labels based on the predicted probabilities and label map.
-
-    This function applies a sigmoid function to the predicted probabilities, applies a threshold, and translates them into final labels using the provided label map.
-
-    Args:
-    pred_probs: A dictionary containing the predicted probabilities for both 'detector' and 'classifier'.
-    label_map: A dictionary mapping label indices to their string representations for both 'detector' and 'classifier'.
-
-    Returns:
-    A tuple containing:
-        - A list of final string labels.
-        - A dictionary with updated predicted probabilities for both 'detector' and 'classifier'.
-    """
-    final_labels = []
-    pred_probs_detector = torch.sigmoid(torch.tensor(pred_probs['detector'], dtype=torch.float32)).numpy()       
-    pred_labels_detector = apply_threshold(pred_probs_detector, cfg)
-
-    pred_probs_classifier = torch.sigmoid(torch.tensor(pred_probs['classifier'], dtype=torch.float32)).numpy()
-    pred_labels_classifier = apply_threshold(pred_probs_classifier, cfg)
-
-    final_labels = translate_labels(pred_labels_detector, pred_labels_classifier, label_map)
-    return final_labels, {"detector": pred_probs_detector, "classifier": pred_probs_classifier}
-        
-
-def translate_labels(labels_detector: np.ndarray, labels_classifier: np.ndarray, label_map: Dict[str, Dict[int, str]]) -> List[str]:
-    """
-    Translate numeric labels to their string counterparts using a label map.
-
-    This function translates the numeric labels from the detector and classifier into their corresponding string labels.
-
-    Args:
-    labels_detector: A numpy array of numeric labels from the detector.
-    labels_classifier: A numpy array of numeric labels from the classifier.
-    label_map: A dictionary mapping label indices to their string representations for both 'detector' and 'classifier'.
-
-    Returns:
-    A list of final string labels after translation.
-    """
-    final_labels = []
-    for det, cls in zip(labels_detector, labels_classifier):
-        det = int(det[0]) if isinstance(det, np.ndarray) else det
-        cls = int(cls[0]) if isinstance(cls, np.ndarray) else cls
-
-
-        if label_map["detector"][det] == "noise":
-            final_labels.append("noise")
-        else:
-            final_labels.append(label_map["classifier"][cls])
-    
-    return final_labels
-
-def apply_threshold(pred_probs: np.ndarray, cfg) -> List[int]:
-    """
-    Apply a threshold to predicted probabilities to classify them as 0 or 1.
-
-    This function applies a threshold defined in the global configuration to the predicted probabilities.
-
-    Args:
-    pred_probs: A numpy array of predicted probabilities.
-
-    Returns:
-    A list of integers (0 or 1) after applying the threshold.
-    """
-    out = []
-    for prob in pred_probs:
-        if prob <= cfg.data.model_threshold:
-            out.append(0)
-        else:
-            out.append(1)
-    return out
-
-def get_index_of_wrong_predictions(true_labels: List[str], pred_labels: List[str]) -> List[int]:
+from src.InferenceUtils import (
+    translate_labels,
+    apply_threshold,
+    get_final_labels,
+    one_prediction as one_prediction_impl
+)
     """
     Identify indices where the true labels and predicted labels do not match.
 
@@ -282,14 +193,7 @@ def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, st
         - A list with the final string label for the input data.
         - A dictionary with the predicted probabilities for both 'detector' and 'classifier'.
     """
-    x = np.reshape(x, (1, *x.shape))
-    if is_torch:
-        #x = x.reshape(x.shape[0], x.shape[2], x.shape[1])[:-1]
-        x = torch.tensor(x, dtype=torch.float32)
-        x = x.to("cuda" if torch.cuda.is_available() else "cpu")
-    pred_probs = model(x)
-    labels, pred_probs = get_final_labels(pred_probs, label_maps, cfg)
-    return labels, pred_probs
+    return one_prediction_impl(model, x, label_maps, cfg, is_torch)
 
 
 def plot_confusion_matrix(conf_matrix: np.ndarray, conf_matrix_normalized: np.ndarray, class_names: List[str]) -> plt.Figure:

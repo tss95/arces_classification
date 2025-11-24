@@ -1,4 +1,4 @@
-from src.Live import ClassifyGBF, load_model, LiveClassifier
+from src.Live import ClassifyGBF, LiveClassifier
 from obspy import UTCDateTime
 from src.Scaler_torch import Scaler
 from global_config import cfg, logger

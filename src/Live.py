@@ -1,10 +1,9 @@
 import numpy as np
 from global_config import logger, cfg
-from src.Models import get_model
 import os
 import math
 from obspy import Trace, Stream, UTCDateTime
-from src.Utils import one_prediction
+from src.InferenceUtils import one_prediction
 from seismonpy.norsardb import Client
 from seismonpy.utils import create_global_mongodb_object
 from seismonpy.io.mongodb.eventdb import MongoEventDataBase
@@ -38,6 +37,7 @@ def load_model(model_name: Optional[str] = None) -> Tuple[Any, Dict[str, Dict[in
 
     The function utilizes global configuration settings (`cfg`) and a logger instance (`logger`).
     """
+    from src.Models import get_model
     # Define label maps for the detector and classifier
     detector_label_map = {0: "noise", 1: "event"}
     classifier_label_map = {0: "earthquake", 1: "explosion"}
