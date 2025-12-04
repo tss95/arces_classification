@@ -52,16 +52,15 @@ class ConfusionMatrixLogger(Callback):
         super().__init__()
         self.cfg = cfg
         self.n_epochs = n_epochs
+        self._val_preds = []
+        self._val_trues = []
 
-    def process_predictions(self, outputs):
+    def process_predictions(self, y_pred):
         final_preds = []
-        # Assuming outputs are dictionaries with tensors as values
-        detector_preds = outputs['detector'].sigmoid()  # This will be a tensor of shape [batch_size]
-        classifier_preds = outputs['classifier'].sigmoid()  # Similarly, [batch_size]
+        detector_preds = y_pred['detector'].sigmoid().detach().cpu()
+        classifier_preds = y_pred['classifier'].sigmoid().detach().cpu()
 
-        # Iterate through each prediction in the batch
         for detector_pred, classifier_pred in zip(detector_preds, classifier_preds):
-            # Convert each tensor element to a Python scalar using .item()
             if detector_pred.item() >= self.cfg.data.model_threshold:
                 final_pred = 'Earthquake' if classifier_pred.item() < 0.5 else 'Explosion'
             else:
@@ -80,36 +79,39 @@ class ConfusionMatrixLogger(Callback):
         plt.ylabel('True label')
         plt.xlabel('Predicted label')
         return fig
+            
+    def on_validation_batch_end(self, trainer: Trainer, pl_module: LightningModule, outputs, batch, batch_idx, dataloader_idx: int = 0):
+        # Only collect outputs on epochs where we plan to log
+        if (trainer.current_epoch + 1) % self.n_epochs != 0:
+            return
+        if outputs is None or 'y_pred' not in outputs or 'y_true' not in outputs:
+            return
+        preds = self.process_predictions(outputs['y_pred'])
+        trues = self.translate_true_labels(outputs['y_true'])
+        self._val_preds.extend(preds)
+        self._val_trues.extend(trues)
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
-        if (trainer.current_epoch + 1) % self.n_epochs == 0:
-            val_dataloader = trainer.datamodule.val_dataloader()
-            all_preds = []
-            all_targets = []
-            pl_module.eval()
-            with torch.no_grad():
-                for batch in val_dataloader:
-                    inputs, targets, _ = batch
-                    inputs = inputs.to(pl_module.device)
-                    
-                    outputs = pl_module(inputs)
-                    preds = self.process_predictions(outputs)  # Assuming you adjust outputs format as needed
-                    all_preds.extend(preds)
-                    targets = self.translate_true_labels(targets)
-                    all_targets.extend(targets)
+        if (trainer.current_epoch + 1) % self.n_epochs != 0:
+            self._val_preds.clear()
+            self._val_trues.clear()
+            return
+        if not self._val_preds or not self._val_trues:
+            return
 
-            fig = self.plot_confusion_matrix(all_targets, all_preds)
-            
-            # Log the confusion matrix as an image to wandb
+        fig = self.plot_confusion_matrix(self._val_trues, self._val_preds)
+
+        if wandb_available:
             wandb.log({"confusion_matrix": wandb.Image(fig)}, commit=False)
-            plt.close(fig)
+        plt.close(fig)
+
+        self._val_preds.clear()
+        self._val_trues.clear()
             
     def translate_true_labels(self, true_labels):
         string_labels = []
-        # Assuming true_labels['detector'] and true_labels['classifier'] are tensors of the same shape
-        # and contain labels for a batch of data
-        detector_trues = true_labels['detector']
-        classifier_trues = true_labels['classifier']
+        detector_trues = true_labels['detector'].detach().cpu()
+        classifier_trues = true_labels['classifier'].detach().cpu()
         
         for detector_true, classifier_true in zip(detector_trues, classifier_trues):
             # Use .item() to convert each element (which is a scalar tensor) to a Python scalar
@@ -182,5 +184,4 @@ class ModelCheckpointCallback(CustomCallback):
         else:
             logger.info("No improvements were made, no model weights to save.")
             
-
 

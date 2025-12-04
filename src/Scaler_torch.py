@@ -1,227 +1,214 @@
-# Your existing imports and setup here
-from global_config import logger
-import numpy as np
+from typing import Any, Dict, Tuple, Union
 import torch
-import pickle 
-import os
-from typing import Any, Union
+import numpy as np
+from global_config import logger
+
+EPS = 1e-8
+
+
+def _to_tensor(x: Union[np.ndarray, torch.Tensor]) -> Tuple[torch.Tensor, bool]:
+    """Ensure tensor input; return tensor and flag indicating if original was numpy."""
+    if isinstance(x, torch.Tensor):
+        return x, False
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x), True
+    raise TypeError(f"Unsupported input type for scaling: {type(x)}")
+
 
 class Scaler:
-    # TODO: Memory leak present. If you need to run transform multiple times 
-    # TODO: Shape is only correct for minmax scaler. Need to fix for all
-    # (i.e. you cannot hold all of your data in memory) resolve the leak issue
+    """
+    Thin wrapper that owns the concrete scaler implementation and handles config/state.
+    Works on tensors of shape (batch, channels, timesteps) or numpy arrays with the same layout.
+    """
+
     def __init__(self, cfg):
-        """
-        Initializes the Scaler object with configuration settings.
-        """
         self.cfg = cfg
-        self.global_or_local = self.cfg.scaling.global_or_local
-        self.per_channel = self.cfg.scaling.per_channel
-        self.scaler_type = self.cfg.scaling.scaler_type
-        self.parameter_validation()
-        self.scaler = self.get_scaler()
+        self.scaler_type = cfg.scaling.scaler_type.lower()
+        self.global_or_local = cfg.scaling.global_or_local
+        self.per_channel = cfg.scaling.per_channel
+        self._validate()
+        self.impl = self._build_impl()
 
-        
-    def get_scaler(self):
-        """
-        Determines and returns the appropriate scaler based on the scaler_type.
-
-        Returns:
-            Union[MinMaxScaler, StandardScaler, RobustScaler, LogScaler]: An instance of the selected scaler.
-        """
+    def _build_impl(self):
         if self.scaler_type == "minmax":
-            return MinMaxScaler()
+            return MinMaxScaler(self.global_or_local, self.per_channel)
         if self.scaler_type == "standard":
-            return StandardScaler()
-        if self.scaler_type == "log":
-            return LogScaler()
-        raise NotImplementedError("Only minmax, standard and log scalers are currently implemented")
-        
+            return StandardScaler(self.global_or_local, self.per_channel)
+        raise NotImplementedError("Only minmax and standard scalers are currently implemented")
 
-    def parameter_validation(self):
-        """
-        Validates the parameters of the scaler configuration.
-        """
-        # Validate scaler_type
-        if self.scaler_type not in (valid_scalers:=["minmax", "standard", "robust", "log"]):
-            raise Exception(f"Invalid scaler type ({self.scaler_type}). Must be one of {str(valid_scalers)}")
-        # Validate per_channel
+    def _validate(self):
+        if self.scaler_type not in ["minmax", "standard"]:
+            raise ValueError(f"Invalid scaler type ({self.scaler_type}). Must be one of ['minmax', 'standard'].")
         if not isinstance(self.per_channel, bool):
-            raise Exception(f"Invalid type for per_channel ({type(self.per_channel).__name__}). Must be a boolean.")
-        # Validate global_or_local
-        if self.global_or_local not in (valid_global_or_local:=["local", "global"]):
-            raise Exception(f"Invalid value for global_or_local ({self.global_or_local}). Must be one of {str(valid_global_or_local)}")
+            raise ValueError(f"Invalid type for per_channel ({type(self.per_channel).__name__}). Must be a boolean.")
+        if self.global_or_local not in ["local", "global"]:
+            raise ValueError(f"Invalid value for global_or_local ({self.global_or_local}). Must be 'local' or 'global'.")
 
-    def fit(self, X: Any):
-        """
-        Fits the scaler to the data.
+    @property
+    def requires_fit(self) -> bool:
+        return self.impl.requires_fit
 
-        Args:
-            X (Any): The data to fit the scaler on.
-        """
-        logger.info("Fitting scaler.")
-        self.scaler.fit(X)
+    def fit_loader(self, dataloader):
+        """Fit using a dataloader that yields either tensors or (tensor, labels, ids)."""
+        if not self.requires_fit:
+            logger.info("Scaler does not require fitting; skipping.")
+            return
+        logger.info("Fitting scaler on dataloader.")
+        self.impl.fit_loader(dataloader)
         logger.info("Scaler fitted.")
 
-    def load_fitted(self):
-        """
-        Loads a previously fitted scaler from a file.
-        """
-        logger.info("Loading fitted scaler.")
-        scaler_path = os.path.join(self.cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
-        self.scaler = pickle.load(open(scaler_path, "rb"))
-        logger.info("Scaler loaded.")
+    def transform(self, X: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        x_tensor, was_numpy = _to_tensor(X)
+        x_tensor = x_tensor.float()
+        transformed = self.impl.transform(x_tensor)
+        if was_numpy:
+            return transformed.numpy()
+        return transformed
 
-    def save_scaler(self):
-        """
-        Saves the fitted scaler to a file.
-        """
-        logger.info("Saving fitted scaler.")
-        scaler_path = os.path.join(self.cfg.paths.scaler_path, f"{self.scaler_type}_{self.global_or_local}.pkl")
-        with open(scaler_path, 'wb') as f:
-            pickle.dump(self.scaler, f)
-        logger.info(f"Scaler saved to {scaler_path}.")
+    def state_dict(self) -> Dict[str, Any]:
+        return {
+            "scaler_type": self.scaler_type,
+            "global_or_local": self.global_or_local,
+            "per_channel": self.per_channel,
+            "state": self.impl.state_dict(),
+        }
 
-    def transform(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Transforms the data using the fitted scaler.
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        if not state:
+            return
+        # Validate compatibility
+        expected = (self.scaler_type, self.global_or_local, self.per_channel)
+        incoming = (
+            state.get("scaler_type"),
+            state.get("global_or_local"),
+            state.get("per_channel"),
+        )
+        if expected != incoming:
+            logger.warning(f"Scaler config mismatch (expected {expected}, got {incoming}); loading state anyway.")
+        self.impl.load_state_dict(state.get("state", {}))
 
-        Args:
-            X (Any): The data to be transformed.
 
-        Returns:
-            Any: The transformed data.
-        """
-        return self.scaler.transform(X)
+class MinMaxScaler:
+    def __init__(self, global_or_local: str, per_channel: bool):
+        self.global_or_local = global_or_local
+        self.per_channel = per_channel
+        self.mins = None
+        self.maxs = None
 
+    @property
+    def requires_fit(self) -> bool:
+        return self.global_or_local == "global"
 
-class MinMaxScaler(Scaler):
-    def __init__(self):
-        pass
-
-    def fit(self, X: torch.Tensor):
-        if self.cfg.scaling.global_or_local == "global":
-            x1 = X[:,0]
-            x2 = X[:,1]
-            x3 = X[:,2]
-            max_1, max_2, max_3 = torch.max(x1), torch.max(x2), torch.max(x3)
-            min_1, min_2, min_3 = torch.min(x1), torch.min(x2), torch.min(x3)
-
-            if self.cfg.scaling.per_channel:    
-                self.maxs = torch.tensor([max_1, max_2, max_3])
-                self.mins = torch.tensor([min_1, min_2, min_3])
+    def fit_loader(self, dataloader):
+        assert self.requires_fit, "fit_loader should only be called when global scaling is requested."
+        global_min, global_max = None, None
+        for batch in dataloader:
+            x = batch[0] if isinstance(batch, (list, tuple)) else batch
+            x = x.float()
+            if self.per_channel:
+                batch_min = x.amin(dim=(0, 2))
+                batch_max = x.amax(dim=(0, 2))
             else:
-                self.maxs = torch.tensor([max_1, max_2, max_3]).max()
-                self.mins = torch.tensor([min_1, min_2, min_3]).min()
-        if self.cfg.scaling.global_or_local == "local":
-            logger.info("Local minmax; skipping fit")
+                batch_min = x.amin()
+                batch_max = x.amax()
+            global_min = batch_min if global_min is None else torch.minimum(global_min, batch_min)
+            global_max = batch_max if global_max is None else torch.maximum(global_max, batch_max)
+        self.mins = global_min
+        self.maxs = global_max
 
-    def transform(self, X: torch.Tensor, cfg) -> torch.Tensor:
-        X = X.float()
-        transformed_X = torch.empty_like(X)
-
-        if cfg.scaling.global_or_local == "global":
-            if cfg.scaling.per_channel:
-                transformed_X = torch.stack([
-                    (X[:,0] - self.mins[0]) / (self.maxs[0] - self.mins[0]),
-                    (X[:,1] - self.mins[1]) / (self.maxs[1] - self.mins[1]),
-                    (X[:,2] - self.mins[2]) / (self.maxs[2] - self.mins[2])
-                ], dim=-1)
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        if self.global_or_local == "local":
+            if self.per_channel:
+                mins = x.amin(dim=2, keepdim=True)
+                maxs = x.amax(dim=2, keepdim=True)
             else:
-                transformed_X = (X - self.mins) / (self.maxs - self.mins)
+                mins = x.amin(dim=(1, 2), keepdim=True)
+                maxs = x.amax(dim=(1, 2), keepdim=True)
+        else:
+            if self.mins is None or self.maxs is None:
+                raise RuntimeError("Scaler has not been fitted yet.")
+            mins = self.mins.to(x.device)
+            maxs = self.maxs.to(x.device)
+            if self.per_channel:
+                mins = mins.view(1, -1, 1)
+                maxs = maxs.view(1, -1, 1)
+        denom = (maxs - mins).clamp(min=EPS)
+        return (x - mins) / denom
 
-        if cfg.scaling.global_or_local == "local":
-            transformed_list = []
-            for idx in range(X.shape[0]):
-                x = X[idx]
-                if cfg.scaling.per_channel:
-                    transformed_x = torch.stack([
-                        (x[:,0] - torch.min(x[:,0])) / (torch.max(x[:,0]) - torch.min(x[:,0])),
-                        (x[:,1] - torch.min(x[:,1])) / (torch.max(x[:,1]) - torch.min(x[:,1])),
-                        (x[:,2] - torch.min(x[:,2])) / (torch.max(x[:,2]) - torch.min(x[:,2]))
-                    ], dim=-1)
-                else:
-                    transformed_x = (x - torch.min(x)) / (torch.max(x) - torch.min(x))
-                transformed_list.append(transformed_x)
-            transformed_X = torch.stack(transformed_list, dim=0)
+    def state_dict(self) -> Dict[str, Any]:
+        if self.mins is None or self.maxs is None:
+            return {}
+        return {"mins": self.mins.cpu(), "maxs": self.maxs.cpu()}
 
-        return transformed_X
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        if not state:
+            return
+        self.mins = state.get("mins")
+        self.maxs = state.get("maxs")
 
-        
 
-class StandardScaler(Scaler):
-    def __init__(self):
-        pass
+class StandardScaler:
+    def __init__(self, global_or_local: str, per_channel: bool):
+        self.global_or_local = global_or_local
+        self.per_channel = per_channel
+        self.means = None
+        self.stds = None
 
-    def fit(self, X: torch.Tensor):
-        """
-        Fits the scaler to the data for Standard scaling.
+    @property
+    def requires_fit(self) -> bool:
+        return self.global_or_local == "global"
 
-        Args:
-            X (np.ndarray): The data to fit the scaler on.
-        """
-        if self.cfg.scaling.global_or_local == "global":
-            x1 = X[:,:,0]
-            x2 = X[:,:,1]
-            x3 = X[:,:,2]
-            mean_1, mean_2, mean_3 = torch.mean(x1), torch.mean(x2), torch.mean(x3)
-            std_1, std_2, std_3 = torch.std(x1), torch.std(x2), torch.std(x3)
-
-            if self.cfg.scaling.per_channel:    
-                self.means = torch.tensor([mean_1, mean_2, mean_3])
-                self.stds = torch.tensor([std_1, std_2, std_3])
+    def fit_loader(self, dataloader):
+        assert self.requires_fit, "fit_loader should only be called when global scaling is requested."
+        running_sum = None
+        running_sumsq = None
+        count = 0
+        for batch in dataloader:
+            x = batch[0] if isinstance(batch, (list, tuple)) else batch
+            x = x.float()
+            if self.per_channel:
+                batch_sum = x.sum(dim=(0, 2))
+                batch_sumsq = (x ** 2).sum(dim=(0, 2))
+                batch_count = x.shape[0] * x.shape[2]
             else:
-                self.means = torch.tensor([mean_1, mean_2, mean_3]).mean()
-                self.stds = torch.tensor([std_1, std_2, std_3]).mean()
-        if self.cfg.scaling.global_or_local == "local":
-            logger.info("Local standard; skipping fit")
+                batch_sum = x.sum()
+                batch_sumsq = (x ** 2).sum()
+                batch_count = x.numel()
+            running_sum = batch_sum if running_sum is None else running_sum + batch_sum
+            running_sumsq = batch_sumsq if running_sumsq is None else running_sumsq + batch_sumsq
+            count += batch_count
 
-    def transform(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Transforms the data using the Standard scaling approach.
+        means = running_sum / count
+        vars_ = running_sumsq / count - means ** 2
+        stds = torch.sqrt(vars_.clamp(min=EPS))
+        self.means = means
+        self.stds = stds
 
-        Args:
-            X (torch.Tensor): The data to be transformed.
-
-        Returns:
-            torch.Tensor: The transformed data.
-        """
-        transformed_X = torch.empty_like(X)
-        if self.cfg.scaling.global_or_local == "global":
-            if self.cfg.scaling.per_channel:
-                transformed_X = torch.stack([
-                    (X[:,:,0] - self.means[0]) / self.stds[0],
-                    (X[:,:,1] - self.means[1]) / self.stds[1],
-                    (X[:,:,2] - self.means[2]) / self.stds[2]
-                ], dim=-1)
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        if self.global_or_local == "local":
+            if self.per_channel:
+                means = x.mean(dim=2, keepdim=True)
+                stds = x.std(dim=2, keepdim=True).clamp(min=EPS)
             else:
-                transformed_X = (X - self.means) / self.stds
-        if self.cfg.scaling.global_or_local == "local":
-            for idx, x in enumerate(X):
-                if self.cfg.scaling.per_channel:
-                    transformed_X[idx,:,0] = (x[:,0] - torch.mean(x[:,0])) / torch.std(x[:,0])
-                    transformed_X[idx,:,1] = (x[:,1] - torch.mean(x[:,1])) / torch.std(x[:,1])
-                    transformed_X[idx,:,2] = (x[:,2] - torch.mean(x[:,2])) / torch.std(x[:,2])
-                else:
-                    transformed_X[idx] = (x - np.mean(x)) / np.std(x)
-        return transformed_X
+                means = x.mean(dim=(1, 2), keepdim=True)
+                stds = x.std(dim=(1, 2), keepdim=True).clamp(min=EPS)
+        else:
+            if self.means is None or self.stds is None:
+                raise RuntimeError("Scaler has not been fitted yet.")
+            means = self.means.to(x.device)
+            stds = self.stds.to(x.device).clamp(min=EPS)
+            if self.per_channel:
+                means = means.view(1, -1, 1)
+                stds = stds.view(1, -1, 1)
+        return (x - means) / stds
 
-class LogScaler(Scaler):
-    def __init__(self):
-        pass
-    
-    def fit(self, X: torch.Tensor):
-        logger.info("Log scaler; skipping fit")
+    def state_dict(self) -> Dict[str, Any]:
+        if self.means is None or self.stds is None:
+            return {}
+        return {"means": self.means.cpu(), "stds": self.stds.cpu()}
 
-    def transform(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Transforms the data using logarithmic scaling.
-
-        Args:
-            X (torch.Tensor): The data to be transformed.
-
-        Returns:
-            torch.Tensor: The transformed data.
-        """
-        logger.info("Data has been log scaled")
-        return torch.log(X)
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        if not state:
+            return
+        self.means = state.get("means")
+        self.stds = state.get("stds")

@@ -7,6 +7,22 @@ import wandb
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AUROC, AveragePrecision
 from sklearn.metrics import matthews_corrcoef
 from typing import List, Dict, Any, Tuple, Union
+from types import SimpleNamespace
+
+
+def _to_plain(obj):
+    """Recursively convert namespaces/tensors to Python containers for checkpoint storage."""
+    if isinstance(obj, SimpleNamespace):
+        return {k: _to_plain(v) for k, v in vars(obj).items()}
+    if isinstance(obj, dict):
+        return {k: _to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_plain(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(_to_plain(v) for v in obj)
+    if isinstance(obj, torch.Tensor):
+        return obj.cpu()
+    return obj
 
 # Dictionary to map metric names to their respective torchmetrics classes
 prob_metrics = {
@@ -126,7 +142,7 @@ class Loop(pl.LightningModule):
         if not hasattr(self, '_val_outputs'):
             self._val_outputs = []
         self._val_outputs.append(outputs)
-        return outputs['losses']['total_loss']
+        return outputs
     
     def _evaluate_step(self, batch, batch_idx, prefix: str):
         x, y, _ = batch
@@ -285,7 +301,11 @@ class Loop(pl.LightningModule):
             classifier_results.update(self.classifier_pred_metrics(classifier_pred_filtered, classifier_true_filtered))
             for name, result in classifier_results.items():
                 self.log(f'{stage}_classifier_{name}', result, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=self.cfg.optimizer.batch_size)
+    
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        checkpoint["cfg"] = _to_plain(self.cfg)
+        if hasattr(self, "model_cfg"):
+            checkpoint["model_cfg"] = _to_plain(self.model_cfg)
+        if hasattr(self, "scaler_state"):
+            checkpoint["scaler_state"] = self.scaler_state
             
-            
-            
-

@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning import Trainer
-from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform
+from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform, ScalingTransform
 from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
 from src.DataVerification import Verficiation
@@ -55,10 +55,19 @@ if __name__ == "__main__":
 
         
     transforms_by_sample = [RandomCropTransform(cfg)]
-    transforms_by_set = setup_transforms(cfg)
+    transforms_by_set = setup_transforms(cfg, add_scaling=False)
+    scaler = Scaler(cfg)
     logger.info("Setting up modules:")
     data_module = BeamModule(transforms_by_sample, transforms_by_set, cfg)
     data_module.setup()
+    ckpt = torch.load(cfg.pretrained_model_name, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    if "scaler_state" in ckpt:
+        scaler.load_state_dict(ckpt["scaler_state"])
+    elif scaler.requires_fit:
+        scaler.fit_loader(data_module.train_dataloader())
+    scaling_transform = ScalingTransform(scaler)
+    for key in transforms_by_set:
+        transforms_by_set[key].append(scaling_transform)
     detector_metrics_list = ["accuracy", "precision", "recall", "f1", "auroc"]
     classifier_metrics_list = ["accuracy", "precision", "recall", "f1", "auroc"]
     model = get_model(input_shape,
@@ -74,12 +83,12 @@ if __name__ == "__main__":
     
 
     # Load the checkpoint
-    ckpt = torch.load(cfg.pretrained_model_name, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-
     # Load the state dict into the model
     # Make sure to use 'load_state_dict' instead of 'load_from_checkpoint'
     # Also, correct the typo from 'stict' to 'strict'
     model.load_state_dict(ckpt["state_dict"], strict=False)
+    if "scaler_state" in ckpt:
+        model.scaler_state = ckpt["scaler_state"]
     model.eval()
     
     trainer = Trainer(max_epochs = cfg.optimizer.max_epochs,

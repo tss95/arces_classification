@@ -24,6 +24,7 @@ classifier_class_weight_dict = {"earthquake": 1.0, "explosion": 1.0}
 detector_metrics_list = ["auroc","accuracy"]
 classifier_metrics_list = ["auroc","accuracy"]
 input_data = torch.randn((3, 4000), device="cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = AlexNet1D(input_data.shape, 
                   [],
@@ -40,6 +41,10 @@ model = AlexNet1D(input_data.shape,
 pretrained_weights_path =cfg.pretrained_model_name
 if os.path.exists(pretrained_weights_path):
     checkpoint = torch.load(pretrained_weights_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    if "scaler_state" in checkpoint:
+        scaler.load_state_dict(checkpoint["scaler_state"])
+    elif scaler.requires_fit:
+        logger.warning("Scaler requires fitted parameters but none were found in checkpoint; predictions may be inconsistent.")
     model.load_state_dict(checkpoint['state_dict'])
     logger.info(f"Loaded pretrained weights from {pretrained_weights_path}")
 else:
@@ -47,6 +52,7 @@ else:
 
 # Set the model to evaluation mode
 model.eval()
+model.to(device)
 
 # Load model only once
 model = LiveClassifier(model, scaler, label_maps, cfg)

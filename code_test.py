@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning import Trainer
-from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform
+from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform, ScalingTransform
 from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
 from src.DataVerification import Verficiation
@@ -98,11 +98,19 @@ if __name__ == "__main__":
 
         
     transforms_by_sample = [RandomCropTransform(cfg)]
-    transforms_by_set = setup_transforms(cfg)
+    # Build transforms without scaling first so we can fit a global scaler when needed
+    transforms_by_set = setup_transforms(cfg, add_scaling=False)
+    scaler = Scaler(cfg)
     logger.info("Setting up modules:")
     mem_before = print_mem_before()
     data_module = BeamModule(transforms_by_sample, transforms_by_set, cfg)
-    
+    data_module.setup()
+    if scaler.requires_fit:
+        # Fit on the training loader without scaling applied yet
+        scaler.fit_loader(data_module.train_dataloader())
+    scaling_transform = ScalingTransform(scaler)
+    for key in transforms_by_set:
+        transforms_by_set[key].append(scaling_transform)
     logger.info("Datamodule created")
     mem_after = print_mem_after()
     print_mem_diff(mem_before, mem_after)
@@ -134,6 +142,7 @@ if __name__ == "__main__":
                       class_weights["detector"], 
                       class_weights["classifier"],
                       cfg)
+    model.scaler_state = scaler.state_dict()
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     summary(model, input_size=input_shape)
     mem_after = print_mem_after()
@@ -174,6 +183,7 @@ if __name__ == "__main__":
                         precision="16-mixed",  # Mixed precision
                         accelerator="gpu" if torch.cuda.is_available() else "cpu",
                         num_nodes=1,
+                        check_val_every_n_epoch=cfg.callbacks.validation_interval,
                         callbacks = callbacks,
                         logger = wandb_logger)
     else:
@@ -183,6 +193,7 @@ if __name__ == "__main__":
                         strategy = "ddp",
                         num_nodes = 1,
                         precision="16-mixed",  # Mixed precision
+                        check_val_every_n_epoch=cfg.callbacks.validation_interval,
                         callbacks = callbacks,
                         logger = wandb_logger)
     mem_after = print_mem_after()

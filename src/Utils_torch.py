@@ -6,7 +6,7 @@ import numpy as np
 import datetime
 from h5py import File
 from torch import from_numpy
-from src.Transforms import BandpassFilterTransform, AddNoiseTransform, AddGapTransform, TaperTransform, ZeroChannelTransform, MinMaxPerChannelTransform
+from src.Transforms import BandpassFilterTransform, AddNoiseTransform, AddGapTransform, TaperTransform, ZeroChannelTransform, MinMaxPerChannelTransform, ScalingTransform
 from types import SimpleNamespace
 import socket
 import pickle
@@ -42,7 +42,7 @@ def load_preprocessed_data_dict(cfg):
     
 
 
-def setup_transforms(cfg):
+def setup_transforms(cfg, scaler_transform=None, add_scaling=True):
     transforms = {"train": [], "val": [], "test": []}
     aug = cfg.augment
     for transforms_key in transforms.keys():
@@ -67,7 +67,9 @@ def setup_transforms(cfg):
                                                                    cfg.scaling.per_channel))
         if aug.taper:
             transforms[transforms_key].append(TaperTransform(aug.taper_kwargs.alpha))
-        transforms[transforms_key].append(MinMaxPerChannelTransform(cfg))
+        if add_scaling:
+            transform_to_use = scaler_transform or MinMaxPerChannelTransform(cfg)
+            transforms[transforms_key].append(transform_to_use)
     return transforms
 
 def prepare_folders_paths_cfg(run_id, cfg: SimpleNamespace, make_folders=True) -> SimpleNamespace:

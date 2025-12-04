@@ -1,6 +1,6 @@
 
 model_name: "alexnet"
-pretrained_model_name: "output/alexnet/keeper/models/alexnet_broken-frog-1462_epoch=97_val_total_loss=0.29.ckpt" # Name of the weights file to be loaded. Needed for live.
+pretrained_model_name: "output/alexnet/best/models/alexnet_small-rain-1048_epoch=97_val_total_loss=0.41.ckpt" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
 predict: False
 device: "cuda"
@@ -71,6 +71,7 @@ wandb:
   entity: "tordss-university-of-oslo"
 
 callbacks: # Not needed for live
+  validation_interval: 1 # Run validation every N epochs
   early_stopping_patience: 7 # Number of epochs without improvement before early stopping
   umap: False # Whether or not to use UMAP
   umap_interval: 5 # Number of epochs between each UMAP plot
@@ -78,7 +79,7 @@ callbacks: # Not needed for live
   reduce_lr_patience: 1 # Number of epochs without improvement before reducing learning rate
 
 scaling: # Needed for live
-  scaler_type: minmax # Which scaler to use. Currently only minmax is supported for live, as other scalers are not fitted.
+  scaler_type: standard #minmax # Which scaler to use. Currently only minmax is supported for live, as other scalers are not fitted.
   per_channel: False # Whether or not to scale each channel individually
   global_or_local: local # Whether or not to use a global scaler. Currently only local is supported for live as global isn't fitted.
 
@@ -127,4 +128,3 @@ optimizer: # Not needed for live
     warmup: False # Whether or not to use warmup
     warmup_epochs: 5 # Number of warmup epochs
     scheduler_type: "cosine" # Which scheduler to use. So far only cosine available.
-

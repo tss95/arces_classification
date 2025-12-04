@@ -72,6 +72,7 @@ trainer = pl.Trainer(
     max_epochs=cfg.optimizer.max_epochs,
     devices=-1 if torch.cuda.is_available() else 0,
     precision=16 ,
+    check_val_every_n_epoch=cfg.callbacks.validation_interval,
     callbacks=callbacks
 )
 

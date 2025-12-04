@@ -3,3 +3,14 @@ filters: None
 pool_type: "max"
 dense_units: [128, 128]
 initializer: "glorot_uniform"
+
+# Toggle to swap the dense head for a Transformer encoder head.
+use_transformer_head: true
+transformer:
+  d_model: 256          # Projection size for tokens; defaults to final conv channels when null
+  nhead: 4              # Number of attention heads
+  num_layers: 2         # Encoder layers
+  dim_feedforward: 512  # Feed-forward hidden dim inside each encoder layer
+  dropout: 0.1
+  activation: "gelu"
+  use_dual_cls_tokens: true  # If true, allocate separate cls tokens for detector and classifier

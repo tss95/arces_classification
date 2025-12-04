@@ -443,11 +443,9 @@ class LiveClassifier:
             mean prediction probabilities, individual predictions for each trace segment,
             individual prediction probabilities for each trace segment, and preprocessed input features.
         """
-        #trace = trace.T
         X = self.prepare_multiple_intervals(trace)
-        #X = self.scaler.transform(X)
-        X = [self.local_minmax(x) for x in X]
         X = np.array(X)
+        X = self.scaler.transform(X)
         yhats, yprobas, final_yhat, mean_proba = self.ensamble_predict(self.model, X)
         logger.info(f"Mean proba: {mean_proba}")
 
@@ -497,20 +495,6 @@ class LiveClassifier:
         final_yhat = unqiue[np.argmax(counts)]
         mean_proba = {"detector": np.mean(probas["detector"], axis=0), "classifier": np.mean(probas["classifier"], axis=0)}
         return yhats, probas, final_yhat, mean_proba
-    
-    def local_minmax(self, trace: np.ndarray) -> np.ndarray:
-        """
-        Normalize a trace using min-max scaling.
-
-        Args:
-            trace (np.ndarray): Numpy array containing a seismic trace.
-
-        Returns:
-            np.ndarray: Normalized trace.
-        """
-        mmax = np.max(trace)
-        mmin = np.min(trace)
-        return (trace - mmin) / (mmax - mmin)
     
 
     def plot_predicted_event(self, intervals: List[np.ndarray], event_time: Optional[UTCDateTime], yprobas: dict, 
@@ -622,7 +606,6 @@ class LiveClassifier:
         plt.close(fig)
         
         return image
-
 
 
 

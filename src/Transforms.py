@@ -3,6 +3,14 @@ import numpy as np
 
 import random
 
+class ScalingTransform:
+    """Apply a shared Scaler instance inside dataloader transforms."""
+    def __init__(self, scaler):
+        self.scaler = scaler
+
+    def __call__(self, sample):
+        return self.scaler.transform(sample)
+
 
 class MinMaxPerChannelTransform:
     def __init__(self, cfg):

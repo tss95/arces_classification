@@ -2,11 +2,33 @@ from global_config import model_cfg, logger
 from src.Loop_torch import Loop
 import numpy as np
 #from nais.Models import AlexNet1D
+import math
 import torch
 import pytorch_lightning as pl
 from torch.nn import functional as F
 import torch.nn as nn
 from typing import Dict, List, Callable
+
+
+class TransformerEncoderLayerWithWeights(nn.TransformerEncoderLayer):
+    """TransformerEncoderLayer variant that always returns attention weights (not None).
+
+    TorchSummary fails on modules that return tuples containing None, which happens
+    when MultiheadAttention is called with need_weights=False. This layer forces
+    need_weights=True inside the self-attention block so the hook sees actual tensors.
+    """
+
+    def _sa_block(self, x, attn_mask, key_padding_mask, **kwargs):
+        attn_output, attn_weights = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            need_weights=True,
+        )
+        # drop the weights for the residual path; only needed so hooks receive tensors
+        return self.dropout1(attn_output)
 import torch.nn.init as init
 from torchsummary import summary
 
@@ -56,6 +78,7 @@ def get_model(input_shape,
                           cfg)
     else:
         raise ValueError("Model not found.")
+    model.model_cfg = model_cfg
     model = model.to("cuda" if torch.cuda.is_available() else "cpu")
     return model
     
@@ -207,7 +230,7 @@ class AlexNet1D(Loop):
                 label_map_detector, 
                 label_map_classifier,
                 detector_class_weights, 
-                classifier_class_weights,
+                classifier_class_weights, 
                 cfg,
                 kernel_sizes=None, 
                 filters=None, 
@@ -221,11 +244,36 @@ class AlexNet1D(Loop):
                                         classifier_class_weights,
                                         cfg)
         num_channels = input_shape[0]
-        
+        self.use_transformer_head = getattr(model_cfg, "use_transformer_head", False)
+        self.transformer_cfg = getattr(model_cfg, "transformer", None) if self.use_transformer_head else None
+
+        def _parse_int_list(value, default):
+            if value is None:
+                return default
+            if isinstance(value, str):
+                if value.lower() == "none":
+                    return default
+                # allow comma-separated strings
+                value = value.replace("[", "").replace("]", "")
+                value = [v for v in value.split(",") if v.strip() != ""]
+            if isinstance(value, (list, tuple)):
+                parsed = []
+                for v in value:
+                    if isinstance(v, str) and v.lower() == "none":
+                        continue
+                    parsed.append(int(v))
+                return parsed if parsed else default
+            raise ValueError(f"Cannot parse value {value} to int list")
+
         if kernel_sizes is None:
-            kernel_sizes = [11, 5, 3, 3, 3]
+            kernel_sizes = _parse_int_list(getattr(model_cfg, "kernel_sizes", None), [11, 5, 3, 3, 3])
+        else:
+            kernel_sizes = _parse_int_list(kernel_sizes, [11, 5, 3, 3, 3])
         if filters is None:
-            filters = [96, 256, 384, 384, 256]
+            filters = _parse_int_list(getattr(model_cfg, "filters", None), [96, 256, 384, 384, 256])
+        else:
+            filters = _parse_int_list(filters, [96, 256, 384, 384, 256])
+        pooling = pooling if pooling is not None else getattr(model_cfg, "pool_type", "max")
         
         self.conv_blocks = nn.ModuleDict()
         self.pool_layers = nn.ModuleDict()
@@ -253,65 +301,157 @@ class AlexNet1D(Loop):
         
         with torch.no_grad():
             dummy_input = torch.zeros(1, *input_shape)  # Create a dummy input of the correct shape
-            output_size = self._calculate_conv_output_size(dummy_input)
+            conv_features = self._conv_forward_features(dummy_input)
+            output_size = self.flatten(conv_features).numel()
+            self.conv_seq_len = conv_features.shape[-1]
+            self.final_conv_channels = conv_features.shape[1]
 
-        # Define dense (fully connected) blocks for shared features
-        self.dense_blocks = nn.ModuleDict({
-            "dense_0": nn.Sequential(
-                nn.Dropout(0.5),
-                nn.Linear(output_size, 4096),  # Placeholder for actual calculation
-                nn.ReLU(),
-                nn.Dropout(0.5)
-            ),
-            "dense_1": nn.Sequential(
-                nn.Linear(4096, 4096),
-                nn.ReLU()
+        if not self.use_transformer_head:
+            # Define dense (fully connected) blocks for shared features
+            self.dense_blocks = nn.ModuleDict({
+                "dense_0": nn.Sequential(
+                    nn.Dropout(0.5),
+                    nn.Linear(output_size, 4096),
+                    nn.ReLU(),
+                    nn.Dropout(0.5)
+                ),
+                "dense_1": nn.Sequential(
+                    nn.Linear(4096, 4096),
+                    nn.ReLU()
+                )
+            })
+
+            # Output layers for detector and classifier without activation functions
+            self.final_dense_detector = nn.Linear(4096, 1)
+            self.final_dense_classifier = nn.Linear(4096, 1)
+        else:
+            d_model = getattr(self.transformer_cfg, "d_model", None) or self.final_conv_channels
+            nhead = getattr(self.transformer_cfg, "nhead", 4)
+            num_layers = getattr(self.transformer_cfg, "num_layers", 2)
+            dim_feedforward = getattr(self.transformer_cfg, "dim_feedforward", 512)
+            dropout = getattr(self.transformer_cfg, "dropout", 0.1)
+            activation = getattr(self.transformer_cfg, "activation", "gelu")
+            self.use_dual_cls_tokens = getattr(self.transformer_cfg, "use_dual_cls_tokens", True)
+
+            self.token_projection = nn.Linear(self.final_conv_channels, d_model) if d_model != self.final_conv_channels else nn.Identity()
+            self.register_buffer(
+                "positional_encoding",
+                self._build_positional_encoding(self.conv_seq_len, d_model),
+                persistent=False,
             )
-        })
+            num_cls_tokens = 2 if self.use_dual_cls_tokens else 1
+            self.cls_tokens = nn.Parameter(torch.zeros(1, num_cls_tokens, d_model))
 
-        # Output layers for detector and classifier without activation functions
-        self.final_dense_detector = nn.Linear(4096, 1)
-        self.final_dense_classifier = nn.Linear(4096, 1)
+            encoder_layer = TransformerEncoderLayerWithWeights(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                activation=activation,
+                batch_first=True,
+            )
+            self.transformer_encoder = nn.TransformerEncoder(
+                encoder_layer=encoder_layer,
+                num_layers=num_layers,
+                norm=nn.LayerNorm(d_model),
+            )
+            self.transformer_dropout = nn.Dropout(dropout)
+            self.final_dense_detector = nn.Linear(d_model, 1)
+            self.final_dense_classifier = nn.Linear(d_model, 1)
         self._initialize_weights()
         
-    def _calculate_conv_output_size(self, x):
-        # Simulate a forward pass through the conv and pool layers
+    def _conv_forward_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the convolutional and pooling stack and return the feature map."""
         for i in range(len(self.conv_blocks)):
             x = self.conv_blocks[f"conv_block_{i}"](x)
             if i < len(self.pool_layers) - 1:
                 x = self.pool_layers[f"pool_layer_{i}"](x)
         x = self.pool_layers["pool_layer_before_flattening"](x)
+        return x
+
+    def _calculate_conv_output_size(self, x):
+        x = self._conv_forward_features(x)
         x = self.flatten(x)
         return x.numel()  # Return the total number of elements in the flattened output
 
-    
-    def forward(self, inputs):
-        x = inputs
-        for i in range(len(self.conv_blocks)):
-            x = self.conv_blocks[f"conv_block_{i}"](x)
-            if i < len(self.pool_layers) - 1:
-                x = self.pool_layers[f"pool_layer_{i}"](x)
-        x = self.pool_layers["pool_layer_before_flattening"](x)
-        x = self.flatten(x)
+    def _build_positional_encoding(self, length: int, dim: int) -> torch.Tensor:
+        """Create sinusoidal positional encodings."""
+        position = torch.arange(length, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, dim, 2).float() * (-math.log(10000.0) / dim))
+        pe = torch.zeros(length, dim)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe.unsqueeze(0)
 
-        for i in range(len(self.dense_blocks)):
-            x = self.dense_blocks[f"dense_{i}"](x)
-        
-        output_detector = self.final_dense_detector(x)
-        output_classifier = self.final_dense_classifier(x)
+    def _get_positional_encoding(self, seq_len: int) -> torch.Tensor:
+        if self.positional_encoding is None:
+            return None
+        if self.positional_encoding.shape[1] == seq_len:
+            return self.positional_encoding
+        # Interpolate if sequence length differs (should be rare)
+        pe = F.interpolate(
+            self.positional_encoding.transpose(1, 2),
+            size=seq_len,
+            mode="linear",
+            align_corners=False,
+        ).transpose(1, 2)
+        return pe
+
+    def forward(self, inputs):
+        x = self._conv_forward_features(inputs)
+
+        if not self.use_transformer_head:
+            x = self.flatten(x)
+            for i in range(len(self.dense_blocks)):
+                x = self.dense_blocks[f"dense_{i}"](x)
+            output_detector = self.final_dense_detector(x)
+            output_classifier = self.final_dense_classifier(x)
+        else:
+            x = x.transpose(1, 2)  # (batch, seq_len, channels)
+            x = self.token_projection(x)
+            pos_embed = self._get_positional_encoding(x.shape[1])
+            if pos_embed is not None:
+                x = x + pos_embed
+            cls_tokens = self.cls_tokens.expand(x.size(0), -1, -1)
+            x = torch.cat([cls_tokens, x], dim=1)
+            x = self.transformer_dropout(x)
+            x = self.transformer_encoder(x)
+
+            if self.use_dual_cls_tokens:
+                det_token, cls_token = x[:, 0], x[:, 1]
+            else:
+                det_token = cls_token = x[:, 0]
+            output_detector = self.final_dense_detector(det_token)
+            output_classifier = self.final_dense_classifier(cls_token)
 
         return {'detector': output_detector, 'classifier': output_classifier}
         
     
     def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
-                init.constant_(m.bias, 0)
+        for block in self.conv_blocks.values():
+            for layer in block:
+                if isinstance(layer, nn.Conv1d):
+                    init.kaiming_uniform_(layer.weight, mode='fan_in', nonlinearity='relu')
+                    if layer.bias is not None:
+                        init.constant_(layer.bias, 0)
+
+        if not self.use_transformer_head:
+            for block in self.dense_blocks.values():
+                for layer in block:
+                    if isinstance(layer, nn.Linear):
+                        init.kaiming_uniform_(layer.weight, mode='fan_in', nonlinearity='relu')
+                        init.constant_(layer.bias, 0)
+        else:
+            if isinstance(self.token_projection, nn.Linear):
+                init.kaiming_uniform_(self.token_projection.weight, mode='fan_in', nonlinearity='relu')
+                if self.token_projection.bias is not None:
+                    init.constant_(self.token_projection.bias, 0)
+            init.normal_(self.cls_tokens, mean=0.0, std=0.02)
+
+        init.kaiming_uniform_(self.final_dense_detector.weight, mode='fan_in', nonlinearity='relu')
+        init.constant_(self.final_dense_detector.bias, 0)
+        init.kaiming_uniform_(self.final_dense_classifier.weight, mode='fan_in', nonlinearity='relu')
+        init.constant_(self.final_dense_classifier.bias, 0)
                 
     def verbose_output(self, tensor, label):
         # Check for NaN values in the tensor

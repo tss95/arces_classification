@@ -50,6 +50,12 @@ def apply_threshold(pred_probs: np.ndarray, cfg) -> List[int]:
             out.append(1)
     return out
 
+def _to_cpu_numpy(t):
+    if isinstance(t, torch.Tensor):
+        return t.detach().cpu().numpy()
+    return np.asarray(t)
+
+
 def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dict[int, str]], cfg) -> Tuple[List[str], Dict[str, np.ndarray]]:
     """
     Determine the final labels based on the predicted probabilities and label map.
@@ -67,10 +73,10 @@ def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dic
         - A dictionary with updated predicted probabilities for both 'detector' and 'classifier'.
     """
     final_labels = []
-    pred_probs_detector = torch.sigmoid(torch.tensor(pred_probs['detector'], dtype=torch.float32)).numpy()       
+    pred_probs_detector = torch.sigmoid(torch.as_tensor(pred_probs['detector'], dtype=torch.float32)).detach().cpu().numpy()
     pred_labels_detector = apply_threshold(pred_probs_detector, cfg)
 
-    pred_probs_classifier = torch.sigmoid(torch.tensor(pred_probs['classifier'], dtype=torch.float32)).numpy()
+    pred_probs_classifier = torch.sigmoid(torch.as_tensor(pred_probs['classifier'], dtype=torch.float32)).detach().cpu().numpy()
     pred_labels_classifier = apply_threshold(pred_probs_classifier, cfg)
 
     final_labels = translate_labels(pred_labels_detector, pred_labels_classifier, label_map)
@@ -97,9 +103,7 @@ def one_prediction(model: Any, x: np.ndarray, label_maps: Dict[str, Dict[int, st
     x = np.reshape(x, (1, *x.shape))
     if is_torch:
         #x = x.reshape(x.shape[0], x.shape[2], x.shape[1])[:-1]
-        x = torch.tensor(x, dtype=torch.float32)
-        x = x.to("cuda" if torch.cuda.is_available() else "cpu")
+        x = torch.tensor(x, dtype=torch.float32, device=next(model.parameters()).device)
     pred_probs = model(x)
     labels, pred_probs = get_final_labels(pred_probs, label_maps, cfg)
     return labels, pred_probs
-
