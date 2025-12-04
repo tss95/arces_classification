@@ -1,8 +1,8 @@
 
-model_name: "alexnet"
+model_name: "alexnet" # Which model to use. Currently only cnn_dense and alexnet is supperted. Needed for live.
 pretrained_model_name: "output/alexnet/keeper/models/alexnet_broken-frog-1462_epoch=97_val_total_loss=0.29.ckpt" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
-predict: False
+predict: True
 device: "cuda"
 num_workers: 30 # Number of workers for the dataloader. Needed for live.
 run_id: "analysis_test"
@@ -68,7 +68,7 @@ filters: # Needed for live
 wandb:
   active: True
   project: "arces_classification"
-  entity: "tordss-university-of-oslo"
+  entity: "norsar_ai"
 
 callbacks: # Not needed for live
   early_stopping_patience: 7 # Number of epochs without improvement before early stopping
@@ -114,7 +114,7 @@ augment: # Not needed for live
 
 optimizer: # Not needed for live
   max_epochs: 100 # Maximum number of epochs
-  batch_size: 512 # Batch size
+  batch_size: 128 # Batch size
   #batch_size: 32 # Batch size
   optimizer: adam # Which optimizer to use
   optimizer_kwargs: 

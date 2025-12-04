@@ -18,6 +18,11 @@ CONFIG_MAIN="$CONFIG_PATH/data_config.yaml"
 PROJECTNAME="arces_classification_pytorch"
 SCRIPT_LOCATION="$PROJECT_PATH"
 REQUIREMENTS="$PROJECT_PATH/requirements.txt"
+DOCKER_USER="${DOCKER_USER:-$(id -u):$(id -g)}"
+CONTAINER_PROJECT_DIR="${CONTAINER_PROJECT_DIR:-/tf}"
+CONTAINER_DATA_DIR="${CONTAINER_DATA_DIR:-/tf/data}"
+CONTAINER_WANDB_DIR="${CONTAINER_WANDB_DIR:-/tf/wandb}"
+CONTAINER_MPLCONFIGDIR="${CONTAINER_MPLCONFIGDIR:-/tf/.cache/matplotlib}"
 
 GLOBAL_CONFIG="$PROJECT_PATH/global_config.py"
 PROJECT_SETUP="$PROJECT_PATH/project_setup.py"
@@ -55,6 +60,9 @@ mkdir_if_not_exist "$BASE_DIR/output/plots"
 mkdir_if_not_exist "$BASE_DIR/output/models"
 mkdir_if_not_exist "$BASE_DIR/output/predictions"
 mkdir_if_not_exist "$BASE_DIR/output/logs"
+mkdir_if_not_exist "$BASE_DIR/wandb"
+mkdir_if_not_exist "$BASE_DIR/.cache"
+mkdir_if_not_exist "$BASE_DIR/.cache/matplotlib"
 
 # Default mode is not predict
 PREDICT_MODE="False"
@@ -71,22 +79,33 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Rsync of data directory:
-# Conditional syncs based on source existence
-if [ -d "$DATA_DIR/data" ]; then
-  rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_DIR/data/" "$BASE_DIR/data/data/"
-else
-  echo "WARN: $DATA_DIR/data not found; skipping data sync"
+# Rsync of data directory (support both flat and nested layouts)
+DATA_SRC="$DATA_DIR/data"
+METADATA_SRC="$DATA_DIR/metadata"
+LOADED_SRC="$DATA_DIR/loaded_classifier"
+
+# If metadata/loaded_classifier are nested under data/, fall back to that structure
+if [ ! -d "$METADATA_SRC" ] && [ -d "$DATA_DIR/data/metadata" ]; then
+  METADATA_SRC="$DATA_DIR/data/metadata"
 fi
-if [ -d "$DATA_DIR/metadata" ]; then
-  rsync -ahr --include='*snrupdate*' --exclude='*' "$DATA_DIR/metadata/" "$BASE_DIR/data/metadata/"
-else
-  echo "WARN: $DATA_DIR/metadata not found; skipping metadata sync"
+if [ ! -d "$LOADED_SRC" ] && [ -d "$DATA_DIR/data/loaded_classifier" ]; then
+  LOADED_SRC="$DATA_DIR/data/loaded_classifier"
 fi
-if [ -d "$DATA_DIR/loaded_classifier" ]; then
-  rsync -ahr "$DATA_DIR/loaded_classifier/" "$BASE_DIR/data/loaded_classifier/"
+
+if [ -d "$DATA_SRC" ]; then
+  rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_SRC/" "$BASE_DIR/data/data/"
 else
-  echo "WARN: $DATA_DIR/loaded_classifier not found; skipping loaded_classifier sync"
+  echo "WARN: $DATA_SRC not found; skipping data sync"
+fi
+if [ -d "$METADATA_SRC" ]; then
+  rsync -ahr --include='*snrupdate*' --exclude='*' "$METADATA_SRC/" "$BASE_DIR/data/metadata/"
+else
+  echo "WARN: $METADATA_SRC not found; skipping metadata sync"
+fi
+if [ -d "$LOADED_SRC" ]; then
+  rsync -ahr "$LOADED_SRC/" "$BASE_DIR/data/loaded_classifier/"
+else
+  echo "WARN: $LOADED_SRC not found; skipping loaded_classifier sync"
 fi
 
 
@@ -154,8 +173,8 @@ else
 fi
 
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
-docker run -e -it --ipc=host --rm --gpus=${GPU_DEVICE} -v $BASE_DIR:/tf $PROJECTNAME:latest bash -c "$WANDB_EXPORT
-                                                                                                     source /root/.bashrc &&
+docker run -e PROJECT_DIR=$CONTAINER_PROJECT_DIR -e DATA_DIR=$CONTAINER_DATA_DIR -e WANDB_API_KEY -e WANDB_MODE -e WANDB_ENTITY -e WANDB_PROJECT -e WANDB_DIR=$CONTAINER_WANDB_DIR -e MPLCONFIGDIR=$CONTAINER_MPLCONFIGDIR -it --ipc=host --rm --gpus=${GPU_DEVICE} -u ${DOCKER_USER} -v $BASE_DIR:/tf -w $CONTAINER_PROJECT_DIR $PROJECTNAME:latest bash -c "$WANDB_EXPORT
+                                                                                                     if [ -r /root/.bashrc ]; then source /root/.bashrc; fi &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      python /tf/run_script.py &&
                                                                                                      chmod -R 777 /tf/* &&

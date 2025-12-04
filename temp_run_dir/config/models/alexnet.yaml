@@ -1,0 +1,5 @@
+kernel_sizes: None
+filters: None
+pool_type: "max"
+dense_units: [128, 128]
+initializer: "glorot_uniform"

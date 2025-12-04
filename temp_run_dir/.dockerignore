@@ -1,0 +1,9 @@
+data/
+output/
+.git/
+.vscode/
+*.npy
+*.pkl
+*.h5
+*.ckpt
+live_test/*
