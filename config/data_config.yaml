@@ -45,7 +45,7 @@ live: # Needed for live
   live: True # Alters the pipeline to be used for live data
   array: "ARCES" # Which array to use. Currently only ARCES is supported
   step: 5 # How many seconds between each prediction
-  length: 100 # Length of the data to be used for each prediction (seconds)
+  length: 80 # Length of the data to be used for each prediction (seconds)
   edge: 10 # Additional seconds of data to load, which will be cut due to tapering.
   delay: 5 # TODO: Figure out if this is used.
   event_buffer: 30 # Number of seconds to load before and after the area of interest, determined by length and pick.
@@ -85,7 +85,7 @@ scaling: # Needed for live
 
 augment: # Not needed for live
   random_crop_kwargs:
-    timesteps: 4000 # Number of final timesteps
+    timesteps: 3200 # Number of final timesteps (~80% of a 100s, 40 Hz window)
     end_buffers: 100 # Minimum number of timesteps before or after the end of the event.
     must_include_entire_event: true # Whether or not the entire event must be included in the crop
     inclusion_proportion: 0.5 # Proportion of the event that must be included in the crop if must_include is false
@@ -115,7 +115,7 @@ augment: # Not needed for live
 
 optimizer: # Not needed for live
   max_epochs: 100 # Maximum number of epochs
-  batch_size: 512 # Batch size
+  batch_size: 1024 # Batch size
   #batch_size: 32 # Batch size
   optimizer: adam # Which optimizer to use
   optimizer_kwargs: 

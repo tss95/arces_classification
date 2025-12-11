@@ -64,5 +64,5 @@ else
 fi
 
 echo "Running train script with model: $MODEL_NAME ($MODEL_CONFIG)"
-export GPU_DEVICE="device=0"
+export GPU_DEVICE="device=1"
 source common.sh "${PASSTHROUGH_ARGS[@]}"
