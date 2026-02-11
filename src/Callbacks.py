@@ -112,6 +112,37 @@ class ConfusionMatrixLogger(Callback):
             return
 
         fig = self.plot_confusion_matrix(self._val_trues, self._val_preds)
+        report = classification_report(
+            self._val_trues,
+            self._val_preds,
+            labels=["Noise", "Earthquake", "Explosion"],
+            output_dict=True,
+            zero_division=0,
+        )
+        single_metrics = {
+            "val_single_final_accuracy": float(report.get("accuracy", 0.0)),
+            "val_single_final_macro_f1": float(report["macro avg"]["f1-score"]),
+            "val_single_final_weighted_f1": float(report["weighted avg"]["f1-score"]),
+            "val_single_final_noise_f1": float(report["Noise"]["f1-score"]),
+            "val_single_final_earthquake_f1": float(report["Earthquake"]["f1-score"]),
+            "val_single_final_explosion_f1": float(report["Explosion"]["f1-score"]),
+        }
+        for key, value in single_metrics.items():
+            pl_module.log(
+                key,
+                value,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=key in {"val_single_final_accuracy", "val_single_final_macro_f1"},
+                logger=True,
+                sync_dist=False,
+            )
+        logger.info(
+            "Single-window final-label validation epoch %d: acc=%.4f macro_f1=%.4f",
+            trainer.current_epoch + 1,
+            single_metrics["val_single_final_accuracy"],
+            single_metrics["val_single_final_macro_f1"],
+        )
 
         if wandb_available:
             wandb.log({"confusion_matrix": wandb.Image(fig)}, commit=False)
