@@ -42,6 +42,7 @@ data: # None of these are needed for live
   # Deprecated (unused). Kept for legacy configs; must match window_seconds.
   default_length_seconds: 80
   sample_rate: 40 # Sample rate of the data
+  validation_sample_mode: live_center # 'random_crop' (legacy) or 'live_center' (production-like, deterministic)
 
 
 live: # Needed for live

@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import torch.nn.functional as F
 
 import random
 
@@ -69,6 +70,58 @@ class RandomCropTransform:
         
         cropped_sample = sample[:, start_index:end_index]
         return cropped_sample
+
+
+class LiveStyleCenterCropTransform:
+    """
+    Deterministic validation/test crop that mimics live context selection:
+    1) Build production-like context around event indices (+/- event_buffer).
+    2) Extract a fixed-length center window for model input.
+    """
+
+    def __init__(self, cfg):
+        self.timesteps = int(cfg.augment.random_crop_kwargs.timesteps)
+        self.event_buffer = int(cfg.live.event_buffer * cfg.live.sample_rate)
+
+    def _center_crop(self, sample: torch.Tensor, crop_len: int) -> torch.Tensor:
+        total_len = sample.shape[1]
+        if total_len <= crop_len:
+            return self._pad_to_length(sample, crop_len)
+        center = total_len // 2
+        start = max(0, center - (crop_len // 2))
+        end = min(total_len, start + crop_len)
+        start = max(0, end - crop_len)
+        return sample[:, start:end]
+
+    def _pad_to_length(self, sample: torch.Tensor, target_len: int) -> torch.Tensor:
+        current_len = sample.shape[1]
+        if current_len >= target_len:
+            return sample[:, :target_len]
+        pad_right = target_len - current_len
+        return F.pad(sample, (0, pad_right), mode="constant", value=0.0)
+
+    def __call__(self, sample, event_start_index, event_end_index):
+        total_len = sample.shape[1]
+        is_valid_event = (
+            event_start_index is not None
+            and event_end_index is not None
+            and np.isfinite(float(event_start_index))
+            and np.isfinite(float(event_end_index))
+        )
+        if not is_valid_event:
+            return self._center_crop(sample, self.timesteps)
+
+        start = int(max(0, np.floor(float(event_start_index)) - self.event_buffer))
+        end = int(min(total_len, np.ceil(float(event_end_index)) + self.event_buffer))
+        if end <= start:
+            return self._center_crop(sample, self.timesteps)
+
+        center = (start + end) // 2
+        crop_start = max(0, center - (self.timesteps // 2))
+        crop_end = min(total_len, crop_start + self.timesteps)
+        crop_start = max(0, crop_end - self.timesteps)
+        cropped = sample[:, crop_start:crop_end]
+        return self._pad_to_length(cropped, self.timesteps)
 
 class BandpassFilterTransform:
     def __init__(self, lower_bounds, upper_bounds, sampling_rate=100, prob=0.5, default_low=2, default_high=8):

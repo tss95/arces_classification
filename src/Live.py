@@ -431,6 +431,58 @@ class LiveClassifier:
         self.label_maps = label_maps
         self.scaler = scaler
 
+    def extract_production_like_trace(
+        self,
+        trace: np.ndarray,
+        label: Optional[str] = None,
+        start_idx: Optional[float] = None,
+        end_idx: Optional[float] = None,
+    ) -> np.ndarray:
+        """
+        Approximate production context for offline evaluation by cropping around event indices.
+
+        - Event traces: crop to [start_idx - event_buffer, end_idx + event_buffer].
+        - Noise/unknown traces: center crop to a fixed context length.
+        """
+        total_len = trace.shape[1]
+        interval_len = int(self.cfg.live.length * self.cfg.live.sample_rate)
+        event_buffer = int(self.cfg.live.event_buffer * self.cfg.live.sample_rate)
+        default_len = max(interval_len, interval_len + 2 * event_buffer)
+
+        def center_crop(arr: np.ndarray, crop_len: int) -> np.ndarray:
+            if arr.shape[1] <= crop_len:
+                return arr
+            center = arr.shape[1] // 2
+            start = max(0, center - (crop_len // 2))
+            end = min(arr.shape[1], start + crop_len)
+            start = max(0, end - crop_len)
+            return arr[:, start:end]
+
+        is_valid_event = (
+            label is not None
+            and label != "noise"
+            and start_idx is not None
+            and end_idx is not None
+            and np.isfinite(float(start_idx))
+            and np.isfinite(float(end_idx))
+        )
+        if not is_valid_event:
+            return center_crop(trace, default_len)
+
+        start = int(max(0, np.floor(float(start_idx)) - event_buffer))
+        end = int(min(total_len, np.ceil(float(end_idx)) + event_buffer))
+        if end <= start:
+            return center_crop(trace, default_len)
+
+        cropped = trace[:, start:end]
+        if cropped.shape[1] < interval_len:
+            center = (start + end) // 2
+            padded_start = max(0, center - (interval_len // 2))
+            padded_end = min(total_len, padded_start + interval_len)
+            padded_start = max(0, padded_end - interval_len)
+            cropped = trace[:, padded_start:padded_end]
+        return cropped
+
     def predict(self, trace: np.ndarray) -> Tuple[Any, np.ndarray, List[Any], dict, np.ndarray]:
         """
         Perform event classification for a specified seismic trace.
@@ -606,6 +658,5 @@ class LiveClassifier:
         plt.close(fig)
         
         return image
-
 
 

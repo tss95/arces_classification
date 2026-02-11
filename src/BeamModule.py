@@ -45,6 +45,11 @@ class BeamModule(LightningDataModule):
         self.transforms_by_set = transforms_by_set
         self.cfg = cfg
 
+    def _sample_transforms_for_split(self, split):
+        if isinstance(self.transforms_by_sample, dict):
+            return self.transforms_by_sample.get(split, [])
+        return self.transforms_by_sample
+
     def setup(self, stage=None):
         # Similar setup as before for train, val, and test datasets
         path = self.cfg.data_paths.loaded_path
@@ -57,7 +62,11 @@ class BeamModule(LightningDataModule):
             full_list = os.path.join(path, data_list)
             with open(full_list, 'rb') as file:
                 self.full_list[key] = pickle.load(file)
-            self.datasets[key] = BeamDatasetHDF5(full_data, self.full_list[key], transforms=self.transforms_by_sample)
+            self.datasets[key] = BeamDatasetHDF5(
+                full_data,
+                self.full_list[key],
+                transforms=self._sample_transforms_for_split(key),
+            )
     
     def train_dataloader(self):
         # Check if using DDP or DDPSpawn (or any other distributed strategy PyTorch Lightning supports)

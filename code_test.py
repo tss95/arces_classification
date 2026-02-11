@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning import Trainer
-from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform, ScalingTransform
+from src.Transforms import RandomCropTransform, LiveStyleCenterCropTransform, MinMaxPerChannelTransform, ScalingTransform
 from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
 from src.DataVerification import Verficiation
@@ -97,7 +97,21 @@ if __name__ == "__main__":
     input_shape = (3, cfg.augment.random_crop_kwargs.timesteps)
 
         
-    transforms_by_sample = [RandomCropTransform(cfg)]
+    train_sample_transform = RandomCropTransform(cfg)
+    val_sample_mode = str(getattr(cfg.data, "validation_sample_mode", "random_crop")).lower()
+    if val_sample_mode == "live_center":
+        val_sample_transform = LiveStyleCenterCropTransform(cfg)
+    elif val_sample_mode == "random_crop":
+        val_sample_transform = RandomCropTransform(cfg)
+    else:
+        raise ValueError(
+            f"Unsupported data.validation_sample_mode='{val_sample_mode}'. "
+            "Use one of: ['random_crop', 'live_center']."
+        )
+    transforms_by_sample = {
+        "train": [train_sample_transform],
+        "val": [val_sample_transform],
+    }
     # Build transforms without scaling first so we can fit a global scaler when needed
     transforms_by_set = setup_transforms(cfg, add_scaling=False)
     scaler = Scaler(cfg)

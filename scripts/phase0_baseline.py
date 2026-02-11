@@ -38,7 +38,7 @@ from src.BeamModule import BeamModule
 from src.Live import LiveClassifier
 from src.Models_torch import get_model
 from src.Scaler_torch import Scaler
-from src.Transforms import RandomCropTransform, ScalingTransform
+from src.Transforms import RandomCropTransform, LiveStyleCenterCropTransform, ScalingTransform
 from src.Utils_torch import load_preprocessed_data_dict, setup_transforms
 
 
@@ -123,7 +123,21 @@ def build_model_and_data(args: argparse.Namespace):
     detector_label_map = key_dicts["detector_label_map"]
     class_weights = key_dicts["class_weights"]
 
-    transforms_by_sample = [RandomCropTransform(cfg)]
+    train_sample_transform = RandomCropTransform(cfg)
+    val_sample_mode = str(getattr(cfg.data, "validation_sample_mode", "random_crop")).lower()
+    if val_sample_mode == "live_center":
+        val_sample_transform = LiveStyleCenterCropTransform(cfg)
+    elif val_sample_mode == "random_crop":
+        val_sample_transform = RandomCropTransform(cfg)
+    else:
+        raise ValueError(
+            f"Unsupported data.validation_sample_mode='{val_sample_mode}'. "
+            "Use one of: ['random_crop', 'live_center']."
+        )
+    transforms_by_sample = {
+        "train": [train_sample_transform],
+        "val": [val_sample_transform],
+    }
     transforms_by_set = setup_transforms(cfg, add_scaling=False)
     scaler = Scaler(cfg)
 
@@ -217,7 +231,14 @@ def run_live_style_eval(model, scaler, args: argparse.Namespace) -> Dict[str, ob
             data = handle["data"]
             for i in selected:
                 trace = data[i]
-                truth = str(index_list[i][3])
+                rec = index_list[i]
+                truth = str(rec[3])
+                trace = live_model.extract_production_like_trace(
+                    trace,
+                    label=truth,
+                    start_idx=rec[4],
+                    end_idx=rec[5],
+                )
                 pred, _, _, _, _ = live_model.predict(trace)
                 y_true.append(truth)
                 y_pred.append(normalize_label(pred))

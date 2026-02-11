@@ -69,3 +69,44 @@ The baseline reproduces a substantial train/eval-vs-live-style gap:
 - materially lower live-style ensemble performance on the frozen validation slice.
 
 This confirms the discrepancy and provides a reproducible Phase 0 anchor for subsequent remediation work.
+
+## Discrepancy Deep-Dive (2026-02-11)
+
+Additional ablations were run on the same balanced `300`-event validation subset to isolate sources of the gap.
+
+### A) Preprocessing Ablation (Live-Style)
+
+- Live-style current preprocessing (`extract_production_like_trace` + scaling + ensemble):
+  - accuracy: `0.8333`
+  - macro F1: `0.8172`
+- Live-style plus extra validation transforms (`bandpass + taper` before scaling):
+  - accuracy: `0.8133`
+  - macro F1: `0.7899`
+
+Result: adding `bandpass+taper` did **not** close the gap; it slightly reduced performance on this slice.
+
+### B) Windowing Policy Ablation (Same Subset)
+
+- `live_ensemble` (production-like context + sliding windows + ensemble):
+  - accuracy: `0.8333`
+  - macro F1: `0.8172`
+- `single_randomcrop_valpipeline` (legacy validation-style random event crop + val transforms):
+  - accuracy: `0.8933`
+  - macro F1: `0.8914`
+- `single_centerwindow_valpipeline` (production-like context, center 80s window + val transforms):
+  - accuracy: `0.8333`
+  - macro F1: `0.8149`
+
+Result: `single_centerwindow` is nearly identical to `live_ensemble`, while `single_randomcrop` is materially higher.  
+Primary remaining discrepancy source is **windowing policy** (random crop vs production-like center/context), not only filter/taper preprocessing.
+
+### C) Ensemble Aggregation Check
+
+- Majority-vote ensemble:
+  - accuracy: `0.8333`
+  - macro F1: `0.8172`
+- Mean-probability aggregation (detector/classifier means, then threshold):
+  - accuracy: `0.8433`
+  - macro F1: `0.8296`
+
+Result: mean-probability aggregation showed a small positive gain on this slice.
