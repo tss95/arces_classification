@@ -244,6 +244,7 @@ class AlexNet1D(Loop):
                                         classifier_class_weights,
                                         cfg)
         num_channels = input_shape[0]
+        self.expected_timesteps = input_shape[1]
         self.use_transformer_head = getattr(model_cfg, "use_transformer_head", False)
         self.transformer_cfg = getattr(model_cfg, "transformer", None) if self.use_transformer_head else None
 
@@ -386,18 +387,18 @@ class AlexNet1D(Loop):
     def _get_positional_encoding(self, seq_len: int) -> torch.Tensor:
         if self.positional_encoding is None:
             return None
-        if self.positional_encoding.shape[1] == seq_len:
-            return self.positional_encoding
-        # Interpolate if sequence length differs (should be rare)
-        pe = F.interpolate(
-            self.positional_encoding.transpose(1, 2),
-            size=seq_len,
-            mode="linear",
-            align_corners=False,
-        ).transpose(1, 2)
-        return pe
+        if self.positional_encoding.shape[1] != seq_len:
+            raise ValueError(
+                f"Transformer positional encoding length mismatch: expected {self.positional_encoding.shape[1]}, "
+                f"got {seq_len}. Check input window length."
+            )
+        return self.positional_encoding
 
     def forward(self, inputs):
+        if inputs.shape[-1] != self.expected_timesteps:
+            raise ValueError(
+                f"Input timesteps mismatch: expected {self.expected_timesteps}, got {inputs.shape[-1]}."
+            )
         x = self._conv_forward_features(inputs)
 
         if not self.use_transformer_head:

@@ -37,7 +37,10 @@ data: # None of these are needed for live
   test_years: [2019] # Years included in the test set
   SNR_threshold: 0.5 # Threshold for event to be included in dataset
   coda_factor: 1.4
-  default_length_seconds: 180 
+  # Canonical model input window length (seconds). Must match live.length and augment.random_crop_kwargs.timesteps.
+  window_seconds: 80
+  # Deprecated (unused). Kept for legacy configs; must match window_seconds.
+  default_length_seconds: 80
   sample_rate: 40 # Sample rate of the data
 
 
@@ -45,7 +48,7 @@ live: # Needed for live
   live: True # Alters the pipeline to be used for live data
   array: "ARCES" # Which array to use. Currently only ARCES is supported
   step: 5 # How many seconds between each prediction
-  length: 80 # Length of the data to be used for each prediction (seconds)
+  length: 80 # Length of the data to be used for each prediction (seconds). Must match data.window_seconds.
   edge: 10 # Additional seconds of data to load, which will be cut due to tapering.
   delay: 5 # TODO: Figure out if this is used.
   event_buffer: 30 # Number of seconds to load before and after the area of interest, determined by length and pick.
@@ -85,7 +88,7 @@ scaling: # Needed for live
 
 augment: # Not needed for live
   random_crop_kwargs:
-    timesteps: 3200 # Number of final timesteps (~80% of a 100s, 40 Hz window)
+    timesteps: 3200 # Number of final timesteps (must equal data.window_seconds * data.sample_rate)
     end_buffers: 100 # Minimum number of timesteps before or after the end of the event.
     must_include_entire_event: true # Whether or not the entire event must be included in the crop
     inclusion_proportion: 0.5 # Proportion of the event that must be included in the crop if must_include is false

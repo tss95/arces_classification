@@ -23,7 +23,8 @@ detector_class_weight_dict = {"noise": 1.0, "event": 1.0}
 classifier_class_weight_dict = {"earthquake": 1.0, "explosion": 1.0}
 detector_metrics_list = ["auroc","accuracy"]
 classifier_metrics_list = ["auroc","accuracy"]
-input_data = torch.randn((3, 4000), device="cuda" if torch.cuda.is_available() else "cpu")
+expected_timesteps = int(cfg.data.window_seconds * cfg.data.sample_rate)
+input_data = torch.randn((3, expected_timesteps), device="cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = AlexNet1D(input_data.shape, 

@@ -22,6 +22,49 @@ def dict_to_namespace(d: Dict[str, Any]) -> SimpleNamespace:
             d[k] = dict_to_namespace(v)
     return SimpleNamespace(**d)
 
+
+def validate_window_cfg(cfg: SimpleNamespace) -> None:
+    """Validate that canonical window settings are consistent across config sections."""
+    data = getattr(cfg, "data", None)
+    if data is None:
+        return
+    window_seconds = getattr(data, "window_seconds", None)
+    if window_seconds is None:
+        return
+    sample_rate = getattr(data, "sample_rate", None)
+    if sample_rate is None:
+        raise ValueError("cfg.data.sample_rate is required when cfg.data.window_seconds is set.")
+    expected_timesteps = int(round(float(window_seconds) * float(sample_rate)))
+
+    default_length_seconds = getattr(data, "default_length_seconds", None)
+    if default_length_seconds is not None and float(default_length_seconds) != float(window_seconds):
+        raise ValueError(
+            f"cfg.data.default_length_seconds ({default_length_seconds}) must match "
+            f"cfg.data.window_seconds ({window_seconds})."
+        )
+
+    augment = getattr(cfg, "augment", None)
+    if augment is not None and getattr(augment, "random_crop_kwargs", None) is not None:
+        timesteps = augment.random_crop_kwargs.timesteps
+        if int(timesteps) != expected_timesteps:
+            raise ValueError(
+                f"cfg.augment.random_crop_kwargs.timesteps ({timesteps}) must equal "
+                f"cfg.data.window_seconds * cfg.data.sample_rate ({expected_timesteps})."
+            )
+
+    live = getattr(cfg, "live", None)
+    if live is not None:
+        live_length = getattr(live, "length", None)
+        live_sample_rate = getattr(live, "sample_rate", None)
+        if live_length is not None and float(live_length) != float(window_seconds):
+            raise ValueError(
+                f"cfg.live.length ({live_length}) must match cfg.data.window_seconds ({window_seconds})."
+            )
+        if live_sample_rate is not None and float(live_sample_rate) != float(sample_rate):
+            raise ValueError(
+                f"cfg.live.sample_rate ({live_sample_rate}) must match cfg.data.sample_rate ({sample_rate})."
+            )
+
 def add_data_paths(d):
     data_dir = os.getenv('DATA_DIR')
     if data_dir is None:
@@ -68,5 +111,7 @@ def setup_config_and_logging():
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+
+    validate_window_cfg(cfg)
 
     return logger, cfg, model_cfg
