@@ -224,6 +224,52 @@ class LiveStyleValidationCallback(Callback):
         with open(out_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
 
+    def _extract_production_like_trace(self, trace: np.ndarray, rec: List[Any]) -> np.ndarray:
+        """Approximate production context by cropping around event indices + buffer."""
+        total_len = trace.shape[1]
+        interval_len = int(self.cfg.live.length * self.cfg.live.sample_rate)
+        event_buffer = int(self.cfg.live.event_buffer * self.cfg.live.sample_rate)
+        default_len = max(interval_len, interval_len + 2 * event_buffer)
+        label = str(rec[3])
+        start_idx = rec[4]
+        end_idx = rec[5]
+
+        def center_crop(arr: np.ndarray, crop_len: int) -> np.ndarray:
+            if arr.shape[1] <= crop_len:
+                return arr
+            center = arr.shape[1] // 2
+            start = max(0, center - (crop_len // 2))
+            end = min(arr.shape[1], start + crop_len)
+            start = max(0, end - crop_len)
+            return arr[:, start:end]
+
+        is_valid_event = (
+            label != "noise"
+            and start_idx is not None
+            and end_idx is not None
+            and np.isfinite(float(start_idx))
+            and np.isfinite(float(end_idx))
+        )
+
+        if not is_valid_event:
+            return center_crop(trace, default_len)
+
+        start = int(max(0, np.floor(float(start_idx)) - event_buffer))
+        end = int(min(total_len, np.ceil(float(end_idx)) + event_buffer))
+        if end <= start:
+            return center_crop(trace, default_len)
+
+        cropped = trace[:, start:end]
+        if cropped.shape[1] < interval_len:
+            # Ensure at least one live window can be created.
+            center = (start + end) // 2
+            padded_start = max(0, center - (interval_len // 2))
+            padded_end = min(total_len, padded_start + interval_len)
+            padded_start = max(0, padded_end - interval_len)
+            cropped = trace[:, padded_start:padded_end]
+
+        return cropped
+
     def on_fit_start(self, trainer: Trainer, pl_module: LightningModule):
         if not trainer.is_global_zero:
             return
@@ -234,6 +280,8 @@ class LiveStyleValidationCallback(Callback):
         if not trainer.is_global_zero:
             return
         if not self.enabled:
+            return
+        if getattr(trainer, "sanity_checking", False):
             return
         if (trainer.current_epoch + 1) % self.n_epochs != 0:
             return
@@ -252,6 +300,7 @@ class LiveStyleValidationCallback(Callback):
 
         y_true: List[str] = []
         y_pred: List[str] = []
+        trace_lengths: List[int] = []
 
         start = time.time()
         old_level = logger.level
@@ -263,7 +312,10 @@ class LiveStyleValidationCallback(Callback):
                     data = handle["data"]
                     for idx in self.selected_indices:
                         trace = data[idx]
-                        truth = str(self.val_index_list[idx][3])
+                        rec = self.val_index_list[idx]
+                        truth = str(rec[3])
+                        trace = self._extract_production_like_trace(trace, rec)
+                        trace_lengths.append(int(trace.shape[1]))
                         pred, _, _, _, _ = live_model.predict(trace)
                         y_true.append(truth)
                         y_pred.append(self._normalize_label(pred))
@@ -302,10 +354,23 @@ class LiveStyleValidationCallback(Callback):
 
         payload = {
             "epoch": int(trainer.current_epoch + 1),
+            "trace_mode": "event_cropped_v1",
             "sample_size": len(self.selected_indices),
             "elapsed_seconds": elapsed,
             "events_per_second": len(self.selected_indices) / elapsed if elapsed > 0 else 0.0,
             "selected_label_distribution": self.selected_label_distribution,
+            "trace_length_stats_samples": {
+                "mean": float(np.mean(trace_lengths)),
+                "median": float(np.median(trace_lengths)),
+                "min": int(np.min(trace_lengths)),
+                "max": int(np.max(trace_lengths)),
+            },
+            "trace_length_stats_seconds": {
+                "mean": float(np.mean(trace_lengths) / self.cfg.data.sample_rate),
+                "median": float(np.median(trace_lengths) / self.cfg.data.sample_rate),
+                "min": float(np.min(trace_lengths) / self.cfg.data.sample_rate),
+                "max": float(np.max(trace_lengths) / self.cfg.data.sample_rate),
+            },
             "labels_order": self.labels_order,
             "confusion_matrix": cm.tolist(),
             "classification_report": report,
