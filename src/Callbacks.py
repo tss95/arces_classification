@@ -4,11 +4,23 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from global_config import cfg, logger
 import copy
 import os
+import time
+import json
+import pickle
+import random
+import logging
+from collections import defaultdict
+from typing import Any, Dict, List
 from pytorch_lightning import Trainer, LightningModule
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
 from pytorch_lightning.callbacks import Callback
+import h5py
 import wandb
+import numpy as np
+from src.Live import LiveClassifier
+from src.Scaler_torch import Scaler
 try:
     import wandb
     wandb_available = True
@@ -123,6 +135,191 @@ class ConfusionMatrixLogger(Callback):
                 else:
                     string_labels.append('Explosion')
         return string_labels
+
+
+class LiveStyleValidationCallback(Callback):
+    """Run live-style ensemble validation on a fixed balanced subset of val data."""
+
+    def __init__(self, cfg, scaler_state: Dict[str, Any], n_epochs: int = 1, per_class: int = 100, max_events: int = 300):
+        super().__init__()
+        self.cfg = cfg
+        self.scaler_state = scaler_state
+        self.n_epochs = n_epochs
+        self.per_class = per_class
+        self.max_events = max_events
+        self.labels_order = ["noise", "earthquake", "explosion"]
+        self.selected_indices: List[int] = []
+        self.selected_label_distribution: Dict[str, int] = {}
+        self.val_index_list = None
+        self.val_h5_path = None
+        self.enabled = True
+        self._initialized = False
+
+    def _normalize_label(self, pred):
+        if isinstance(pred, np.ndarray):
+            if pred.size == 1:
+                return str(pred.item())
+            return str(pred.tolist())
+        if isinstance(pred, (list, tuple)):
+            if len(pred) == 1:
+                return str(pred[0])
+            return str(list(pred))
+        return str(pred)
+
+    def _select_balanced_subset(self):
+        by_label = defaultdict(list)
+        for idx, rec in enumerate(self.val_index_list):
+            by_label[str(rec[3])].append(idx)
+
+        rng = random.Random(int(self.cfg.seed))
+        selected: List[int] = []
+        for label in sorted(by_label.keys()):
+            candidates = by_label[label][:]
+            rng.shuffle(candidates)
+            selected.extend(candidates[: self.per_class])
+
+        rng.shuffle(selected)
+        if self.max_events > 0:
+            selected = selected[: self.max_events]
+        self.selected_indices = selected
+
+        chosen_dist: Dict[str, int] = defaultdict(int)
+        for idx in self.selected_indices:
+            chosen_dist[str(self.val_index_list[idx][3])] += 1
+        self.selected_label_distribution = dict(chosen_dist)
+
+    def _initialize(self):
+        split = "debug" if self.cfg.data.debug else "full"
+        val_index_path = os.path.join(self.cfg.data_paths.loaded_path, f"val_{split}_index_list.pkl")
+        self.val_h5_path = os.path.join(self.cfg.data_paths.loaded_path, f"val_{split}_data.h5")
+
+        if not os.path.exists(val_index_path):
+            logger.warning("Live-style validation disabled: missing %s", val_index_path)
+            self.enabled = False
+            return
+        if not os.path.exists(self.val_h5_path):
+            logger.warning("Live-style validation disabled: missing %s", self.val_h5_path)
+            self.enabled = False
+            return
+
+        with open(val_index_path, "rb") as handle:
+            self.val_index_list = pickle.load(handle)
+        self._select_balanced_subset()
+        if not self.selected_indices:
+            logger.warning("Live-style validation disabled: no selected validation indices.")
+            self.enabled = False
+            return
+
+        self._initialized = True
+        logger.info(
+            "Live-style validation enabled with %d samples (%s).",
+            len(self.selected_indices),
+            self.selected_label_distribution,
+        )
+
+    def _write_epoch_artifact(self, trainer: Trainer, payload: Dict[str, Any]):
+        out_dir = os.path.join(self.cfg.project_paths.output_folder, "live_style_validation")
+        os.makedirs(out_dir, exist_ok=True)
+        out_path = os.path.join(out_dir, f"epoch_{trainer.current_epoch + 1:03d}.json")
+        with open(out_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+
+    def on_fit_start(self, trainer: Trainer, pl_module: LightningModule):
+        if not trainer.is_global_zero:
+            return
+        if not self._initialized:
+            self._initialize()
+
+    def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
+        if not trainer.is_global_zero:
+            return
+        if not self.enabled:
+            return
+        if (trainer.current_epoch + 1) % self.n_epochs != 0:
+            return
+        if not self._initialized:
+            self._initialize()
+            if not self.enabled:
+                return
+
+        scaler = Scaler(self.cfg)
+        scaler.load_state_dict(self.scaler_state)
+        label_maps = {
+            "detector": {0: "noise", 1: "event"},
+            "classifier": {0: "earthquake", 1: "explosion"},
+        }
+        live_model = LiveClassifier(pl_module, scaler, label_maps, self.cfg)
+
+        y_true: List[str] = []
+        y_pred: List[str] = []
+
+        start = time.time()
+        old_level = logger.level
+        logger.setLevel(logging.WARNING)
+        try:
+            with torch.no_grad():
+                pl_module.eval()
+                with h5py.File(self.val_h5_path, "r") as handle:
+                    data = handle["data"]
+                    for idx in self.selected_indices:
+                        trace = data[idx]
+                        truth = str(self.val_index_list[idx][3])
+                        pred, _, _, _, _ = live_model.predict(trace)
+                        y_true.append(truth)
+                        y_pred.append(self._normalize_label(pred))
+        finally:
+            logger.setLevel(old_level)
+        elapsed = time.time() - start
+
+        report = classification_report(
+            y_true,
+            y_pred,
+            labels=self.labels_order,
+            output_dict=True,
+            zero_division=0,
+        )
+        cm = confusion_matrix(y_true, y_pred, labels=self.labels_order)
+
+        live_metrics = {
+            "val_live_accuracy": float(report.get("accuracy", 0.0)),
+            "val_live_macro_f1": float(report["macro avg"]["f1-score"]),
+            "val_live_weighted_f1": float(report["weighted avg"]["f1-score"]),
+            "val_live_noise_f1": float(report["noise"]["f1-score"]),
+            "val_live_earthquake_f1": float(report["earthquake"]["f1-score"]),
+            "val_live_explosion_f1": float(report["explosion"]["f1-score"]),
+        }
+
+        for key, value in live_metrics.items():
+            pl_module.log(
+                key,
+                value,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=key in {"val_live_accuracy", "val_live_macro_f1"},
+                logger=True,
+                sync_dist=False,
+            )
+
+        payload = {
+            "epoch": int(trainer.current_epoch + 1),
+            "sample_size": len(self.selected_indices),
+            "elapsed_seconds": elapsed,
+            "events_per_second": len(self.selected_indices) / elapsed if elapsed > 0 else 0.0,
+            "selected_label_distribution": self.selected_label_distribution,
+            "labels_order": self.labels_order,
+            "confusion_matrix": cm.tolist(),
+            "classification_report": report,
+            "metrics": live_metrics,
+        }
+        self._write_epoch_artifact(trainer, payload)
+        logger.info(
+            "Live-style validation epoch %d: acc=%.4f macro_f1=%.4f (%d events, %.2fs).",
+            trainer.current_epoch + 1,
+            live_metrics["val_live_accuracy"],
+            live_metrics["val_live_macro_f1"],
+            len(self.selected_indices),
+            elapsed,
+        )
     
 class EarlyStoppingCallback(CustomCallback):
     def __init__(self, cfg, patience, target_metric = "val_avg_loss", mode = "min"):
@@ -184,4 +381,3 @@ class ModelCheckpointCallback(CustomCallback):
         else:
             logger.info("No improvements were made, no model weights to save.")
             
-

@@ -75,6 +75,10 @@ wandb:
 
 callbacks: # Not needed for live
   validation_interval: 1 # Run validation every N epochs
+  live_style_validation: true # Run live-style ensemble validation on a fixed validation subset
+  live_style_validation_interval: 1 # Run live-style validation every N validation epochs
+  live_style_val_per_class: 100 # Samples per class (noise, earthquake, explosion)
+  live_style_val_max_events: 300 # Global cap on live-style validation subset size
   early_stopping_patience: 7 # Number of epochs without improvement before early stopping
   umap: False # Whether or not to use UMAP
   umap_interval: 5 # Number of epochs between each UMAP plot

@@ -16,7 +16,7 @@ from src.Transforms import RandomCropTransform, MinMaxPerChannelTransform, Scali
 from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
 from src.DataVerification import Verficiation
-from src.Callbacks import ConfusionMatrixLogger
+from src.Callbacks import ConfusionMatrixLogger, LiveStyleValidationCallback
 from torchsummary import summary
 import torch.multiprocessing as mp
 from functools import partial
@@ -173,6 +173,28 @@ if __name__ == "__main__":
                                          ))
     
     callbacks.append(ConfusionMatrixLogger(cfg))
+    live_val_enabled = bool(getattr(cfg.callbacks, "live_style_validation", True))
+    if live_val_enabled:
+        live_val_interval = int(getattr(cfg.callbacks, "live_style_validation_interval", 1))
+        live_val_per_class = int(getattr(cfg.callbacks, "live_style_val_per_class", 100))
+        live_val_max_events = int(getattr(cfg.callbacks, "live_style_val_max_events", 300))
+        callbacks.append(
+            LiveStyleValidationCallback(
+                cfg,
+                scaler_state=scaler.state_dict(),
+                n_epochs=live_val_interval,
+                per_class=live_val_per_class,
+                max_events=live_val_max_events,
+            )
+        )
+        logger.info(
+            "Enabled live-style validation callback: interval=%s per_class=%s max_events=%s",
+            live_val_interval,
+            live_val_per_class,
+            live_val_max_events,
+        )
+    else:
+        logger.info("Live-style validation callback disabled via cfg.callbacks.live_style_validation.")
     #logger.warning("Early stopping needs to be changed before full training")
     #callbacks.append(EarlyStopping(monitor = "val_total_loss", mode = "min", patience = cfg.callbacks.early_stopping_patience))
     logger.info("Setting up trainer")
