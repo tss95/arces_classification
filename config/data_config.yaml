@@ -22,19 +22,23 @@ project_paths:
 
 data_paths: # Needed for live
   data_path: data/ # Directory for training, validation and test data. Not needed for live
-  loaded_path: loaded_classifier/ # Where the loaded data is stored. Not needed for live
+  loaded_path: loaded_classifier_nofilt/ # Where the loaded HDF5 data is stored. Old loaded_classifier is retained unchanged.
   map_folder: data/maps/ # Where the maps are stored. Not needed for live
   metadata_folder: metadata/ # Where the metadata is stored. Not needed for live
 
 data: # None of these are needed for live
   debug: False # If true, only 10% of the data is loaded
   preloaded: True # If true, we want to load preprocessed data.
+  source_variant: nofilt # Which raw source to build from: 'nofilt' or 'filtered'
+  min_year: 1994
+  max_year: 2025
   include_induced: True # Whether or not induced events are included (as earthquake)
-  load_filtered: True # Whether or not to load filtered data, or unfilitered data.
-  load_testset: False # Whether or not to load the test set
+  drop_event_labels: ["not existing"] # Labels to drop during prep.
+  load_filtered: False # Legacy flag; for old numpy pipeline only.
+  load_testset: True # Whether or not to load/create the test set
   model_threshold: 0.5 # Threshold for model prediction to be considered a positive prediction
-  val_years: [2018] # Years included in the validation set
-  test_years: [2019] # Years included in the test set
+  val_years: [2024] # Years included in the validation set
+  test_years: [2025] # Years included in the test set
   SNR_threshold: 0.5 # Threshold for event to be included in dataset
   coda_factor: 1.4
   # Canonical model input window length (seconds). Must match live.length and augment.random_crop_kwargs.timesteps.
@@ -43,6 +47,14 @@ data: # None of these are needed for live
   default_length_seconds: 80
   sample_rate: 40 # Sample rate of the data
   validation_sample_mode: live_center # 'random_crop' (legacy) or 'live_center' (production-like, deterministic)
+  set_transforms_on_device: False # If true, apply batch transforms after transfer to accelerator (useful for GPU-side filtering benchmarks).
+  train_sampler_mode: weighted_by_label # 'uniform' or 'weighted_by_label'
+  train_sampler_num_samples_factor: 1.0 # Multiplier for epoch length when weighted sampler is used.
+  train_sampler_replacement: True
+  train_label_sampling_weights: # Only used when train_sampler_mode=weighted_by_label.
+    earthquake: 2.5
+    explosion: 1.0
+    noise: 1.0
 
 
 live: # Needed for live

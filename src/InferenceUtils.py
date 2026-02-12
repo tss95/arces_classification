@@ -2,6 +2,10 @@ import numpy as np
 import torch
 from typing import Dict, List, Tuple, Any
 
+
+DEFAULT_SINGLE_LABEL_MAP = {0: "noise", 1: "earthquake", 2: "explosion"}
+
+
 def translate_labels(labels_detector: np.ndarray, labels_classifier: np.ndarray, label_map: Dict[str, Dict[int, str]]) -> List[str]:
     """
     Translate numeric labels to their string counterparts using a label map.
@@ -28,6 +32,16 @@ def translate_labels(labels_detector: np.ndarray, labels_classifier: np.ndarray,
             final_labels.append(label_map["classifier"][cls])
     
     return final_labels
+
+
+def translate_single_labels(labels_single: np.ndarray, label_map: Dict[str, Dict[int, str]]) -> List[str]:
+    single_map = label_map.get("single", DEFAULT_SINGLE_LABEL_MAP)
+    final_labels = []
+    for label in labels_single:
+        label = int(label[0]) if isinstance(label, np.ndarray) and label.ndim > 0 else int(label)
+        final_labels.append(single_map[label])
+    return final_labels
+
 
 def apply_threshold(pred_probs: np.ndarray, cfg) -> List[int]:
     """
@@ -72,7 +86,14 @@ def get_final_labels(pred_probs: Dict[str, np.ndarray], label_map: Dict[str, Dic
         - A list of final string labels.
         - A dictionary with updated predicted probabilities for both 'detector' and 'classifier'.
     """
-    final_labels = []
+    if "single" in pred_probs:
+        pred_probs_single = torch.softmax(
+            torch.as_tensor(pred_probs["single"], dtype=torch.float32), dim=-1
+        ).detach().cpu().numpy()
+        pred_labels_single = np.argmax(pred_probs_single, axis=-1)
+        final_labels = translate_single_labels(pred_labels_single, label_map)
+        return final_labels, {"single": pred_probs_single}
+
     pred_probs_detector = torch.sigmoid(torch.as_tensor(pred_probs['detector'], dtype=torch.float32)).detach().cpu().numpy()
     pred_labels_detector = apply_threshold(pred_probs_detector, cfg)
 

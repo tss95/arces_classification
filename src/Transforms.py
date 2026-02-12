@@ -123,6 +123,13 @@ class LiveStyleCenterCropTransform:
         cropped = sample[:, crop_start:crop_end]
         return self._pad_to_length(cropped, self.timesteps)
 
+class DetrendTransform:
+    """Remove per-channel mean (demean) over the time axis."""
+
+    def __call__(self, x):
+        return x - x.mean(dim=2, keepdim=True)
+
+
 class BandpassFilterTransform:
     def __init__(self, lower_bounds, upper_bounds, sampling_rate=100, prob=0.5, default_low=2, default_high=8):
         """
@@ -155,18 +162,13 @@ class BandpassFilterTransform:
             index_higher = random.randint(0, len(self.upper_bounds) - 1)
             low_freq = self.lower_bounds[index_lower]
             high_freq = self.upper_bounds[index_higher]
-        x = self.detrend_data(x)
         # Apply bandpass filter with selected bounds
         return self.bandpass_filter(x, low_freq, high_freq, self.sampling_rate)
-    
-    def detrend_data(self, x):
-        # Subtract the mean from each channel for each sample
-        return x - x.mean(dim=2, keepdim=True)
-    
+
     def bandpass_filter(self, x, low_freq, high_freq, sampling_rate):
-        batch_size, n_channels, timesteps = x.shape
+        _, _, timesteps = x.shape
         fft_signal = torch.fft.rfft(x, dim=2)
-        freqs = torch.fft.rfftfreq(timesteps, d=1/sampling_rate)
+        freqs = torch.fft.rfftfreq(timesteps, d=1 / sampling_rate, device=x.device)
 
         # Generate mask for the desired frequency band
         mask = (freqs >= low_freq) & (freqs <= high_freq)
@@ -176,7 +178,114 @@ class BandpassFilterTransform:
         signal_filtered = torch.fft.irfft(fft_signal_filtered, dim=2, n=timesteps)
 
         return signal_filtered.type(x.dtype)
-    
+
+
+class HighpassFilterTransform:
+    def __init__(self, cutoff_freq, sampling_rate=100):
+        self.cutoff_freq = cutoff_freq
+        self.sampling_rate = sampling_rate
+
+    def __call__(self, x):
+        _, _, timesteps = x.shape
+        fft_signal = torch.fft.rfft(x, dim=2)
+        freqs = torch.fft.rfftfreq(timesteps, d=1 / self.sampling_rate, device=x.device)
+        mask = freqs >= self.cutoff_freq
+        fft_signal_filtered = fft_signal * mask.unsqueeze(0).unsqueeze(1)
+        signal_filtered = torch.fft.irfft(fft_signal_filtered, dim=2, n=timesteps)
+        return signal_filtered.type(x.dtype)
+
+
+class OnlineFilteringTransform:
+    """
+    Legacy-consistent online filtering used after cropping:
+    1) detrend
+    2) taper
+    3) highpass/bandpass
+    """
+
+    def __init__(self, cfg, split):
+        self.split = split
+        self.use_filters = bool(getattr(cfg.filters, "use_filters", False))
+        self.use_detrend = bool(getattr(cfg.filters, "detrend", True))
+        self.use_taper = bool(getattr(cfg.filters, "taper", True))
+        self.taper_alpha = float(getattr(cfg.filters, "taper_max_percentage", 0.05))
+        self.filter_mode = str(getattr(cfg.filters, "highpass_or_bandpass", "bandpass")).lower()
+        self.sample_rate = float(cfg.data.sample_rate)
+
+        band_kwargs = getattr(cfg.filters, "band_kwargs", None)
+        high_kwargs = getattr(cfg.filters, "high_kwargs", None)
+        self.default_low = float(getattr(band_kwargs, "min", 2.0))
+        self.default_high = float(getattr(band_kwargs, "max", 8.0))
+        self.highpass_cutoff = float(getattr(high_kwargs, "high_freq", 1.0))
+
+        aug = getattr(cfg, "augment", None)
+        bandpass_aug = bool(getattr(aug, "bandpass", False))
+        bandpass_kwargs = getattr(aug, "bandpass_kwargs", None)
+        self.randomize_bandpass = split == "train" and bandpass_aug and bandpass_kwargs is not None
+        self.bandpass_prob = float(getattr(bandpass_kwargs, "prob", 0.0)) if bandpass_kwargs is not None else 0.0
+        self.optional_min = list(getattr(bandpass_kwargs, "optional_min", [])) if bandpass_kwargs is not None else []
+        self.optional_max = list(getattr(bandpass_kwargs, "optional_max", [])) if bandpass_kwargs is not None else []
+
+        self._detrend = DetrendTransform()
+        self._taper = TaperTransform(alpha=self.taper_alpha)
+        self._bandpass = BandpassFilterTransform(
+            lower_bounds=self.optional_min or [self.default_low],
+            upper_bounds=self.optional_max or [self.default_high],
+            sampling_rate=self.sample_rate,
+            prob=self.bandpass_prob,
+            default_low=self.default_low,
+            default_high=self.default_high,
+        )
+        self._highpass = HighpassFilterTransform(
+            cutoff_freq=self.highpass_cutoff,
+            sampling_rate=self.sample_rate,
+        )
+
+    def _sanitize_band(self, low, high):
+        nyquist = max(1e-6, self.sample_rate / 2.0)
+        low = max(0.0, min(float(low), nyquist - 1e-6))
+        high = max(low + 1e-6, min(float(high), nyquist))
+        if high <= low:
+            low, high = self.default_low, self.default_high
+        return low, high
+
+    def _pick_band(self):
+        low = self.default_low
+        high = self.default_high
+        if self.randomize_bandpass and torch.rand(1).item() <= self.bandpass_prob:
+            if self.optional_min:
+                low = float(self.optional_min[random.randint(0, len(self.optional_min) - 1)])
+            if self.optional_max:
+                high = float(self.optional_max[random.randint(0, len(self.optional_max) - 1)])
+        return self._sanitize_band(low, high)
+
+    def __call__(self, x):
+        if not self.use_filters:
+            return x
+
+        input_dtype = x.dtype
+        work = x.float()
+
+        if self.use_detrend:
+            work = self._detrend(work)
+        if self.use_taper:
+            work = self._taper(work)
+
+        if self.filter_mode == "bandpass":
+            low, high = self._pick_band()
+            work = self._bandpass.bandpass_filter(work, low, high, self.sample_rate)
+        elif self.filter_mode == "highpass":
+            cutoff = max(0.0, min(self.highpass_cutoff, (self.sample_rate / 2.0) - 1e-6))
+            self._highpass.cutoff_freq = cutoff
+            work = self._highpass(work)
+        else:
+            raise ValueError(
+                f"Unsupported cfg.filters.highpass_or_bandpass='{self.filter_mode}'. "
+                "Expected 'highpass' or 'bandpass'."
+            )
+
+        return work.to(dtype=input_dtype)
+
 class AddNoiseTransform:
     def __init__(self, prob, per_channel_scaling=True):
         """

@@ -48,13 +48,13 @@ class Scaler:
     def requires_fit(self) -> bool:
         return self.impl.requires_fit
 
-    def fit_loader(self, dataloader):
+    def fit_loader(self, dataloader, batch_transforms=None):
         """Fit using a dataloader that yields either tensors or (tensor, labels, ids)."""
         if not self.requires_fit:
             logger.info("Scaler does not require fitting; skipping.")
             return
         logger.info("Fitting scaler on dataloader.")
-        self.impl.fit_loader(dataloader)
+        self.impl.fit_loader(dataloader, batch_transforms=batch_transforms)
         logger.info("Scaler fitted.")
 
     def transform(self, X: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
@@ -99,12 +99,15 @@ class MinMaxScaler:
     def requires_fit(self) -> bool:
         return self.global_or_local == "global"
 
-    def fit_loader(self, dataloader):
+    def fit_loader(self, dataloader, batch_transforms=None):
         assert self.requires_fit, "fit_loader should only be called when global scaling is requested."
         global_min, global_max = None, None
         for batch in dataloader:
             x = batch[0] if isinstance(batch, (list, tuple)) else batch
             x = x.float()
+            if batch_transforms:
+                for transform in batch_transforms:
+                    x = transform(x)
             if self.per_channel:
                 batch_min = x.amin(dim=(0, 2))
                 batch_max = x.amax(dim=(0, 2))
@@ -158,7 +161,7 @@ class StandardScaler:
     def requires_fit(self) -> bool:
         return self.global_or_local == "global"
 
-    def fit_loader(self, dataloader):
+    def fit_loader(self, dataloader, batch_transforms=None):
         assert self.requires_fit, "fit_loader should only be called when global scaling is requested."
         running_sum = None
         running_sumsq = None
@@ -166,6 +169,9 @@ class StandardScaler:
         for batch in dataloader:
             x = batch[0] if isinstance(batch, (list, tuple)) else batch
             x = x.float()
+            if batch_transforms:
+                for transform in batch_transforms:
+                    x = transform(x)
             if self.per_channel:
                 batch_sum = x.sum(dim=(0, 2))
                 batch_sumsq = (x ** 2).sum(dim=(0, 2))

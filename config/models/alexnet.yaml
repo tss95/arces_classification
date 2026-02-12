@@ -4,6 +4,11 @@ pool_type: "max"
 dense_units: [128, 128]
 initializer: "glorot_uniform"
 
+# Output head mode:
+# - "dual": detector + classifier (current/default behavior)
+# - "single": one 3-class head (noise/earthquake/explosion)
+head_mode: "dual"
+
 # Toggle to swap the dense head for a Transformer encoder head.
 use_transformer_head: true
 transformer:

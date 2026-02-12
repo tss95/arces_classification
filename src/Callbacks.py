@@ -69,15 +69,21 @@ class ConfusionMatrixLogger(Callback):
 
     def process_predictions(self, y_pred):
         final_preds = []
-        detector_preds = y_pred['detector'].sigmoid().detach().cpu()
-        classifier_preds = y_pred['classifier'].sigmoid().detach().cpu()
+        if "single" in y_pred:
+            single_probs = torch.softmax(y_pred["single"], dim=1).detach().cpu()
+            idx_to_label = {0: "Noise", 1: "Earthquake", 2: "Explosion"}
+            for class_idx in torch.argmax(single_probs, dim=1).tolist():
+                final_preds.append(idx_to_label[int(class_idx)])
+        else:
+            detector_preds = y_pred['detector'].sigmoid().detach().cpu()
+            classifier_preds = y_pred['classifier'].sigmoid().detach().cpu()
 
-        for detector_pred, classifier_pred in zip(detector_preds, classifier_preds):
-            if detector_pred.item() >= self.cfg.data.model_threshold:
-                final_pred = 'Earthquake' if classifier_pred.item() < 0.5 else 'Explosion'
-            else:
-                final_pred = 'Noise'
-            final_preds.append(final_pred)
+            for detector_pred, classifier_pred in zip(detector_preds, classifier_preds):
+                if detector_pred.item() >= self.cfg.data.model_threshold:
+                    final_pred = 'Earthquake' if classifier_pred.item() < 0.5 else 'Explosion'
+                else:
+                    final_pred = 'Noise'
+                final_preds.append(final_pred)
         
         return final_preds
 
@@ -144,7 +150,7 @@ class ConfusionMatrixLogger(Callback):
             single_metrics["val_single_final_macro_f1"],
         )
 
-        if wandb_available:
+        if wandb_available and getattr(wandb, "run", None) is not None:
             wandb.log({"confusion_matrix": wandb.Image(fig)}, commit=False)
         plt.close(fig)
 
@@ -153,18 +159,23 @@ class ConfusionMatrixLogger(Callback):
             
     def translate_true_labels(self, true_labels):
         string_labels = []
-        detector_trues = true_labels['detector'].detach().cpu()
-        classifier_trues = true_labels['classifier'].detach().cpu()
-        
-        for detector_true, classifier_true in zip(detector_trues, classifier_trues):
-            # Use .item() to convert each element (which is a scalar tensor) to a Python scalar
-            if detector_true.item() == 0:
-                string_labels.append('Noise')
-            else:
-                if classifier_true.item() == 0:
-                    string_labels.append('Earthquake')
+        if "single" in true_labels:
+            idx_to_label = {0: "Noise", 1: "Earthquake", 2: "Explosion"}
+            for class_idx in true_labels["single"].detach().cpu().view(-1).tolist():
+                string_labels.append(idx_to_label[int(class_idx)])
+        else:
+            detector_trues = true_labels['detector'].detach().cpu()
+            classifier_trues = true_labels['classifier'].detach().cpu()
+            
+            for detector_true, classifier_true in zip(detector_trues, classifier_trues):
+                # Use .item() to convert each element (which is a scalar tensor) to a Python scalar
+                if detector_true.item() == 0:
+                    string_labels.append('Noise')
                 else:
-                    string_labels.append('Explosion')
+                    if classifier_true.item() == 0:
+                        string_labels.append('Earthquake')
+                    else:
+                        string_labels.append('Explosion')
         return string_labels
 
 
@@ -280,6 +291,7 @@ class LiveStyleValidationCallback(Callback):
         label_maps = {
             "detector": {0: "noise", 1: "event"},
             "classifier": {0: "earthquake", 1: "explosion"},
+            "single": {0: "noise", 1: "earthquake", 2: "explosion"},
         }
         live_model = LiveClassifier(pl_module, scaler, label_maps, self.cfg)
 

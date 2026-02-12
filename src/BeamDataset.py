@@ -2,6 +2,17 @@ import torch
 from torch.utils.data import Dataset
 import h5py
 
+
+SINGLE_LABEL_MAP = {"noise": 0, "earthquake": 1, "explosion": 2}
+
+
+def _build_processed_labels(label: str):
+    detector_label = torch.tensor([0 if label == "noise" else 1], dtype=torch.float32)
+    classifier_label = torch.tensor([0 if label == "earthquake" else 1], dtype=torch.float32)
+    single_label = torch.tensor(SINGLE_LABEL_MAP[label], dtype=torch.long)
+    return {"detector": detector_label, "classifier": classifier_label, "single": single_label}
+
+
 class BeamDataset(Dataset):
     def __init__(self, data_set, label_dict, transforms = None):
         self.data_set = data_set
@@ -18,9 +29,7 @@ class BeamDataset(Dataset):
         if self.transforms:
             for transform in self.transforms:
                 sample = transform(sample, start_index, end_index)
-        detector_label = torch.tensor([0 if label == "noise" else 1], dtype=torch.float32)
-        classifier_label = torch.tensor([0 if label == "earthquake" else 1], dtype=torch.float32)
-        processed_labels = {'detector': detector_label, 'classifier': classifier_label}
+        processed_labels = _build_processed_labels(label)
         return sample, processed_labels, event_id
     
     
@@ -50,8 +59,5 @@ class BeamDatasetHDF5(Dataset):
         if self.transforms:
             for transform in self.transforms:
                 sample = transform(sample, start_index, end_index)
-        detector_label = torch.tensor([0 if label_str == "noise" else 1], dtype=torch.float32)
-        classifier_label = torch.tensor([0 if label_str == "earthquake" else 1], dtype=torch.float32)
-      
-        processed_labels = {'detector': detector_label, 'classifier': classifier_label}
+        processed_labels = _build_processed_labels(label_str)
         return sample, processed_labels, event_id

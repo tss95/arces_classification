@@ -1,56 +1,58 @@
-from src.Live import ClassifyGBF, load_model, LiveClassifier
-from obspy import UTCDateTime
-from src.Scaler_tf import Scaler
-from global_config import cfg, logger
+#!/usr/bin/env python3
+"""Deprecated local live entrypoint. Delegates to ml_array_data_classification."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 
-"""
-Basic script for running the event classifier on GBF data.
+def resolve_inference_repo() -> Path:
+    candidates = []
 
-The script loads the pretrained model, and then runs the classifier on the data from the specified time interval.
-After each prediction, an MP4 video is saved to the specified output folder, showing the waveforms and predictions for each step.
+    env_repo = os.environ.get("INFERENCE_REPO_DIR")
+    if env_repo:
+        candidates.append(Path(env_repo))
 
-The model performs 1 prediction per 29ms.
+    candidates.append(Path("/tf/inference/ml_array_data_classification"))
 
-The final output is from an ensamble prediction, where the model predicts on a number of different windows of the data, 
-and then takes the most common prediction.
+    # Local development default: sibling repo in the workspace.
+    candidates.append(Path(__file__).resolve().parent.parent / "ml_array_data_classification")
 
-TODO: Use real P velocities and S velocities where available. Currently using default values.
-TODO: Weight the predictions based on centrality of the event in the waveform.
-TODO: Regenerate training data with better velocities.
-TODO: Time the process. Each step
-TODO: Check memory requirements.
-TODO: 
-"""
+    project_dir = os.environ.get("PROJECT_DIR")
+    if project_dir:
+        candidates.append(Path(project_dir).resolve().parent / "ml_array_data_classification")
 
-#starttime = UTCDateTime('2023-09-30T14:01:00')
-#endtime =   UTCDateTime('2023-09-30T16:45:00')
+    for candidate in candidates:
+        if (candidate / "inference.py").exists():
+            return candidate
 
-starttime = UTCDateTime('2023-10-30T12:01:00')
-endtime =   UTCDateTime('2023-10-30T16:45:00')
+    candidate_list = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(
+        "Could not locate ml_array_data_classification inference repo. "
+        f"Tried: {candidate_list}"
+    )
 
-# Loads the pretrained model
-model, label_maps = load_model()
 
-# Initializes the data loader
-classify = ClassifyGBF()
-# Tracedata np.arr, streams is a list of streams (obspy), starttimes and endtimes are lists of start and endtimes (obspy.UTDDateTime)
-tracedata, streams, starttimes, endtimes = classify.get_data_to_predict(starttime, endtime)
+def main() -> int:
+    script_name = Path(__file__).name
+    print(
+        f"{script_name} is deprecated in arces_classification. "
+        "Delegating to ml_array_data_classification/inference.py instead.",
+        file=sys.stderr,
+    )
 
-# Initializes the live classifier pipeline
-model = LiveClassifier(model, Scaler(), label_maps, cfg)
-final_classifications = []
-mean_probas = []
-print(starttimes)
-for idx, trace in enumerate(tracedata):
-    # Ensamble prediction on the trace
-    final_yhat, mean_proba, yhats, yprobas, intervals = model.predict(trace)
-    final_classifications.append(final_yhat)
-    mean_probas.append(mean_proba)
-    # Plots the end result
-    model.plot_predicted_event(intervals, starttimes[idx], yprobas, yhats, final_yhat, mean_proba)
+    repo_dir = resolve_inference_repo()
+    script_path = repo_dir / "inference.py"
 
-logger.info(f"All classifications: {final_classifications}")
-logger.info(f"Mean probas: {mean_probas}")
+    env = os.environ.copy()
+    env.setdefault("INFERENCE_REPO_DIR", str(repo_dir))
 
-# TODO: Plan what needs
+    cmd = [sys.executable, str(script_path), *sys.argv[1:]]
+    return subprocess.call(cmd, cwd=str(repo_dir), env=env)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

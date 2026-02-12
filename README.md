@@ -1,6 +1,6 @@
 # ARCES Classification — PyTorch Branch
 
-End-to-end system for seismic event detection and classification on beamformed ARCES array data. This branch uses PyTorch and PyTorch Lightning for training and live inference. Live usage produces early label recommendations for GBF events (either incoming events or a selected bulletin).
+End-to-end system for seismic event detection and classification on beamformed ARCES array data. This branch uses PyTorch and PyTorch Lightning for training, while live inference is delegated to `ml_array_data_classification` to keep one maintained live implementation.
 
 ## Table of Contents
 
@@ -74,9 +74,11 @@ Optional: `WANDB_API_KEY` for Weights & Biases.
   - `Utils.py`, `BeamDataset.py`, `LoadData.py`, `Transforms.py`, `Scaler_torch.py` — utilities, datasets, scaling.
 - Scripts:
   - Training: `train_torch.py`
-  - Live: `gbf_iter_torch.py` (interactive; recommended)
+  - Live delegation wrapper: `live_via_ml_array.py` (recommended)
   - Docker wrappers: `run.sh`, `run_predict.sh`, `run_live.sh` (via `common.sh`)
-- Legacy TF components (kept for reference only): `src/Models.py`, `src/Callbacks_tf.py`, `src/Scaler_tf.py`, `train.py`, `predict.py`, `gbf_iter.py`
+- Deprecated compatibility scripts:
+  - `gbf_iter_torch.py`, `gbf_iter.py`, `gbf_live.py` now forward to `ml_array_data_classification/inference.py`.
+- Legacy TF components (kept for reference only): `src/Models.py`, `src/Callbacks_tf.py`, `src/Scaler_tf.py`, `train.py`, `predict.py`
 
 ## 5) Training (PyTorch)
 
@@ -94,11 +96,14 @@ bash run.sh
 
 Notes:
 - `code_test.py` is the current PyTorch training entrypoint. It uses a Lightning DataModule (`src/BeamModule.py`) that reads preprocessed HDF5/index files from `cfg.data_paths.loaded_path`, applies transforms, and trains a model from `src/Models_torch.py`.
-- Inputs are channel-first `(batch, channels, timesteps)`; outputs are `{'detector': logits, 'classifier': logits}`.
+- Inputs are channel-first `(batch, channels, timesteps)`.
+- Output shape is configurable via `config/models/<model>.yaml`:
+  - `head_mode: "dual"` (default): outputs `{'detector': logits, 'classifier': logits}`.
+  - `head_mode: "single"`: outputs `{'single': logits}` where logits are 3-class (`noise`, `earthquake`, `explosion`).
 - The older `train_torch.py` script is not recommended; it uses an outdated data pipeline and mismatched model signature.
 
 First Run (Docker) — expected files and how to generate
-- Location: `$DATA_DIR/loaded_classifier/` (synced by `common.sh`)
+- Location: `$DATA_DIR/loaded_classifier_nofilt/` (synced by `common.sh`; legacy path `loaded_classifier/` still supported where configured)
 - Expected files (debug=false):
   - `train_full_data.h5`, `train_full_index_list.pkl`
   - `val_full_data.h5`, `val_full_index_list.pkl`
@@ -112,16 +117,16 @@ First Run (Docker) — expected files and how to generate
     cd $PROJECT_DIR
     python create_hdf5_files.py
     ```
-  - This script saves the `*_data.h5`, `*_index_list.pkl`, and `key_dicts.pkl` artifacts. Confirm the files exist in `$DATA_DIR/loaded_classifier/` before running training.
+  - This script saves the `*_data.h5`, `*_index_list.pkl`, and `key_dicts.pkl` artifacts. Confirm the files exist in the configured loaded folder (default: `$DATA_DIR/loaded_classifier_nofilt/`) before running training.
 
 ## 6) Live Inference (GBF, PyTorch)
 
-Purpose: provide early label recommendations for GBF events (incoming or from a chosen bulletin). Optionally saves MP4 visualizations per event.
+Purpose: provide early label recommendations for GBF events (incoming or from a chosen bulletin), using `ml_array_data_classification` as the live inference source of truth.
 
 Local run:
 ```bash
 cd $PROJECT_DIR
-python gbf_iter_torch.py --plots
+python live_via_ml_array.py --plots
 ```
 
 Docker on GPU host:
@@ -135,9 +140,9 @@ Configuration tips:
 - Visualizations go to `cfg.project_paths.live_test_path`.
 
 How it works (high level):
-- `ClassifyGBF.get_data_to_predict(...)` fetches events + inventory (SeismonPy/Mongo), preprocesses, and builds P/S beams.
-- `LiveClassifier` splits traces into windows (length = `cfg.live.length`, step = `cfg.live.step`), normalizes, and runs per-window inference.
-- Ensemble: majority vote across windows + mean probabilities; optional plot saved to video.
+- `run_live.sh` / `live_via_ml_array.py` delegates execution to `ml_array_data_classification/inference.py`.
+- The inference repo handles `ClassifyGBF` retrieval, windowing, online filtering, scaling, and ensemble prediction.
+- This avoids duplicated live behavior in `arces_classification`.
 
 ## 7) Validation & Live-Mode Evaluation (Recommendation)
 
@@ -167,7 +172,7 @@ This is optional and can be done as time permits (Maikael may own this explorati
 
 - Option A — develop directly on the GPU machine (simpler):
   - SSH to the GPU host and work in-place (no local→remote transfer).
-  - Create/activate your environment, set `PROJECT_DIR` and `DATA_DIR`, then run Python scripts directly (`train_torch.py`, `gbf_iter_torch.py`).
+  - Create/activate your environment, set `PROJECT_DIR` and `DATA_DIR`, then run Python scripts directly (`train_torch.py`, `live_via_ml_array.py`).
   - For a simpler template of this approach, refer to the minem_arraydetect repo (Tord’s branch): https://github.com/NorwegianSeismicArray/minem_arraydetect/tree/tord
 
 - Option B — use the existing Docker transfer flow (fast start):
@@ -179,7 +184,7 @@ This is optional and can be done as time permits (Maikael may own this explorati
   - Typical commands:
     - Training: `bash run.sh`
     - Predict: `bash run_predict.sh`
-    - Live: `bash run_live.sh` (defaults to the Torch live script)
+    - Live: `bash run_live.sh` (defaults to `live_via_ml_array.py` delegation)
   - Notes:
     - `run.sh` already sets `SCRIPT_NAME=code_test.py` (the recommended Torch training script).
   - Requirements for Option B:
@@ -187,5 +192,5 @@ This is optional and can be done as time permits (Maikael may own this explorati
     - Directory layout under `$DATA_DIR` (if present, will be synced):
       - `$DATA_DIR/data/` (only `eventclass_*` files are synced)
       - `$DATA_DIR/metadata/` (only files matching `*snrupdate*` are synced)
-      - `$DATA_DIR/loaded_classifier/` (all contents)
+      - `$DATA_DIR/loaded_classifier_nofilt/` (all contents; legacy `loaded_classifier/` also synced if present)
     - Writable workspace path on the GPU host (defaults to `/nobackup2/$USER/arces_classification_pytorch`; override by exporting `BASE_DIR`).

@@ -26,7 +26,7 @@ if __name__ == "__main__":
     os.environ['WANDB_START_METHOD'] = 'thread'
     logger.info(f"Run ID: {run_id}, debug mode: {cfg.data.debug}, num_epochs: {cfg.optimizer.max_epochs}, multi_gpu: {multi_gpu}")
     cfg = prepare_folders_paths_cfg(run_id, cfg, make_folders=True)
-    train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map = preprocessing_pipeline(cfg)
+    train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map, single_label_map = preprocessing_pipeline(cfg)
     logger.info("Data loaded")
     
     pickle_filename = "preprocessed_data_full.pkl" if not cfg.data.debug else f"preprocessed_data_debug.pkl"
@@ -39,6 +39,7 @@ if __name__ == "__main__":
     "label_dict": label_dict,
     "class_weights": class_weights,
     "classifier_label_map": classifier_label_map,
-    "detector_label_map": detector_label_map
+    "detector_label_map": detector_label_map,
+    "single_label_map": single_label_map,
     }, os.path.join(cfg.data_paths.loaded_path, pickle_filename))
     

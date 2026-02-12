@@ -7,6 +7,9 @@ import torch.multiprocessing as mp
 import pickle
 
 def create_and_populate_hdf5(events, dataset_name, cfg, chunk_size=128):
+    if not events:
+        logger.warning("Skipping %s dataset: no events available.", dataset_name)
+        return
     n_samples = len(events.keys())
     sample_shape = events[list(events.keys())[0]]['X'].numpy().shape  # Adjusted for the correct key
     data_dtype = events[list(events.keys())[0]]['X'].numpy().dtype
@@ -52,15 +55,22 @@ if __name__ == "__main__":
     if cfg.data.debug:
         cfg.optimizer.max_epochs = 1
     multi_gpu = False
-    #cfg.data.preloaded = False
+    cfg.data.preloaded = False
     run_id = datetime.datetime.now().strftime("%y%m%d_%H%M%S") if not cfg.run_id else cfg.run_id
     mp.set_start_method('spawn', force=True)
     os.environ['WANDB_START_METHOD'] = 'thread'
     logger.info(f"Run ID: {run_id}, debug mode: {cfg.data.debug}, num_epochs: {cfg.optimizer.max_epochs}, multi_gpu: {multi_gpu}")
     cfg = prepare_folders_paths_cfg(run_id, cfg, make_folders=True)
-    train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map = preprocessing_pipeline(cfg)
+    os.makedirs(cfg.data_paths.loaded_path, exist_ok=True)
+    train_events, val_events, test_events, all_events, label_dict, class_weights, classifier_label_map, detector_label_map, single_label_map = preprocessing_pipeline(cfg)
     logger.info("Data loaded")
-    dicts = {"label_dict": label_dict, "classifier_label_map": classifier_label_map, "detector_label_map": detector_label_map, "class_weights": class_weights}
+    dicts = {
+        "label_dict": label_dict,
+        "classifier_label_map": classifier_label_map,
+        "detector_label_map": detector_label_map,
+        "single_label_map": single_label_map,
+        "class_weights": class_weights,
+    }
     with open(f"{cfg.data_paths.loaded_path}/key_dicts.pkl", 'wb') as file:
         pickle.dump(dicts, file)
     
@@ -76,6 +86,8 @@ if __name__ == "__main__":
         "train": train_events,
         "val": val_events
     }
+    if cfg.data.load_testset:
+        datasets["test"] = test_events
 
     for name, events in datasets.items():
         create_and_populate_hdf5(events, name, cfg, chunk_size = chunk_size)

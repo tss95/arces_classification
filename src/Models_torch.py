@@ -7,7 +7,7 @@ import torch
 import pytorch_lightning as pl
 from torch.nn import functional as F
 import torch.nn as nn
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Optional
 
 
 class TransformerEncoderLayerWithWeights(nn.TransformerEncoderLayer):
@@ -40,7 +40,9 @@ def get_model(input_shape,
               label_map_classifier: Dict[str, int],
               detector_class_weights: Dict[str, float], 
               classifier_class_weights: Dict[str, float],
-              cfg):
+              cfg,
+              single_label_map: Optional[Dict[str, int]] = None,
+              single_class_weights: Optional[Dict[str, float]] = None):
     """
     Creates and returns a model based on configuration settings.
 
@@ -66,8 +68,10 @@ def get_model(input_shape,
                         label_map_classifier,
                         detector_class_weights, 
                         classifier_class_weights,
-                        cfg)
-    if cfg.model_name == "alexnet":
+                        cfg,
+                        single_label_map=single_label_map,
+                        single_class_weights=single_class_weights)
+    elif cfg.model_name == "alexnet":
         model = AlexNet1D(input_shape,
                           detector_metrics_list,
                           classifier_metrics_list,
@@ -75,7 +79,9 @@ def get_model(input_shape,
                           label_map_classifier,
                           detector_class_weights, 
                           classifier_class_weights,
-                          cfg)
+                          cfg,
+                          single_label_map=single_label_map,
+                          single_class_weights=single_class_weights)
     else:
         raise ValueError("Model not found.")
     model.model_cfg = model_cfg
@@ -121,7 +127,12 @@ class CNN_dense(Loop):
                 label_map_classifier: Dict[str, int],
                 detector_class_weights: Dict[str, float], 
                 classifier_class_weights: Dict[str, float],
-                cfg):
+                cfg,
+                single_label_map=None,
+                single_class_weights=None):
+        head_mode = str(getattr(model_cfg, "head_mode", "dual")).lower()
+        if head_mode not in {"dual", "single"}:
+            raise ValueError(f"Unsupported model_cfg.head_mode='{head_mode}'. Use 'dual' or 'single'.")
         
         super(CNN_dense, self).__init__(input_shape,
                                         detector_metrics_list,
@@ -130,7 +141,11 @@ class CNN_dense(Loop):
                                         label_map_classifier,
                                         detector_class_weights, 
                                         classifier_class_weights,
-                                        cfg)
+                                        cfg,
+                                        head_mode=head_mode,
+                                        single_label_map=single_label_map,
+                                        single_class_weights=single_class_weights)
+        self.head_mode = head_mode
         self.conv_blocks = nn.ModuleDict()
         self.pool_layers = nn.ModuleList()
         self.dense_blocks = nn.ModuleDict()
@@ -179,8 +194,11 @@ class CNN_dense(Loop):
                     nn.ReLU(),
                     nn.Dropout(model_cfg.dropout)
                 )
-        self.final_dense_detector = nn.Linear(model_cfg.dense_units[-1], 1)
-        self.final_dense_classifier = nn.Linear(model_cfg.dense_units[-1], 1)
+        if self.head_mode == "dual":
+            self.final_dense_detector = nn.Linear(model_cfg.dense_units[-1], 1)
+            self.final_dense_classifier = nn.Linear(model_cfg.dense_units[-1], 1)
+        else:
+            self.final_dense_single = nn.Linear(model_cfg.dense_units[-1], 3)
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -193,8 +211,11 @@ class CNN_dense(Loop):
             for layer in block:
                 if isinstance(layer, nn.Linear):
                     initializer(layer.weight)
-        initializer(self.final_dense_detector.weight)
-        initializer(self.final_dense_classifier.weight)
+        if self.head_mode == "dual":
+            initializer(self.final_dense_detector.weight)
+            initializer(self.final_dense_classifier.weight)
+        else:
+            initializer(self.final_dense_single.weight)
 
     def forward(self, inputs: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -216,10 +237,12 @@ class CNN_dense(Loop):
         for i in range(len(self.dense_blocks)):
             x = self.dense_blocks[f"dense_{i}"](x)
         
-        output_detector = self.final_dense_detector(x)
-        output_classifier = self.final_dense_classifier(x)
-
-        return {'detector': output_detector, 'classifier': output_classifier}
+        if self.head_mode == "dual":
+            output_detector = self.final_dense_detector(x)
+            output_classifier = self.final_dense_classifier(x)
+            return {'detector': output_detector, 'classifier': output_classifier}
+        output_single = self.final_dense_single(x)
+        return {"single": output_single}
     
     
 class AlexNet1D(Loop):
@@ -232,9 +255,14 @@ class AlexNet1D(Loop):
                 detector_class_weights, 
                 classifier_class_weights, 
                 cfg,
+                single_label_map=None,
+                single_class_weights=None,
                 kernel_sizes=None, 
                 filters=None, 
                 pooling='max'):
+        head_mode = str(getattr(model_cfg, "head_mode", "dual")).lower()
+        if head_mode not in {"dual", "single"}:
+            raise ValueError(f"Unsupported model_cfg.head_mode='{head_mode}'. Use 'dual' or 'single'.")
         super(AlexNet1D, self).__init__(input_shape,
                                         detector_metrics_list,
                                         classifier_metrics_list,
@@ -242,7 +270,11 @@ class AlexNet1D(Loop):
                                         label_map_classifier,
                                         detector_class_weights, 
                                         classifier_class_weights,
-                                        cfg)
+                                        cfg,
+                                        head_mode=head_mode,
+                                        single_label_map=single_label_map,
+                                        single_class_weights=single_class_weights)
+        self.head_mode = head_mode
         num_channels = input_shape[0]
         self.expected_timesteps = input_shape[1]
         self.use_transformer_head = getattr(model_cfg, "use_transformer_head", False)
@@ -322,9 +354,12 @@ class AlexNet1D(Loop):
                 )
             })
 
-            # Output layers for detector and classifier without activation functions
-            self.final_dense_detector = nn.Linear(4096, 1)
-            self.final_dense_classifier = nn.Linear(4096, 1)
+            if self.head_mode == "dual":
+                # Output layers for detector and classifier without activation functions
+                self.final_dense_detector = nn.Linear(4096, 1)
+                self.final_dense_classifier = nn.Linear(4096, 1)
+            else:
+                self.final_dense_single = nn.Linear(4096, 3)
         else:
             d_model = getattr(self.transformer_cfg, "d_model", None) or self.final_conv_channels
             nhead = getattr(self.transformer_cfg, "nhead", 4)
@@ -332,7 +367,11 @@ class AlexNet1D(Loop):
             dim_feedforward = getattr(self.transformer_cfg, "dim_feedforward", 512)
             dropout = getattr(self.transformer_cfg, "dropout", 0.1)
             activation = getattr(self.transformer_cfg, "activation", "gelu")
-            self.use_dual_cls_tokens = getattr(self.transformer_cfg, "use_dual_cls_tokens", True)
+            self.use_dual_cls_tokens = (
+                getattr(self.transformer_cfg, "use_dual_cls_tokens", True)
+                if self.head_mode == "dual"
+                else False
+            )
 
             self.token_projection = nn.Linear(self.final_conv_channels, d_model) if d_model != self.final_conv_channels else nn.Identity()
             self.register_buffer(
@@ -357,8 +396,11 @@ class AlexNet1D(Loop):
                 norm=nn.LayerNorm(d_model),
             )
             self.transformer_dropout = nn.Dropout(dropout)
-            self.final_dense_detector = nn.Linear(d_model, 1)
-            self.final_dense_classifier = nn.Linear(d_model, 1)
+            if self.head_mode == "dual":
+                self.final_dense_detector = nn.Linear(d_model, 1)
+                self.final_dense_classifier = nn.Linear(d_model, 1)
+            else:
+                self.final_dense_single = nn.Linear(d_model, 3)
         self._initialize_weights()
         
     def _conv_forward_features(self, x: torch.Tensor) -> torch.Tensor:
@@ -405,8 +447,11 @@ class AlexNet1D(Loop):
             x = self.flatten(x)
             for i in range(len(self.dense_blocks)):
                 x = self.dense_blocks[f"dense_{i}"](x)
-            output_detector = self.final_dense_detector(x)
-            output_classifier = self.final_dense_classifier(x)
+            if self.head_mode == "dual":
+                output_detector = self.final_dense_detector(x)
+                output_classifier = self.final_dense_classifier(x)
+            else:
+                output_single = self.final_dense_single(x)
         else:
             x = x.transpose(1, 2)  # (batch, seq_len, channels)
             x = self.token_projection(x)
@@ -418,14 +463,21 @@ class AlexNet1D(Loop):
             x = self.transformer_dropout(x)
             x = self.transformer_encoder(x)
 
-            if self.use_dual_cls_tokens:
+            if self.head_mode == "dual" and self.use_dual_cls_tokens:
                 det_token, cls_token = x[:, 0], x[:, 1]
-            else:
+            elif self.head_mode == "dual":
                 det_token = cls_token = x[:, 0]
-            output_detector = self.final_dense_detector(det_token)
-            output_classifier = self.final_dense_classifier(cls_token)
+            else:
+                single_token = x[:, 0]
+            if self.head_mode == "dual":
+                output_detector = self.final_dense_detector(det_token)
+                output_classifier = self.final_dense_classifier(cls_token)
+            else:
+                output_single = self.final_dense_single(single_token)
 
-        return {'detector': output_detector, 'classifier': output_classifier}
+        if self.head_mode == "dual":
+            return {'detector': output_detector, 'classifier': output_classifier}
+        return {"single": output_single}
         
     
     def _initialize_weights(self):
@@ -449,10 +501,14 @@ class AlexNet1D(Loop):
                     init.constant_(self.token_projection.bias, 0)
             init.normal_(self.cls_tokens, mean=0.0, std=0.02)
 
-        init.kaiming_uniform_(self.final_dense_detector.weight, mode='fan_in', nonlinearity='relu')
-        init.constant_(self.final_dense_detector.bias, 0)
-        init.kaiming_uniform_(self.final_dense_classifier.weight, mode='fan_in', nonlinearity='relu')
-        init.constant_(self.final_dense_classifier.bias, 0)
+        if self.head_mode == "dual":
+            init.kaiming_uniform_(self.final_dense_detector.weight, mode='fan_in', nonlinearity='relu')
+            init.constant_(self.final_dense_detector.bias, 0)
+            init.kaiming_uniform_(self.final_dense_classifier.weight, mode='fan_in', nonlinearity='relu')
+            init.constant_(self.final_dense_classifier.bias, 0)
+        else:
+            init.kaiming_uniform_(self.final_dense_single.weight, mode='fan_in', nonlinearity='relu')
+            init.constant_(self.final_dense_single.bias, 0)
                 
     def verbose_output(self, tensor, label):
         # Check for NaN values in the tensor

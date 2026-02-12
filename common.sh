@@ -51,9 +51,11 @@ mkdir_if_not_exist "$BASE_DIR/data"
 mkdir_if_not_exist "$BASE_DIR/data/data"
 mkdir_if_not_exist "$BASE_DIR/data/metadata"
 mkdir_if_not_exist "$BASE_DIR/data/loaded_classifier"
+mkdir_if_not_exist "$BASE_DIR/data/loaded_classifier_nofilt"
 mkdir_if_not_exist "$BASE_DIR/output"
 mkdir_if_not_exist "$BASE_DIR/logs"
 mkdir_if_not_exist "$BASE_DIR/src"
+mkdir_if_not_exist "$BASE_DIR/inference"
 mkdir_if_not_exist "$BASE_DIR/config"
 mkdir_if_not_exist "$BASE_DIR/config/models"
 mkdir_if_not_exist "$BASE_DIR/output/plots"
@@ -83,6 +85,10 @@ done
 DATA_SRC="$DATA_DIR/data"
 METADATA_SRC="$DATA_DIR/metadata"
 LOADED_SRC="$DATA_DIR/loaded_classifier"
+LOADED_SRC_NOFILT="$DATA_DIR/loaded_classifier_nofilt"
+SYNC_INFERENCE_REPO="${SYNC_INFERENCE_REPO:-1}"
+INFERENCE_REPO_DIR="${INFERENCE_REPO_DIR:-$(dirname "$PROJECT_DIR")/ml_array_data_classification}"
+INFERENCE_TARGET_DIR="$BASE_DIR/inference/ml_array_data_classification"
 
 # If metadata/loaded_classifier are nested under data/, fall back to that structure
 if [ ! -d "$METADATA_SRC" ] && [ -d "$DATA_DIR/data/metadata" ]; then
@@ -91,6 +97,9 @@ fi
 if [ ! -d "$LOADED_SRC" ] && [ -d "$DATA_DIR/data/loaded_classifier" ]; then
   LOADED_SRC="$DATA_DIR/data/loaded_classifier"
 fi
+if [ ! -d "$LOADED_SRC_NOFILT" ] && [ -d "$DATA_DIR/data/loaded_classifier_nofilt" ]; then
+  LOADED_SRC_NOFILT="$DATA_DIR/data/loaded_classifier_nofilt"
+fi
 
 if [ -d "$DATA_SRC" ]; then
   rsync -ahr --include='eventclass_*' --exclude='*' "$DATA_SRC/" "$BASE_DIR/data/data/"
@@ -98,7 +107,7 @@ else
   echo "WARN: $DATA_SRC not found; skipping data sync"
 fi
 if [ -d "$METADATA_SRC" ]; then
-  rsync -ahr --include='*snrupdate*' --exclude='*' "$METADATA_SRC/" "$BASE_DIR/data/metadata/"
+  rsync -ahr --include='*snrupdate*' --include='*arrivals_update*' --exclude='*' "$METADATA_SRC/" "$BASE_DIR/data/metadata/"
 else
   echo "WARN: $METADATA_SRC not found; skipping metadata sync"
 fi
@@ -106,6 +115,26 @@ if [ -d "$LOADED_SRC" ]; then
   rsync -ahr "$LOADED_SRC/" "$BASE_DIR/data/loaded_classifier/"
 else
   echo "WARN: $LOADED_SRC not found; skipping loaded_classifier sync"
+fi
+if [ -d "$LOADED_SRC_NOFILT" ]; then
+  rsync -ahr "$LOADED_SRC_NOFILT/" "$BASE_DIR/data/loaded_classifier_nofilt/"
+else
+  echo "WARN: $LOADED_SRC_NOFILT not found; skipping loaded_classifier_nofilt sync"
+fi
+
+if [ "$SYNC_INFERENCE_REPO" = "1" ]; then
+  if [ -d "$INFERENCE_REPO_DIR" ]; then
+    mkdir_if_not_exist "$INFERENCE_TARGET_DIR"
+    rsync -ahr --delete --exclude='.git/' "$INFERENCE_REPO_DIR/" "$INFERENCE_TARGET_DIR/"
+    if command -v git >/dev/null 2>&1; then
+      INFERENCE_COMMIT=$(git -C "$INFERENCE_REPO_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")
+      echo "$INFERENCE_COMMIT" > "$INFERENCE_TARGET_DIR/.inference_commit"
+    fi
+  else
+    echo "WARN: $INFERENCE_REPO_DIR not found; skipping inference repo sync"
+  fi
+else
+  echo "Inference repo sync disabled (SYNC_INFERENCE_REPO=$SYNC_INFERENCE_REPO)"
 fi
 
 

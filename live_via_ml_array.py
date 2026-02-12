@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deprecated local live entrypoint. Delegates to ml_array_data_classification."""
+"""Delegate live inference execution to ml_array_data_classification."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from pathlib import Path
 
 def resolve_inference_repo() -> Path:
     candidates = []
-
     env_repo = os.environ.get("INFERENCE_REPO_DIR")
     if env_repo:
         candidates.append(Path(env_repo))
@@ -38,13 +37,6 @@ def resolve_inference_repo() -> Path:
 
 
 def main() -> int:
-    script_name = Path(__file__).name
-    print(
-        f"{script_name} is deprecated in arces_classification. "
-        "Delegating to ml_array_data_classification/inference.py instead.",
-        file=sys.stderr,
-    )
-
     repo_dir = resolve_inference_repo()
     script_path = repo_dir / "inference.py"
 
@@ -52,6 +44,7 @@ def main() -> int:
     env.setdefault("INFERENCE_REPO_DIR", str(repo_dir))
 
     cmd = [sys.executable, str(script_path), *sys.argv[1:]]
+    print(f"Delegating live inference to: {script_path}")
     return subprocess.call(cmd, cwd=str(repo_dir), env=env)
 
 

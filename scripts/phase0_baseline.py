@@ -156,7 +156,8 @@ def build_model_and_data(args: argparse.Namespace):
         scaler.load_state_dict(ckpt["scaler_state"])
     elif scaler.requires_fit:
         logger.warning("Checkpoint missing scaler_state; fitting scaler from train loader for baseline.")
-        scaler.fit_loader(data_module.train_dataloader())
+        fit_transforms = transforms_by_set["train"] if getattr(cfg.data, "set_transforms_on_device", False) else None
+        scaler.fit_loader(data_module.train_dataloader(), batch_transforms=fit_transforms)
 
     scaling_transform = ScalingTransform(scaler)
     for split in transforms_by_set:

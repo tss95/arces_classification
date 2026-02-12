@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from global_config import logger, cfg
 import os
 import math
@@ -430,6 +431,73 @@ class LiveClassifier:
         self.model = model
         self.label_maps = label_maps
         self.scaler = scaler
+        self._cached_filter_window = None
+
+    def _tukey_window(self, length: int, alpha: float, device, dtype):
+        if alpha <= 0:
+            return torch.ones(length, device=device, dtype=dtype)
+        if alpha >= 1:
+            return torch.hann_window(length, device=device, dtype=dtype)
+        x = torch.linspace(0.0, 1.0, length, device=device, dtype=dtype)
+        w = torch.ones_like(x)
+        first = x < (alpha / 2.0)
+        second = x >= (1.0 - (alpha / 2.0))
+        w = torch.where(
+            first,
+            0.5 * (1 + torch.cos((2 * np.pi / alpha) * (x - alpha / 2.0))),
+            w,
+        )
+        w = torch.where(
+            second,
+            0.5 * (1 + torch.cos((2 * np.pi / alpha) * (x - 1.0 + alpha / 2.0))),
+            w,
+        )
+        return w
+
+    def _apply_online_filter(self, intervals: np.ndarray) -> np.ndarray:
+        if intervals.size == 0:
+            return intervals
+        if not bool(getattr(self.cfg.filters, "use_filters", False)):
+            return intervals
+
+        model_device = next(self.model.parameters()).device
+        x = torch.as_tensor(intervals, dtype=torch.float32, device=model_device)
+
+        if bool(getattr(self.cfg.filters, "detrend", True)):
+            x = x - x.mean(dim=2, keepdim=True)
+
+        if bool(getattr(self.cfg.filters, "taper", True)):
+            taper_alpha = float(getattr(self.cfg.filters, "taper_max_percentage", 0.05))
+            timesteps = x.shape[2]
+            cache_key = (timesteps, taper_alpha, x.device, x.dtype)
+            if self._cached_filter_window is None or self._cached_filter_window[0] != cache_key:
+                win = self._tukey_window(timesteps, taper_alpha, x.device, x.dtype).view(1, 1, -1)
+                self._cached_filter_window = (cache_key, win)
+            x = x * self._cached_filter_window[1]
+
+        mode = str(getattr(self.cfg.filters, "highpass_or_bandpass", "bandpass")).lower()
+        sr = float(getattr(self.cfg.live, "sample_rate", self.cfg.data.sample_rate))
+        timesteps = x.shape[2]
+        freqs = torch.fft.rfftfreq(timesteps, d=1.0 / sr, device=x.device)
+        nyquist = max(1e-6, sr / 2.0)
+        if mode == "bandpass":
+            low = float(getattr(self.cfg.filters.band_kwargs, "min", 2.0))
+            high = float(getattr(self.cfg.filters.band_kwargs, "max", 8.0))
+            low = max(0.0, min(low, nyquist - 1e-6))
+            high = max(low + 1e-6, min(high, nyquist))
+            mask = (freqs >= low) & (freqs <= high)
+        elif mode == "highpass":
+            cutoff = float(getattr(self.cfg.filters.high_kwargs, "high_freq", 1.0))
+            cutoff = max(0.0, min(cutoff, nyquist - 1e-6))
+            mask = freqs >= cutoff
+        else:
+            raise ValueError(
+                f"Unsupported cfg.filters.highpass_or_bandpass='{mode}'. Expected 'highpass' or 'bandpass'."
+            )
+
+        fft_signal = torch.fft.rfft(x, dim=2)
+        x = torch.fft.irfft(fft_signal * mask.view(1, 1, -1), n=timesteps, dim=2)
+        return x.detach().cpu().numpy()
 
     def extract_production_like_trace(
         self,
@@ -497,6 +565,8 @@ class LiveClassifier:
         """
         X = self.prepare_multiple_intervals(trace)
         X = np.array(X)
+        # Keep live/offline inference aligned with train/val preprocessing (crop -> filter -> scale).
+        X = self._apply_online_filter(X)
         X = self.scaler.transform(X)
         yhats, yprobas, final_yhat, mean_proba = self.ensamble_predict(self.model, X)
         logger.info(f"Mean proba: {mean_proba}")
@@ -537,15 +607,16 @@ class LiveClassifier:
         """
         # Basic ensamble prediction for the input data.
         # TODO: Consider weighing predictions higher around the center (assuming thats where the pick is).
-        yhats, probas = [], {"detector": [], "classifier": []}
+        yhats, probas = [], {}
         for x in X:
             yhat, proba = one_prediction(model, x, self.label_maps, self.cfg, is_torch=is_torch)
-            yhats.append(yhat)
-            probas["detector"].append(proba["detector"])
-            probas["classifier"].append(proba["classifier"])
+            pred_label = yhat[0] if isinstance(yhat, (list, tuple, np.ndarray)) else yhat
+            yhats.append(pred_label)
+            for key, value in proba.items():
+                probas.setdefault(key, []).append(value)
         unqiue, counts = np.unique(yhats, return_counts=True)
         final_yhat = unqiue[np.argmax(counts)]
-        mean_proba = {"detector": np.mean(probas["detector"], axis=0), "classifier": np.mean(probas["classifier"], axis=0)}
+        mean_proba = {key: np.mean(values, axis=0) for key, values in probas.items()}
         return yhats, probas, final_yhat, mean_proba
     
 
@@ -590,9 +661,15 @@ class LiveClassifier:
             obspy_image = obspy_image.reshape(fig1.canvas.get_width_height()[::-1] + (3,))
             plt.close(fig1)
             
-            detector_values = [np.squeeze(val) for val in yprobas['detector']]
-            classifier_values = [np.squeeze(val) for val in yprobas['classifier']]
-            model_output_image = self.plot_model_output(detector_values, classifier_values, i, final_yhat, yhats, mean_proba)
+            if "detector" in yprobas and "classifier" in yprobas:
+                detector_values = [np.squeeze(val) for val in yprobas['detector']]
+                classifier_values = [np.squeeze(val) for val in yprobas['classifier']]
+                model_output_image = self.plot_model_output(detector_values, classifier_values, i, final_yhat, yhats, mean_proba)
+            elif "single" in yprobas:
+                single_values = [np.squeeze(val) for val in yprobas["single"]]
+                model_output_image = self.plot_model_output_single(single_values, i, final_yhat, yhats, mean_proba)
+            else:
+                raise ValueError(f"Unsupported prediction output keys: {list(yprobas.keys())}")
             target_width = obspy_image.shape[1]
             model_output_image_resized = resize_image(model_output_image, target_width)
             combined_image = np.vstack((obspy_image, model_output_image_resized))
@@ -644,7 +721,7 @@ class LiveClassifier:
         ax2 = ax.twiny()
         ax2.set_xlim(ax.get_xlim())
         ax2.set_xticks(np.arange(len(yhats)))
-        ax2.set_xticklabels([pred[0] for pred in yhats], ha='center', rotation=45, color='green')
+        ax2.set_xticklabels([str(pred) for pred in yhats], ha='center', rotation=45, color='green')
         ax2.xaxis.tick_bottom()
         ax2.xaxis.set_label_position('bottom')
         ax2.spines['bottom'].set_position(('outward', 60))  # Adjusted distance
@@ -659,4 +736,50 @@ class LiveClassifier:
         
         return image
 
+    def plot_model_output_single(
+        self,
+        single_values: List[np.ndarray],
+        current_step: Optional[int],
+        final_prediction: Any,
+        yhats: List[Any],
+        mean_proba: Dict[str, np.ndarray],
+    ) -> np.ndarray:
+        fig, ax = plt.subplots(figsize=(10, 4))
 
+        probs = np.array(single_values)
+        if probs.ndim == 3 and probs.shape[1] == 1:
+            probs = probs[:, 0, :]
+        if probs.ndim != 2 or probs.shape[1] != 3:
+            raise ValueError(f"Unexpected single-head probability shape: {probs.shape}")
+
+        ax.plot(probs[:, 0], label="Noise", color="gray", marker="o")
+        ax.plot(probs[:, 1], label="Earthquake", color="green", marker="o")
+        ax.plot(probs[:, 2], label="Explosion", color="orange", marker="o")
+
+        if current_step is not None:
+            ax.axvspan(current_step - 0.5, current_step + 0.5, facecolor='gray', alpha=0.25)
+
+        avg = np.squeeze(mean_proba["single"])
+        ax.axhline(avg[0], color="gray", linestyle="--")
+        ax.axhline(avg[1], color="green", linestyle="--")
+        ax.axhline(avg[2], color="orange", linestyle="--")
+
+        ax.set_ylim([-0.05, 1.05])
+        ax.set_xlim([-0.05, len(single_values) + 0.05])
+        ax.set_title(f"Model Predictions - Final Prediction: {final_prediction}")
+        ax.legend(loc="upper left")
+
+        ax2 = ax.twiny()
+        ax2.set_xlim(ax.get_xlim())
+        ax2.set_xticks(np.arange(len(yhats)))
+        ax2.set_xticklabels([str(pred) for pred in yhats], ha="center", rotation=45, color="blue")
+        ax2.xaxis.tick_bottom()
+        ax2.xaxis.set_label_position("bottom")
+        ax2.spines["bottom"].set_position(("outward", 60))
+        ax2.set_frame_on(False)
+
+        fig.canvas.draw()
+        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
+        image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close(fig)
+        return image

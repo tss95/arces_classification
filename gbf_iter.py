@@ -1,52 +1,58 @@
-from src.Live import ClassifyGBF, load_model, LiveClassifier
-from obspy import UTCDateTime
-from src.Scaler_tf import Scaler
-from global_config import cfg, logger
-import argparse
+#!/usr/bin/env python3
+"""Deprecated local live entrypoint. Delegates to ml_array_data_classification."""
 
-# Initialize argument parser
-parser = argparse.ArgumentParser(description="Run GBF model on specified time intervals.")
-parser.add_argument("--plots", action="store_true", help="Generate plots if this flag is set")
-args = parser.parse_args()
+from __future__ import annotations
 
-# Load model only once
-model, label_maps = load_model()
-model = LiveClassifier(model, Scaler(), label_maps, cfg)
+import os
+import subprocess
+import sys
+from pathlib import Path
 
-def get_user_input():
-    while True:
-        try:
-            start = input("Enter start time (YYYY-MM-DDTHH:MM:SS): ")
-            end = input("Enter end time (YYYY-MM-DDTHH:MM:SS): ")
-            return UTCDateTime(start), UTCDateTime(end)
-        except Exception as e:
-            print(f"Invalid input: {e}. Please try again.")
 
-def process_data(starttime, endtime):
-    try:
-        classify = ClassifyGBF()
-        tracedata, streams, starttimes, endtimes = classify.get_data_to_predict(starttime, endtime)
+def resolve_inference_repo() -> Path:
+    candidates = []
 
-        final_classifications = []
-        mean_probas = []
-        for idx, trace in enumerate(tracedata):
-            print(f"Processing data for interval starting at {starttimes[idx]}...")
-            final_yhat, mean_proba, yhats, yprobas, intervals = model.predict(trace)
-            final_classifications.append(final_yhat)
-            mean_probas.append(mean_proba)
-            if args.plots:
-                model.plot_predicted_event(intervals, starttimes[idx], yprobas, yhats, final_yhat, mean_proba)
+    env_repo = os.environ.get("INFERENCE_REPO_DIR")
+    if env_repo:
+        candidates.append(Path(env_repo))
 
-        logger.info(f"All classifications: {final_classifications}")
-        logger.info(f"Mean probas: {mean_probas}")
+    candidates.append(Path("/tf/inference/ml_array_data_classification"))
 
-    except Exception as e:
-        logger.error(f"An error occurred during processing: {e}")
+    # Local development default: sibling repo in the workspace.
+    candidates.append(Path(__file__).resolve().parent.parent / "ml_array_data_classification")
 
-# Main loop
-while True:
-    starttime, endtime = get_user_input()
-    process_data(starttime, endtime)
+    project_dir = os.environ.get("PROJECT_DIR")
+    if project_dir:
+        candidates.append(Path(project_dir).resolve().parent / "ml_array_data_classification")
 
-    if input("Do you want to process another period? (yes/no): ").lower() != "yes":
-        break
+    for candidate in candidates:
+        if (candidate / "inference.py").exists():
+            return candidate
+
+    candidate_list = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(
+        "Could not locate ml_array_data_classification inference repo. "
+        f"Tried: {candidate_list}"
+    )
+
+
+def main() -> int:
+    script_name = Path(__file__).name
+    print(
+        f"{script_name} is deprecated in arces_classification. "
+        "Delegating to ml_array_data_classification/inference.py instead.",
+        file=sys.stderr,
+    )
+
+    repo_dir = resolve_inference_repo()
+    script_path = repo_dir / "inference.py"
+
+    env = os.environ.copy()
+    env.setdefault("INFERENCE_REPO_DIR", str(repo_dir))
+
+    cmd = [sys.executable, str(script_path), *sys.argv[1:]]
+    return subprocess.call(cmd, cwd=str(repo_dir), env=env)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

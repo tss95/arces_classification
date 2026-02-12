@@ -48,7 +48,12 @@ if __name__ == "__main__":
     os.environ['WANDB_START_METHOD'] = 'thread'
     logger.info(f"Run ID: {run_id}, debug mode: {cfg.data.debug}, num_epochs: {cfg.optimizer.max_epochs}, multi_gpu: {multi_gpu}")
     cfg = prepare_folders_paths_cfg(run_id, cfg, make_folders=True)
-    label_dict, classifier_label_map, detector_label_map, class_weights = load_preprocessed_data_dict(cfg).values()
+    key_dicts = load_preprocessed_data_dict(cfg)
+    label_dict = key_dicts["label_dict"]
+    classifier_label_map = key_dicts["classifier_label_map"]
+    detector_label_map = key_dicts["detector_label_map"]
+    class_weights = key_dicts["class_weights"]
+    single_label_map = key_dicts.get("single_label_map", {"noise": 0, "earthquake": 1, "explosion": 2})
     
     logger.info(f"Class weights: {class_weights}")
     input_shape = (3, cfg.augment.random_crop_kwargs.timesteps)
@@ -64,7 +69,8 @@ if __name__ == "__main__":
     if "scaler_state" in ckpt:
         scaler.load_state_dict(ckpt["scaler_state"])
     elif scaler.requires_fit:
-        scaler.fit_loader(data_module.train_dataloader())
+        fit_transforms = transforms_by_set["train"] if getattr(cfg.data, "set_transforms_on_device", False) else None
+        scaler.fit_loader(data_module.train_dataloader(), batch_transforms=fit_transforms)
     scaling_transform = ScalingTransform(scaler)
     for key in transforms_by_set:
         transforms_by_set[key].append(scaling_transform)
@@ -77,7 +83,9 @@ if __name__ == "__main__":
                     classifier_label_map,
                     class_weights["detector"], 
                     class_weights["classifier"],
-                    cfg)
+                    cfg,
+                    single_label_map=single_label_map,
+                    single_class_weights=class_weights.get("single"))
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     summary(model, input_shape)
     
@@ -102,11 +110,15 @@ if __name__ == "__main__":
     for result in val_result:  # or test_result
         print(result)
     
-    analysis = Analysis(model, 
-                        data_module.val_dataloader(), 
-                        label_dict, 
-                        classifier_label_map, 
-                        detector_label_map, 
-                        data_module.full_list["val"], 
-                        cfg)
-    analysis.analysis_package(5)
+    head_mode = str(getattr(model_cfg, "head_mode", "dual")).lower()
+    if head_mode == "dual":
+        analysis = Analysis(model, 
+                            data_module.val_dataloader(), 
+                            label_dict, 
+                            classifier_label_map, 
+                            detector_label_map, 
+                            data_module.full_list["val"], 
+                            cfg)
+        analysis.analysis_package(5)
+    else:
+        logger.info("Skipping Analysis_torch package in single-head mode.")
