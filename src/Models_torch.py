@@ -3,6 +3,7 @@ from src.Loop_torch import Loop
 import numpy as np
 #from nais.Models import AlexNet1D
 import math
+from collections.abc import Sequence
 import torch
 import pytorch_lightning as pl
 from torch.nn import functional as F
@@ -60,7 +61,8 @@ def get_model(input_shape,
         ValueError: If the model specified in the configuration is not found.
 
     """
-    if cfg.model_name == "cnn_dense":
+    model_name = str(getattr(cfg, "model_name", "")).lower()
+    if model_name == "cnn_dense" or model_name.startswith("cnn_dense_"):
         model = CNN_dense(input_shape,
                         detector_metrics_list,
                         classifier_metrics_list,
@@ -71,7 +73,7 @@ def get_model(input_shape,
                         cfg,
                         single_label_map=single_label_map,
                         single_class_weights=single_class_weights)
-    elif cfg.model_name == "alexnet":
+    elif model_name == "alexnet" or model_name.startswith("alexnet_"):
         model = AlexNet1D(input_shape,
                           detector_metrics_list,
                           classifier_metrics_list,
@@ -83,7 +85,10 @@ def get_model(input_shape,
                           single_label_map=single_label_map,
                           single_class_weights=single_class_weights)
     else:
-        raise ValueError("Model not found.")
+        raise ValueError(
+            f"Model not found for cfg.model_name='{cfg.model_name}'. "
+            "Supported families: 'alexnet*', 'cnn_dense*'."
+        )
     model.model_cfg = model_cfg
     model = model.to("cuda" if torch.cuda.is_available() else "cpu")
     return model
@@ -280,22 +285,35 @@ class AlexNet1D(Loop):
         self.use_transformer_head = getattr(model_cfg, "use_transformer_head", False)
         self.transformer_cfg = getattr(model_cfg, "transformer", None) if self.use_transformer_head else None
 
-        def _parse_int_list(value, default):
+        def _parse_int_list(value, default, allow_none=False):
             if value is None:
-                return default
+                return None if allow_none else default
             if isinstance(value, str):
                 if value.lower() == "none":
-                    return default
+                    return None if allow_none else default
                 # allow comma-separated strings
                 value = value.replace("[", "").replace("]", "")
                 value = [v for v in value.split(",") if v.strip() != ""]
-            if isinstance(value, (list, tuple)):
+            elif isinstance(value, (int, np.integer)):
+                value = [int(value)]
+            elif isinstance(value, np.ndarray):
+                value = value.tolist()
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                value = list(value)
+            else:
+                raise ValueError(f"Cannot parse value {value} to int list")
+
+            if isinstance(value, list):
                 parsed = []
                 for v in value:
+                    if v is None:
+                        continue
                     if isinstance(v, str) and v.lower() == "none":
                         continue
                     parsed.append(int(v))
-                return parsed if parsed else default
+                if parsed:
+                    return parsed
+                return None if allow_none else default
             raise ValueError(f"Cannot parse value {value} to int list")
 
         if kernel_sizes is None:
@@ -307,6 +325,31 @@ class AlexNet1D(Loop):
         else:
             filters = _parse_int_list(filters, [96, 256, 384, 384, 256])
         pooling = pooling if pooling is not None else getattr(model_cfg, "pool_type", "max")
+        first_conv_stride = int(getattr(model_cfg, "first_conv_stride", 4))
+        first_conv_padding_mode = str(getattr(model_cfg, "first_conv_padding", "valid")).lower()
+        if first_conv_padding_mode not in {"valid", "same"}:
+            raise ValueError(
+                f"Unsupported model_cfg.first_conv_padding='{first_conv_padding_mode}'. "
+                "Use 'valid' or 'same'."
+            )
+        pool_kernel_size = int(getattr(model_cfg, "pool_kernel_size", 3))
+        pool_stride = int(getattr(model_cfg, "pool_stride", 2))
+        pool_after_blocks = _parse_int_list(
+            getattr(model_cfg, "pool_after_blocks", None),
+            list(range(max(0, len(filters) - 1))),
+            allow_none=True,
+        )
+        if pool_after_blocks is None:
+            pool_after_blocks = list(range(max(0, len(filters) - 1)))
+        pool_after_blocks = sorted(
+            {
+                int(i)
+                for i in pool_after_blocks
+                if isinstance(i, (int, np.integer)) and 0 <= int(i) < len(filters)
+            }
+        )
+        self.pool_after_blocks = set(pool_after_blocks)
+        self.use_final_pool = bool(getattr(model_cfg, "use_final_pool", True))
         
         self.conv_blocks = nn.ModuleDict()
         self.pool_layers = nn.ModuleDict()
@@ -317,18 +360,34 @@ class AlexNet1D(Loop):
 
         in_channels = num_channels
         for i, (filter_size, kernel_size) in enumerate(zip(filters, kernel_sizes)):
-            padding = (kernel_size - 1) // 2
+            if i == 0:
+                padding = (kernel_size - 1) // 2 if first_conv_padding_mode == "same" else 0
+                stride = first_conv_stride
+            else:
+                padding = (kernel_size - 1) // 2
+                stride = 1
             self.conv_blocks[f"conv_block_{i}"] = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=filter_size, kernel_size=kernel_size, stride=4 if i == 0 else 1, padding=padding if i != 0 else 0),
+                nn.Conv1d(
+                    in_channels=in_channels,
+                    out_channels=filter_size,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    padding=padding,
+                ),
                 nn.ReLU(),
                 nn.BatchNorm1d(filter_size, eps=1e-5),
                 )
-            if i < len(filters) - 1:
-                self.pool_layers[f"pool_layer_{i}"] = pooling_layer(kernel_size=3, stride=2)
+            if i in self.pool_after_blocks:
+                self.pool_layers[f"pool_layer_{i}"] = pooling_layer(
+                    kernel_size=pool_kernel_size, stride=pool_stride
+                )
             in_channels = filter_size
 
         # Final pooling layer to ensure consistency in tensor shape before flattening
-        self.pool_layers["pool_layer_before_flattening"] = pooling_layer(kernel_size=3, stride=2)
+        if self.use_final_pool:
+            self.pool_layers["pool_layer_before_flattening"] = pooling_layer(
+                kernel_size=pool_kernel_size, stride=pool_stride
+            )
 
         self.flatten = nn.Flatten()
         
@@ -338,6 +397,13 @@ class AlexNet1D(Loop):
             output_size = self.flatten(conv_features).numel()
             self.conv_seq_len = conv_features.shape[-1]
             self.final_conv_channels = conv_features.shape[1]
+        logger.info(
+            "AlexNet stem config: first_stride=%d first_padding=%s pool_after_blocks=%s final_pool=%s",
+            first_conv_stride,
+            first_conv_padding_mode,
+            pool_after_blocks,
+            self.use_final_pool,
+        )
 
         if not self.use_transformer_head:
             # Define dense (fully connected) blocks for shared features
@@ -407,9 +473,10 @@ class AlexNet1D(Loop):
         """Run the convolutional and pooling stack and return the feature map."""
         for i in range(len(self.conv_blocks)):
             x = self.conv_blocks[f"conv_block_{i}"](x)
-            if i < len(self.pool_layers) - 1:
+            if f"pool_layer_{i}" in self.pool_layers:
                 x = self.pool_layers[f"pool_layer_{i}"](x)
-        x = self.pool_layers["pool_layer_before_flattening"](x)
+        if self.use_final_pool and "pool_layer_before_flattening" in self.pool_layers:
+            x = self.pool_layers["pool_layer_before_flattening"](x)
         return x
 
     def _calculate_conv_output_size(self, x):

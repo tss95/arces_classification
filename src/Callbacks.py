@@ -182,7 +182,7 @@ class ConfusionMatrixLogger(Callback):
 class LiveStyleValidationCallback(Callback):
     """Run live-style ensemble validation on a fixed balanced subset of val data."""
 
-    def __init__(self, cfg, scaler_state: Dict[str, Any], n_epochs: int = 1, per_class: int = 100, max_events: int = 300):
+    def __init__(self, cfg, scaler_state: Dict[str, Any], n_epochs: int = 1, per_class: int = 300, max_events: int = 900):
         super().__init__()
         self.cfg = cfg
         self.scaler_state = scaler_state
@@ -193,6 +193,7 @@ class LiveStyleValidationCallback(Callback):
         self.selected_indices: List[int] = []
         self.selected_label_distribution: Dict[str, int] = {}
         self.val_index_list = None
+        self.val_index_path = None
         self.val_h5_path = None
         self.enabled = True
         self._initialized = False
@@ -234,6 +235,7 @@ class LiveStyleValidationCallback(Callback):
         split = "debug" if self.cfg.data.debug else "full"
         val_index_path = os.path.join(self.cfg.data_paths.loaded_path, f"val_{split}_index_list.pkl")
         self.val_h5_path = os.path.join(self.cfg.data_paths.loaded_path, f"val_{split}_data.h5")
+        self.val_index_path = val_index_path
 
         if not os.path.exists(val_index_path):
             logger.warning("Live-style validation disabled: missing %s", val_index_path)
@@ -265,6 +267,15 @@ class LiveStyleValidationCallback(Callback):
         out_path = os.path.join(out_dir, f"epoch_{trainer.current_epoch + 1:03d}.json")
         with open(out_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
+
+    def _plot_confusion_matrix(self, cm: np.ndarray) -> plt.Figure:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.labels_order)
+        disp.plot(cmap=plt.cm.Blues, ax=ax, colorbar=False)
+        ax.set_title("Live-Style Validation Confusion Matrix")
+        ax.set_ylabel("True label")
+        ax.set_xlabel("Predicted label")
+        return fig
 
     def on_fit_start(self, trainer: Trainer, pl_module: LightningModule):
         if not trainer.is_global_zero:
@@ -373,12 +384,23 @@ class LiveStyleValidationCallback(Callback):
                 "min": float(np.min(trace_lengths) / self.cfg.data.sample_rate),
                 "max": float(np.max(trace_lengths) / self.cfg.data.sample_rate),
             },
+            "selected_indices": list(self.selected_indices),
+            "val_data_file": os.path.basename(self.val_h5_path) if self.val_h5_path else None,
+            "val_index_file": os.path.basename(self.val_index_path) if self.val_index_path else None,
             "labels_order": self.labels_order,
             "confusion_matrix": cm.tolist(),
             "classification_report": report,
             "metrics": live_metrics,
         }
         self._write_epoch_artifact(trainer, payload)
+
+        if wandb_available and getattr(wandb, "run", None) is not None:
+            fig = self._plot_confusion_matrix(cm)
+            try:
+                wandb.log({"val_live_confusion_matrix": wandb.Image(fig)}, commit=False)
+            finally:
+                plt.close(fig)
+
         logger.info(
             "Live-style validation epoch %d: acc=%.4f macro_f1=%.4f (%d events, %.2fs).",
             trainer.current_epoch + 1,

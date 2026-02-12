@@ -101,6 +101,10 @@ Notes:
   - `head_mode: "dual"` (default): outputs `{'detector': logits, 'classifier': logits}`.
   - `head_mode: "single"`: outputs `{'single': logits}` where logits are 3-class (`noise`, `earthquake`, `explosion`).
 - The older `train_torch.py` script is not recommended; it uses an outdated data pipeline and mismatched model signature.
+- Handoff package export is enabled by default (`callbacks.export_handoff_bundle: true`):
+  - `output/<model>/<run_id>/handoff_bundle/model.ckpt`
+  - `output/<model>/<run_id>/handoff_bundle/inference_overrides.yaml`
+  - `output/<model>/<run_id>/handoff_bundle/manifest.json`
 
 First Run (Docker) — expected files and how to generate
 - Location: `$DATA_DIR/loaded_classifier_nofilt/` (synced by `common.sh`; legacy path `loaded_classifier/` still supported where configured)
@@ -136,8 +140,13 @@ bash run_live.sh
 ```
 
 Configuration tips:
-- Set `pretrained_model_name` in `config/data_config.yaml` to a valid `.ckpt` (Lightning checkpoint with `state_dict`).
+- Set `pretrained_model_name` in `config/data_config.yaml` to either:
+  - a valid `.ckpt` (Lightning checkpoint with `state_dict`), or
+  - a handoff bundle directory containing `model.ckpt` and `inference_overrides.yaml`.
 - Visualizations go to `cfg.project_paths.live_test_path`.
+- Reproducibility check (ml_array inference):
+  - `python inference.py --model-path /path/to/handoff_bundle --repro-check --repro-acc-tol 0.02 --loaded-path /path/to/loaded_classifier_nofilt`
+  - This reruns the saved live-style validation subset from `repro_check_spec.json` and exits non-zero if accuracy drifts beyond tolerance.
 
 How it works (high level):
 - `run_live.sh` / `live_via_ml_array.py` delegates execution to `ml_array_data_classification/inference.py`.

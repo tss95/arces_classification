@@ -1,7 +1,8 @@
 
-model_name: "alexnet"
+model_name: "alexnet_stride2_deeper"
 pretrained_model_name: "output/alexnet/best/models/alexnet_small-rain-1048_epoch=97_val_total_loss=0.41.ckpt" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
+deterministic: true # Enable deterministic training behavior for reproducibility. Can be overridden via CLI.
 predict: False
 device: "cuda"
 num_workers: 30 # Number of workers for the dataloader. Needed for live.
@@ -52,9 +53,9 @@ data: # None of these are needed for live
   train_sampler_num_samples_factor: 1.0 # Multiplier for epoch length when weighted sampler is used.
   train_sampler_replacement: True
   train_label_sampling_weights: # Only used when train_sampler_mode=weighted_by_label.
-    earthquake: 2.5
+    earthquake: 4
     explosion: 1.0
-    noise: 1.0
+    noise: 0.8
 
 
 live: # Needed for live
@@ -90,8 +91,9 @@ callbacks: # Not needed for live
   validation_interval: 1 # Run validation every N epochs
   live_style_validation: true # Run live-style ensemble validation on a fixed validation subset
   live_style_validation_interval: 1 # Run live-style validation every N validation epochs
-  live_style_val_per_class: 100 # Samples per class (noise, earthquake, explosion)
-  live_style_val_max_events: 300 # Global cap on live-style validation subset size
+  live_style_val_per_class: 300 # Samples per class (noise, earthquake, explosion)
+  live_style_val_max_events: 900 # Global cap on live-style validation subset size
+  export_handoff_bundle: true # Export best checkpoint + exact inference overrides for ml_array handoff
   early_stopping_patience: 7 # Number of epochs without improvement before early stopping
   umap: False # Whether or not to use UMAP
   umap_interval: 5 # Number of epochs between each UMAP plot

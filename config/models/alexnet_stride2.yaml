@@ -1,0 +1,25 @@
+kernel_sizes: None
+filters: None
+pool_type: "max"
+
+# Small ablation: reduce the first downsampling jump.
+first_conv_stride: 2
+first_conv_padding: "same"
+pool_kernel_size: 3
+pool_stride: 2
+pool_after_blocks: [0, 1, 2, 3]
+use_final_pool: true
+
+dense_units: [128, 128]
+initializer: "glorot_uniform"
+
+head_mode: "single"
+use_transformer_head: true
+transformer:
+  d_model: 256
+  nhead: 4
+  num_layers: 2
+  dim_feedforward: 512
+  dropout: 0.1
+  activation: "gelu"
+  use_dual_cls_tokens: true

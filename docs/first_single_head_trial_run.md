@@ -25,5 +25,6 @@ python code_test.py \
 
 - Keep `config/models/alexnet.yaml` default as `head_mode: "dual"` for rollback safety.
 - This trial command overrides mode only for the current process.
-- Expected checkpoint monitor metric in single mode: `val_single_f1`.
+- Default checkpoint monitor metric when live-style validation is enabled: `val_live_accuracy`.
+- For this smoke command (`--disable-live-val`), monitor metric falls back to `val_single_f1`.
 - These limits guarantee at least one train and one val batch on the current debug split.

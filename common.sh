@@ -202,7 +202,7 @@ else
 fi
 
 echo "Debug: BASE_DIR=$BASE_DIR, PROJECTNAME=$PROJECTNAME"
-docker run -e PROJECT_DIR=$CONTAINER_PROJECT_DIR -e DATA_DIR=$CONTAINER_DATA_DIR -e WANDB_API_KEY -e WANDB_MODE -e WANDB_ENTITY -e WANDB_PROJECT -e WANDB_DIR=$CONTAINER_WANDB_DIR -e MPLCONFIGDIR=$CONTAINER_MPLCONFIGDIR -it --ipc=host --rm --gpus=${GPU_DEVICE} -u ${DOCKER_USER} -v $BASE_DIR:/tf -w $CONTAINER_PROJECT_DIR $PROJECTNAME:latest bash -c "$WANDB_EXPORT
+docker run -e PROJECT_DIR=$CONTAINER_PROJECT_DIR -e DATA_DIR=$CONTAINER_DATA_DIR -e WANDB_API_KEY -e WANDB_MODE -e WANDB_ENTITY -e WANDB_PROJECT -e DETERMINISTIC_OVERRIDE -e WANDB_DIR=$CONTAINER_WANDB_DIR -e MPLCONFIGDIR=$CONTAINER_MPLCONFIGDIR -it --ipc=host --rm --gpus=${GPU_DEVICE} -u ${DOCKER_USER} -v $BASE_DIR:/tf -w $CONTAINER_PROJECT_DIR $PROJECTNAME:latest bash -c "$WANDB_EXPORT
                                                                                                      if [ -r /root/.bashrc ]; then source /root/.bashrc; fi &&
                                                                                                      find /tf/data -name 'Thumbs.db' -type f -delete &&
                                                                                                      python /tf/run_script.py &&

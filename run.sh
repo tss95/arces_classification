@@ -7,6 +7,8 @@ export BASE_DIR="/nobackup2/tord/arces_classification_pytorch"
 # Allow overriding the model config via -m/--model or $MODEL_CONFIG
 DEFAULT_MODEL_CONFIG="alexnet.yaml"
 MODEL_CONFIG="${MODEL_CONFIG:-$DEFAULT_MODEL_CONFIG}"
+GPU_ID="${GPU_ID:-1}"
+DETERMINISTIC_OVERRIDE="${DETERMINISTIC_OVERRIDE:-}"
 PASSTHROUGH_ARGS=()
 
 while [[ "$#" -gt 0 ]]; do
@@ -19,12 +21,37 @@ while [[ "$#" -gt 0 ]]; do
       MODEL_CONFIG="$2"
       shift 2
       ;;
+    -g|--gpu)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --gpu requires a GPU id (0 or 1)." >&2
+        exit 1
+      fi
+      GPU_ID="$2"
+      shift 2
+      ;;
+    --gpu=*)
+      GPU_ID="${1#*=}"
+      shift
+      ;;
+    --deterministic)
+      DETERMINISTIC_OVERRIDE="true"
+      shift
+      ;;
+    --non-deterministic)
+      DETERMINISTIC_OVERRIDE="false"
+      shift
+      ;;
     *)
       PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
   esac
 done
+
+if [[ ! "$GPU_ID" =~ ^[01]$ ]]; then
+  echo "ERROR: --gpu must be 0 or 1 (got: $GPU_ID)." >&2
+  exit 1
+fi
 
 # Normalize to yaml filename and basename
 MODEL_CONFIG="${MODEL_CONFIG%.yaml}.yaml"
@@ -63,6 +90,10 @@ else
   exit 1
 fi
 
-echo "Running train script with model: $MODEL_NAME ($MODEL_CONFIG)"
-export GPU_DEVICE="device=1"
+echo "Running train script with model: $MODEL_NAME ($MODEL_CONFIG) on GPU: $GPU_ID"
+export GPU_DEVICE="device=${GPU_ID}"
+if [[ -n "$DETERMINISTIC_OVERRIDE" ]]; then
+  export DETERMINISTIC_OVERRIDE
+  echo "Deterministic override: ${DETERMINISTIC_OVERRIDE}"
+fi
 source common.sh "${PASSTHROUGH_ARGS[@]}"
