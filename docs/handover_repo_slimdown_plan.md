@@ -34,9 +34,9 @@ This causes ownership ambiguity for the next maintainer.
   - Generated via `create_hdf5_files.py` + `src/Utils_torch.py`.
 
 - ML-array path (latest pulled `master`):
-  - No `train.py` present in `ml_array_data_classification`.
+  - `train.py` now exists in `ml_array_data_classification` (commit `4a6f50e`, 2026-02-12).
   - Loader logic centered in `src/load_process_hdf5.py` for direct eventclass files + metadata mapping.
-  - Entry script is `inference.py` with explicit CLI and structured main flow.
+  - `inference.py` remains the fully wired runtime entrypoint; `train.py` currently provides the preferred script shape to mirror.
 
 ## 2.3 Redundant Footprint
 
@@ -195,8 +195,8 @@ Mitigation: worker-local HDF5 handle caching, tuned `num_workers`, pinned memory
 Risk: Hidden dependencies on old scripts in ops tooling.  
 Mitigation: compatibility wrappers for one cycle + explicit deprecation logs.
 
-Risk: Missing style reference `train.py` in colleague repo.  
-Mitigation: use `ml_array_data_classification/inference.py` style conventions plus explicit review from colleague before finalizing training script format.
+Risk: Colleague `train.py` is present but still partially wired (contains TODOs).  
+Mitigation: mirror its script structure/style, but keep training behavior anchored to the validated `code_test.py` path until raw-loader migration is complete.
 
 ## 7) Definition of Done
 

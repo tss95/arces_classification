@@ -12,24 +12,22 @@ import pickle
 from pathlib import Path
 
 from omegaconf import OmegaConf
-from src.Utils_torch import *
-from src.BeamDataset import BeamDataset
+from src.Utils_torch import (
+    load_preprocessed_data_dict,
+    prepare_folders_paths_cfg,
+    setup_transforms,
+)
 from src.Models_torch import get_model
 import torch
-from torch.utils.data import DataLoader
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer, seed_everything
-from src.Transforms import RandomCropTransform, LiveStyleCenterCropTransform, MinMaxPerChannelTransform, ScalingTransform
+from src.Transforms import RandomCropTransform, LiveStyleCenterCropTransform, ScalingTransform
 from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
-from src.DataVerification import Verficiation
 from src.Callbacks import ConfusionMatrixLogger, LiveStyleValidationCallback
 from torchsummary import summary
 import torch.multiprocessing as mp
-from functools import partial
-from torch.utils.data.distributed import DistributedSampler
 from src.BeamModule import BeamModule
-from pytorch_lightning.profilers import PyTorchProfiler
 import psutil
 
 try:
@@ -38,31 +36,6 @@ try:
     from pytorch_lightning.loggers import WandbLogger
 except ImportError:
     wandb_available = False
-
-# Moved outside and added an extra `transforms` parameter
-def batch_collate_fn(batch, transforms=None):
-    batched_data = [item[0] for item in batch]
-    label_keys = list(batch[0][1].keys()) if batch else []
-    batched_labels = {key: [] for key in label_keys}
-    batched_ids = [item[2] for item in batch]
-    
-    for _, labels, _ in batch:
-        for key in label_keys:
-            batched_labels[key].append(labels[key])
-
-    batched_data = torch.stack(batched_data)
-    for key in label_keys:
-        batched_labels[key] = torch.stack(batched_labels[key])
-
-    if transforms:
-        for transform in transforms:
-            batched_data = transform(batched_data)
-
-    return batched_data, batched_labels, batched_ids
-
-def get_collate_fn_with_transforms(transforms=None):
-    # Using `partial` to bind the transforms to the collate function
-    return partial(batch_collate_fn, transforms=transforms)
 
 def print_mem_before():
     mem_before = psutil.virtual_memory().available
@@ -417,7 +390,7 @@ def export_handoff_bundle(cfg, model_cfg, checkpoint_callback, run_id, live_val_
     return str(bundle_dir)
 
 
-def parse_trial_args():
+def parse_train_args():
     parser = argparse.ArgumentParser(description="Train/evaluate ARCES classification model.")
     parser.add_argument("--head-mode", choices=["dual", "single"], default=None,
                         help="Override model head mode for this run.")
@@ -470,7 +443,7 @@ def compute_single_class_weights_from_index_list(index_list):
     
 
 if __name__ == "__main__":
-    trial_args = parse_trial_args()
+    trial_args = parse_train_args()
 
     if trial_args.head_mode is not None:
         model_cfg.head_mode = str(trial_args.head_mode).lower()
