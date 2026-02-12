@@ -15,7 +15,10 @@ def resolve_inference_repo() -> Path:
     if env_repo:
         candidates.append(Path(env_repo))
 
-    # Default location used by common.sh sync in Docker/GPU runs.
+    # Default location mounted by common.sh in Docker runs.
+    candidates.append(Path("/inference_repo"))
+
+    # Legacy location used by older common.sh sync flow.
     candidates.append(Path("/tf/inference/ml_array_data_classification"))
 
     # Local development default: sibling repo in the workspace.

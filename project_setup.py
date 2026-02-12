@@ -84,6 +84,42 @@ def get_config_dir() -> str:
     return os.path.join(project_dir, 'config')
 
 
+def parse_optional_bool_env(name: str):
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    normalized = str(raw).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid value for {name}: {raw}. Expected true/false.")
+
+
+def resolve_model_config_path(config_dir: str, cfg: SimpleNamespace) -> str:
+    """
+    Resolve the model config path, optionally overridden by MODEL_CONFIG env var.
+
+    Accepted MODEL_CONFIG values:
+    - "alexnet" or "alexnet.yaml" (resolved under config/models)
+    - Absolute path to a yaml file
+    """
+    model_override = os.getenv("MODEL_CONFIG")
+    if not model_override:
+        return os.path.join(config_dir, "models", f"{cfg.model_name}.yaml")
+
+    candidate = model_override.strip()
+    if not candidate.endswith(".yaml"):
+        candidate = f"{candidate}.yaml"
+    if not os.path.isabs(candidate):
+        candidate = os.path.join(config_dir, "models", candidate)
+    if not os.path.exists(candidate):
+        raise FileNotFoundError(f"MODEL_CONFIG override not found: {candidate}")
+
+    cfg.model_name = os.path.splitext(os.path.basename(candidate))[0]
+    return candidate
+
+
 
 def setup_config_and_logging():
     logging.config.dictConfig(LOGGING_CONFIG)
@@ -98,7 +134,12 @@ def setup_config_and_logging():
     OmegaConf.set_struct(args, False)
     cfg = dict_to_namespace(args)
 
-    model_args = OmegaConf.load(f"{config_dir}/models/{cfg.model_name}.yaml")
+    predict_override = parse_optional_bool_env("PREDICT_MODE")
+    if predict_override is not None:
+        cfg.predict = bool(predict_override)
+
+    model_config_path = resolve_model_config_path(config_dir, cfg)
+    model_args = OmegaConf.load(model_config_path)
     model_args_dict = OmegaConf.to_container(model_args, resolve=True)
     model_args = OmegaConf.create(model_args_dict)
     OmegaConf.set_struct(model_args, False)
