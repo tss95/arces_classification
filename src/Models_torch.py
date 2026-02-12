@@ -324,7 +324,27 @@ class AlexNet1D(Loop):
             filters = _parse_int_list(getattr(model_cfg, "filters", None), [96, 256, 384, 384, 256])
         else:
             filters = _parse_int_list(filters, [96, 256, 384, 384, 256])
+        if len(kernel_sizes) != len(filters):
+            raise ValueError(
+                f"kernel_sizes and filters must have the same length. "
+                f"Got len(kernel_sizes)={len(kernel_sizes)} len(filters)={len(filters)}."
+            )
+        dilations = _parse_int_list(
+            getattr(model_cfg, "dilations", None),
+            [1] * len(filters),
+        )
+        if len(dilations) == 1 and len(filters) > 1:
+            dilations = [int(dilations[0])] * len(filters)
+        if len(dilations) != len(filters):
+            raise ValueError(
+                f"dilations must have length 1 or match filters length. "
+                f"Got len(dilations)={len(dilations)} len(filters)={len(filters)}."
+            )
+        if any(int(d) < 1 for d in dilations):
+            raise ValueError(f"All dilation values must be >= 1. Got dilations={dilations}.")
         pooling = pooling if pooling is not None else getattr(model_cfg, "pool_type", "max")
+        if isinstance(pooling, str):
+            pooling = pooling.lower()
         first_conv_stride = int(getattr(model_cfg, "first_conv_stride", 4))
         first_conv_padding_mode = str(getattr(model_cfg, "first_conv_padding", "valid")).lower()
         if first_conv_padding_mode not in {"valid", "same"}:
@@ -350,21 +370,45 @@ class AlexNet1D(Loop):
         )
         self.pool_after_blocks = set(pool_after_blocks)
         self.use_final_pool = bool(getattr(model_cfg, "use_final_pool", True))
+        self.conv_dilations = [int(d) for d in dilations]
         
         self.conv_blocks = nn.ModuleDict()
         self.pool_layers = nn.ModuleDict()
 
-        pooling_layer = nn.MaxPool1d if pooling == 'max' else nn.AvgPool1d
         if pooling in [None, 'none']:
             pooling_layer = lambda kernel_size, stride: nn.Identity()
+        elif pooling == 'max':
+            pooling_layer = nn.MaxPool1d
+        elif pooling in {'avg', 'mean'}:
+            pooling_layer = nn.AvgPool1d
+        else:
+            raise ValueError(
+                f"Unsupported pool_type '{pooling}'. Use one of: ['max', 'avg', 'mean', 'none']."
+            )
 
         in_channels = num_channels
-        for i, (filter_size, kernel_size) in enumerate(zip(filters, kernel_sizes)):
+        for i, (filter_size, kernel_size, dilation) in enumerate(zip(filters, kernel_sizes, self.conv_dilations)):
+            effective_kernel = int(dilation) * (int(kernel_size) - 1) + 1
             if i == 0:
-                padding = (kernel_size - 1) // 2 if first_conv_padding_mode == "same" else 0
+                if first_conv_padding_mode == "same":
+                    if effective_kernel % 2 == 0:
+                        raise ValueError(
+                            f"Conv block {i} has even effective kernel size {effective_kernel} "
+                            f"(kernel={kernel_size}, dilation={dilation}) with same padding. "
+                            "Use an odd effective kernel or switch to valid padding."
+                        )
+                    padding = (effective_kernel - 1) // 2
+                else:
+                    padding = 0
                 stride = first_conv_stride
             else:
-                padding = (kernel_size - 1) // 2
+                if effective_kernel % 2 == 0:
+                    raise ValueError(
+                        f"Conv block {i} has even effective kernel size {effective_kernel} "
+                        f"(kernel={kernel_size}, dilation={dilation}). "
+                        "Current implementation expects odd effective kernels for shape-preserving padding."
+                    )
+                padding = (effective_kernel - 1) // 2
                 stride = 1
             self.conv_blocks[f"conv_block_{i}"] = nn.Sequential(
                 nn.Conv1d(
@@ -373,6 +417,7 @@ class AlexNet1D(Loop):
                     kernel_size=kernel_size,
                     stride=stride,
                     padding=padding,
+                    dilation=int(dilation),
                 ),
                 nn.ReLU(),
                 nn.BatchNorm1d(filter_size, eps=1e-5),
@@ -398,9 +443,10 @@ class AlexNet1D(Loop):
             self.conv_seq_len = conv_features.shape[-1]
             self.final_conv_channels = conv_features.shape[1]
         logger.info(
-            "AlexNet stem config: first_stride=%d first_padding=%s pool_after_blocks=%s final_pool=%s",
+            "AlexNet stem config: first_stride=%d first_padding=%s dilations=%s pool_after_blocks=%s final_pool=%s",
             first_conv_stride,
             first_conv_padding_mode,
+            self.conv_dilations,
             pool_after_blocks,
             self.use_final_pool,
         )

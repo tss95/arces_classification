@@ -1,5 +1,5 @@
 
-model_name: "alexnet_stride2_deeper"
+model_name: "alexnet_dilate_late_stride2"
 pretrained_model_name: "output/alexnet/best/models/alexnet_small-rain-1048_epoch=97_val_total_loss=0.41.ckpt" # Name of the weights file to be loaded. Needed for live.
 seed: 42 # Seed for reproducibility
 deterministic: true # Enable deterministic training behavior for reproducibility. Can be overridden via CLI.
@@ -54,8 +54,8 @@ data: # None of these are needed for live
   train_sampler_replacement: True
   train_label_sampling_weights: # Only used when train_sampler_mode=weighted_by_label.
     earthquake: 4
-    explosion: 1.0
-    noise: 0.8
+    explosion: 0.8
+    noise: 0.6
 
 
 live: # Needed for live

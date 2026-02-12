@@ -1,0 +1,29 @@
+# Dilated late + strongest local-detail preservation:
+# combine lower first stride with no first-stage pooling.
+# This is the most aggressive variant for EQ/EX onset-detail retention.
+kernel_sizes: None
+filters: None
+dilations: [1, 1, 1, 2, 4]
+
+pool_type: "max"
+first_conv_stride: 2
+first_conv_padding: "same"
+pool_kernel_size: 3
+pool_stride: 2
+pool_after_blocks: [1, 2, 3]
+use_final_pool: true
+
+dense_units: [128, 128]
+initializer: "glorot_uniform"
+
+head_mode: "single"
+use_transformer_head: true
+transformer:
+  d_model: 256
+  nhead: 4
+  num_layers: 2
+  dim_feedforward: 512
+  dropout: 0.1
+  activation: "gelu"
+  use_dual_cls_tokens: false
+

@@ -115,6 +115,40 @@ def parse_bool_env(name: str):
     return None
 
 
+def model_has_dilation_gt_one(model_cfg) -> bool:
+    raw = getattr(model_cfg, "dilations", None)
+    if raw is None:
+        return False
+    values = raw
+    if isinstance(values, str):
+        normalized = values.strip().lower()
+        if normalized in {"", "none"}:
+            return False
+        values = values.replace("[", "").replace("]", "")
+        values = [v.strip() for v in values.split(",") if v.strip()]
+    elif isinstance(values, (int, np.integer)):
+        values = [int(values)]
+    elif isinstance(values, np.ndarray):
+        values = values.tolist()
+    elif not isinstance(values, (list, tuple)):
+        try:
+            values = list(values)
+        except TypeError:
+            return False
+
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str) and value.lower() == "none":
+            continue
+        try:
+            if int(value) > 1:
+                return True
+        except (TypeError, ValueError):
+            logger.warning("Ignoring unparseable dilation value '%s' when evaluating deterministic guard.", value)
+    return False
+
+
 def _to_serializable_dict(obj):
     if obj is None:
         return None
@@ -411,6 +445,11 @@ def parse_trial_args():
                         help="Force deterministic training behavior for reproducibility.")
     parser.add_argument("--non-deterministic", dest="deterministic", action="store_false",
                         help="Disable deterministic behavior to maximize speed.")
+    parser.add_argument(
+        "--allow-slow-dilated-deterministic",
+        action="store_true",
+        help="Keep deterministic mode even when model dilations > 1 (can be extremely slow).",
+    )
     parser.set_defaults(deterministic=None)
     return parser.parse_args()
 
@@ -457,6 +496,13 @@ if __name__ == "__main__":
     )
     if trial_args.deterministic is not None:
         deterministic_run = bool(trial_args.deterministic)
+    if deterministic_run and model_has_dilation_gt_one(model_cfg) and not trial_args.allow_slow_dilated_deterministic:
+        logger.warning(
+            "Detected model dilations > 1 with deterministic mode enabled. "
+            "This combination can be extremely slow on this stack; overriding to deterministic=False. "
+            "Use --allow-slow-dilated-deterministic to force deterministic anyway."
+        )
+        deterministic_run = False
     cfg.deterministic = deterministic_run
     setup_reproducibility(cfg, deterministic=deterministic_run)
 
