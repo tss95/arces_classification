@@ -1,6 +1,6 @@
 # Live Performance Tracking (W&B Best Epoch + Stability Window)
 
-- Last updated: 2026-02-12 13:57 UTC
+- Last updated: 2026-02-12 15:00 UTC
 - W&B entity/project: `tordss-university-of-oslo/arces_classification`
 - Metric source: W&B run history (`val_live_*`), including in-progress runs.
 - Ranking target: best epoch by `val_live_accuracy` (epoch shown 1-indexed).
@@ -16,8 +16,8 @@
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | [`zhjyznz3`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/zhjyznz3) | `alexnet_dilate_late` | `finished` | 78 | 34 | 0.9400 | 0.9071 | 0.8531 | 0.8567 | 0.7404 | 0.7382 | 5 | -0.1144 |
 | [`s8pshcwj`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/s8pshcwj) | `alexnet_dilate_late_meanpool` | `finished` | 35 | 21 | 0.9078 | 0.8494 | 0.8556 | 0.8778 | 0.7337 | 0.7814 | 5 | -0.1011 |
-| [`0amc41hq`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/0amc41hq) | `alexnet_dilate_late_stride2_skip_early_pool` | `running` | 28 | 14 | 0.8800 | 0.8051 | 0.8318 | 0.8404 | 0.7054 | 0.7144 | 5 | -0.0389 |
-| [`3dt6m3qp`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/3dt6m3qp) | `alexnet_dilate_late_stride2` | `running` | 20 | 20 | 0.8789 | 0.7883 | 0.7996 | - | 0.6008 | - | 0 | 0.0000 |
+| [`3dt6m3qp`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/3dt6m3qp) | `alexnet_dilate_late_stride2` | `finished` | 85 | 30 | 0.9000 | 0.8289 | 0.8558 | 0.8389 | 0.7309 | 0.6870 | 5 | -0.0600 |
+| [`0amc41hq`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/0amc41hq) | `alexnet_dilate_late_stride2_skip_early_pool` | `finished` | 73 | 41 | 0.8844 | 0.7928 | 0.8396 | 0.8293 | 0.6877 | 0.6624 | 5 | -0.0767 |
 | [`7x8kxry0`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/7x8kxry0) | `alexnet_dilate_late` | `crashed` | - | - | - | - | - | - | - | - | 0 | - |
 
 ## Anchor Comparison (Finished)
@@ -41,10 +41,10 @@
   [`val_live_confusion_matrix_216_ea03dd426e2ddf590bf8.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/zhjyznz3/files/media/images/val_live_confusion_matrix_216_ea03dd426e2ddf590bf8.png)
 - `s8pshcwj` best epoch 21:
   [`val_live_confusion_matrix_132_f67008b33d3816845cb0.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/s8pshcwj/files/media/images/val_live_confusion_matrix_132_f67008b33d3816845cb0.png)
-- `0amc41hq` best epoch 14:
-  [`val_live_confusion_matrix_87_e047da930e24c1a617f9.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/0amc41hq/files/media/images/val_live_confusion_matrix_87_e047da930e24c1a617f9.png)
-- `3dt6m3qp` best epoch 20:
-  [`val_live_confusion_matrix_126_c8038a68578831f79b45.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/3dt6m3qp/files/media/images/val_live_confusion_matrix_126_c8038a68578831f79b45.png)
+- `3dt6m3qp` best epoch 30:
+  [`val_live_confusion_matrix_190_d78251660139712dc32a.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/3dt6m3qp/files/media/images/val_live_confusion_matrix_190_d78251660139712dc32a.png)
+- `0amc41hq` best epoch 41:
+  [`val_live_confusion_matrix_261_c70355919b3cf2025f7a.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/0amc41hq/files/media/images/val_live_confusion_matrix_261_c70355919b3cf2025f7a.png)
 - `nbc7govy` best epoch 42:
   [`val_live_confusion_matrix_267_1c2d1b0f9df29c6d6fb4.png`](https://wandb.ai/tordss-university-of-oslo/arces_classification/runs/nbc7govy/files/media/images/val_live_confusion_matrix_267_1c2d1b0f9df29c6d6fb4.png)
 - `4gq8yffu` best epoch 22:
@@ -52,7 +52,6 @@
 
 ## Decision Note (`alexnet_dilate_late_stride2`)
 
-- `alexnet_dilate_late_stride2` is currently just below `alexnet_dilate_late_stride2_skip_early_pool` on peak live acc (`0.8789` vs `0.8800`) and on peak EQ F1 (`0.7883` vs `0.8051`).
-- It is also far below the best dilated max-pool run (`0.9400` peak live acc).
-- Its current peak is at the latest epoch (`n_post=0`), so post-peak stability is not yet observable.
-- If GPU budget is tight, prioritize `stride2_skip_early_pool`; otherwise, keep this run for a few more epochs to measure post-peak stability.
+- Both `stride2` variants are now finished.
+- `alexnet_dilate_late_stride2` beat `stride2_skip_early_pool` on peak live acc (`0.9000` vs `0.8844`) and peak EQ F1 (`0.8289` vs `0.7928`).
+- Both show post-peak decay (`avg_post5_acc < avg_pre5_acc` and final below peak), so they improve over some non-dilated anchors but do not beat `alexnet_dilate_late` peak (`0.9400`).
