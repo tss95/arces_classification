@@ -13,21 +13,17 @@ from pathlib import Path
 
 from omegaconf import OmegaConf
 from src.Utils_torch import (
-    load_preprocessed_data_dict,
     prepare_folders_paths_cfg,
-    setup_transforms,
 )
 from src.Models_torch import get_model
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer, seed_everything
-from src.Transforms import RandomCropTransform, LiveStyleCenterCropTransform, ScalingTransform
-from src.Scaler_torch import Scaler
 from src.Analysis_torch import Analysis
 from src.Callbacks import ConfusionMatrixLogger, LiveStyleValidationCallback
+from src.train_data import build_data_module_and_scaler
 from torchsummary import summary
 import torch.multiprocessing as mp
-from src.BeamModule import BeamModule
 import psutil
 
 try:
@@ -427,24 +423,7 @@ def parse_train_args():
     return parser.parse_args()
 
 
-def compute_single_class_weights_from_index_list(index_list):
-    label_counts = {"noise": 0, "earthquake": 0, "explosion": 0}
-    for rec in index_list:
-        label = str(rec[3])
-        if label in label_counts:
-            label_counts[label] += 1
-    total = sum(label_counts.values())
-    if total == 0:
-        return {"noise": 1.0, "earthquake": 1.0, "explosion": 1.0}
-    return {
-        label: (total / count if count > 0 else 0.0)
-        for label, count in label_counts.items()
-    }
-    
-
-if __name__ == "__main__":
-    trial_args = parse_train_args()
-
+def apply_runtime_overrides(trial_args):
     if trial_args.head_mode is not None:
         model_cfg.head_mode = str(trial_args.head_mode).lower()
     if trial_args.max_epochs is not None:
@@ -462,6 +441,11 @@ if __name__ == "__main__":
     if trial_args.disable_live_val:
         cfg.callbacks.live_style_validation = False
 
+
+def do_preamble():
+    trial_args = parse_train_args()
+    apply_runtime_overrides(trial_args)
+
     env_deterministic = parse_bool_env("DETERMINISTIC_OVERRIDE")
     deterministic_default = bool(getattr(cfg, "deterministic", True))
     deterministic_run = (
@@ -469,7 +453,11 @@ if __name__ == "__main__":
     )
     if trial_args.deterministic is not None:
         deterministic_run = bool(trial_args.deterministic)
-    if deterministic_run and model_has_dilation_gt_one(model_cfg) and not trial_args.allow_slow_dilated_deterministic:
+    if (
+        deterministic_run
+        and model_has_dilation_gt_one(model_cfg)
+        and not trial_args.allow_slow_dilated_deterministic
+    ):
         logger.warning(
             "Detected model dilations > 1 with deterministic mode enabled. "
             "This combination can be extremely slow on this stack; overriding to deterministic=False. "
@@ -486,21 +474,45 @@ if __name__ == "__main__":
         num_gpus = torch.cuda.device_count()
         if num_gpus > 1 and not trial_args.single_gpu:
             cfg.optimizer.batch_size = int(cfg.optimizer.batch_size / num_gpus)
-            logger.info(f"Detected {num_gpus} GPUs, setting batch size to {cfg.optimizer.batch_size}")
+            logger.info("Detected %s GPUs, setting batch size to %s", num_gpus, cfg.optimizer.batch_size)
             multi_gpu = True
         elif num_gpus > 1 and trial_args.single_gpu:
             logger.info("Detected %s GPUs, forcing single-GPU mode due to --single-gpu.", num_gpus)
-  
+
     run_id = datetime.datetime.now().strftime("%y%m%d_%H%M%S") if not cfg.run_id else cfg.run_id
-    mp.set_start_method('spawn', force=True)
-    os.environ['WANDB_START_METHOD'] = 'thread'
+    mp.set_start_method("spawn", force=True)
+    os.environ["WANDB_START_METHOD"] = "thread"
     logger.info(
-        f"Run ID: {run_id}, debug mode: {cfg.data.debug}, num_epochs: {cfg.optimizer.max_epochs}, "
-        f"multi_gpu: {multi_gpu}, deterministic: {cfg.deterministic}"
+        "Run ID: %s, debug mode: %s, num_epochs: %s, multi_gpu: %s, deterministic: %s",
+        run_id,
+        cfg.data.debug,
+        cfg.optimizer.max_epochs,
+        multi_gpu,
+        cfg.deterministic,
     )
-    cfg = prepare_folders_paths_cfg(run_id, cfg, make_folders=True)
+    prepare_folders_paths_cfg(run_id, cfg, make_folders=True)
+    return trial_args, run_id, multi_gpu
+
+
+def compute_single_class_weights_from_index_list(index_list):
+    label_counts = {"noise": 0, "earthquake": 0, "explosion": 0}
+    for rec in index_list:
+        label = str(rec[3])
+        if label in label_counts:
+            label_counts[label] += 1
+    total = sum(label_counts.values())
+    if total == 0:
+        return {"noise": 1.0, "earthquake": 1.0, "explosion": 1.0}
+    return {
+        label: (total / count if count > 0 else 0.0)
+        for label, count in label_counts.items()
+    }
+    
+
+if __name__ == "__main__":
+    trial_args, run_id, multi_gpu = do_preamble()
     mem_before = print_mem_before()
-    key_dicts = load_preprocessed_data_dict(cfg)
+    key_dicts, data_module, scaler, _, _ = build_data_module_and_scaler(cfg)
     label_dict = key_dicts["label_dict"]
     classifier_label_map = key_dicts["classifier_label_map"]
     detector_label_map = key_dicts["detector_label_map"]
@@ -509,53 +521,12 @@ if __name__ == "__main__":
         "single_label_map",
         {"noise": 0, "earthquake": 1, "explosion": 2},
     )
-    
-        # Print memory usage after the operation
     mem_after = print_mem_after()
     print_mem_diff(mem_before, mem_after)
     
     logger.info(f"Class weights: {class_weights}")
     input_shape = (3, cfg.augment.random_crop_kwargs.timesteps)
 
-        
-    train_sample_transform = RandomCropTransform(cfg)
-    val_sample_mode = str(getattr(cfg.data, "validation_sample_mode", "random_crop")).lower()
-    if val_sample_mode == "live_center":
-        val_sample_transform = LiveStyleCenterCropTransform(cfg)
-    elif val_sample_mode == "random_crop":
-        val_sample_transform = RandomCropTransform(cfg)
-    else:
-        raise ValueError(
-            f"Unsupported data.validation_sample_mode='{val_sample_mode}'. "
-            "Use one of: ['random_crop', 'live_center']."
-        )
-    transforms_by_sample = {
-        "train": [train_sample_transform],
-        "val": [val_sample_transform],
-    }
-    # Build transforms without scaling first so we can fit a global scaler when needed
-    transforms_by_set = setup_transforms(cfg, add_scaling=False)
-    scaler = Scaler(cfg)
-    logger.info("Setting up modules:")
-    mem_before = print_mem_before()
-    data_module = BeamModule(transforms_by_sample, transforms_by_set, cfg)
-    data_module.setup()
-    if scaler.requires_fit:
-        # Fit on the training loader without scaling applied yet
-        fit_transforms = transforms_by_set["train"] if getattr(cfg.data, "set_transforms_on_device", False) else None
-        scaler.fit_loader(data_module.train_dataloader(), batch_transforms=fit_transforms)
-    scaling_transform = ScalingTransform(scaler)
-    for key in transforms_by_set:
-        transforms_by_set[key].append(scaling_transform)
-    logger.info("Datamodule created")
-    mem_after = print_mem_after()
-    print_mem_diff(mem_before, mem_after)
-    #verify = Verficiation(dataloaders["val"], val_events, cfg)
-    #verify.check_one_batch()
-    #verify.check_raw_data()
-    #verify.check_processed_data()
-    
-    
     wandb_logger = None
     haikunator = Haikunator()
     model_name = f"{cfg.model_name}_{haikunator.haikunate()}"

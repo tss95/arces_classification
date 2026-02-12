@@ -3,6 +3,9 @@
 Date: 2026-02-12  
 Scope: `/staff/tord/Workspace/arces_classification` with reference to `/staff/tord/Workspace/ml_array_data_classification`
 
+Companion matrix:
+- `docs/train_logic_port_and_src_cleanup_matrix.md` (detailed train-logic port checklist + `src/` keep/merge/delete mapping)
+
 ## 1) Goal
 
 Prepare `arces_classification` for ownership handoff by:
@@ -15,13 +18,12 @@ Prepare `arces_classification` for ownership handoff by:
 
 ## 2.1 Training Entry Points
 
-- Current active training script is effectively `code_test.py`.
-- Legacy/overlapping scripts exist:
-  - `train_torch.py` (older torch path)
-  - `train.py` (TensorFlow path)
-  - `sweep_train.py` (TensorFlow sweep path)
-
-This causes ownership ambiguity for the next maintainer.
+- Canonical entrypoint is now `train.py` (high-level wrapper).
+- `train.py` delegates to `code_test.py`, which still contains the full training implementation during transition.
+- Legacy scripts removed:
+  - `train_torch.py`
+  - `sweep_train.py`
+  - `predict.py`
 
 ## 2.2 Data Loading Split
 
@@ -84,7 +86,7 @@ Work:
   - trainer/callback wiring
   - handoff bundle export
 - Keep CLI runtime toggles currently used in operations.
-- Make `code_test.py` a thin compatibility wrapper that calls `train.py` (temporary).
+- Keep `train.py` as high-level entrypoint and `code_test.py` as implementation while internals are extracted.
 
 Formatting objective:
 
@@ -94,10 +96,9 @@ Formatting objective:
   - no hidden side effects at import time
   - predictable control flow
 
-Exit criteria:
+Status:
 
-- `python train.py ...` replaces `python code_test.py ...` in README and run scripts.
-- `code_test.py` either delegates or is retired after one validation cycle.
+- `run.sh` now defaults to `SCRIPT_NAME=train.py`.
 
 ## Phase 2: Replace `BeamDatasetHDF5` Path with Raw Loader Strategy
 
@@ -170,11 +171,7 @@ Keep (active):
 
 Deprecate then remove:
 
-- `code_test.py` (once `train.py` is stable)
-- `train_torch.py`
-- `train.py` TensorFlow implementation (replaced by new torch `train.py`)
-- `predict.py` TensorFlow path
-- `sweep_train.py` TensorFlow path
+- `code_test.py` (once extracted helpers are complete and `train.py` owns implementation directly)
 
 Delete candidate (after verification):
 
@@ -210,7 +207,7 @@ Handoff-ready when all are true:
 
 ## 8) Immediate Next Actions
 
-1. Create new torch `train.py` from current `code_test.py` flow (no behavior changes yet; structural cleanup only).
+1. Extract remaining `code_test.py` internals into helper functions (`do_preamble()`, data/model/trainer builders).
 2. Add `data.loader_mode` toggle and scaffold raw-loader dataset class.
 3. Port/reuse ML-array loader logic into ARCES training path with minimal divergence.
 4. Run first parity check (sample counts + one short training smoke run).

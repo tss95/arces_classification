@@ -1,6 +1,6 @@
 #!/bin/bash
 # Default training entrypoint
-export SCRIPT_NAME=code_test.py
+export SCRIPT_NAME=train.py
 export DATA_DIR="/nobackup2/tord/arces_classification_pytorch"
 export PROJECT_DIR="/staff/tord/Workspace/arces_classification"
 export BASE_DIR="/nobackup2/tord/arces_classification_pytorch"

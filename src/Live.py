@@ -22,56 +22,10 @@ from datetime import datetime
 # TODO: Resolve pick type declaration
 
 def load_model(model_name: Optional[str] = None) -> Tuple[Any, Dict[str, Dict[int, str]]]:
-    """
-    Load a pre-trained model with specified weights and configurations.
-
-    This function initializes the model with the given label maps for the detector and classifier.
-    It sets up the input shape based on the configuration, builds the model, and loads the weights.
-
-    Args:
-        model_name (Optional[str]): The name of the model to be loaded. If None, the default model name
-                                    from the configuration will be used.
-
-    Returns:
-        Tuple[Any, Dict[str, Dict[int, str]]]: A tuple containing the loaded model and the label maps
-                                               for the detector and classifier.
-
-    The function utilizes global configuration settings (`cfg`) and a logger instance (`logger`).
-    """
-    from src.Models import get_model
-    # Define label maps for the detector and classifier
-    detector_label_map = {0: "noise", 1: "event"}
-    classifier_label_map = {0: "earthquake", 1: "explosion"}
-    label_maps = {"detector": detector_label_map, "classifier": classifier_label_map}
-
-    # Calculate the input shape based on configuration settings
-    input_shape = (cfg.live.length * cfg.live.sample_rate + 1, 3)
-
-    # Define class weights for both detector and classifier
-    detector_class_weight_dict = {"noise": 1, "event": 1}
-    classifier_class_weight_dict = {"earthquake": 1, "explosion": 1}
-
-    # Log the input shape
-    logger.info("Input shape to the model: " + str(input_shape))
-
-    # Initialize metrics for both detector and classifier
-    classifier_metrics = [None]
-    detector_metrics = [None]
-
-    # Create and build the model
-    model = get_model(detector_label_map, classifier_label_map, detector_metrics, classifier_metrics, 
-                      detector_class_weight_dict, classifier_class_weight_dict)
-    model.build(input_shape=(None, *input_shape))  # Explicitly building the model
-
-    # Load model weights
-    if model_name is None:
-        model_name = cfg.model_name
-    model.load_weights(os.path.join(cfg.paths.model_save_folder, model_name))
-
-    # Log the model loading information
-    logger.info(f"Loaded model weights from {os.path.join(cfg.paths.model_save_folder, cfg.model_name)}")
-
-    return model, label_maps
+    raise RuntimeError(
+        "Legacy TensorFlow load_model() path is removed. "
+        "Use ml_array_data_classification/inference.py (via live_via_ml_array.py) for live inference."
+    )
 
 
 def sanitize_filename(filename: str) -> str:
