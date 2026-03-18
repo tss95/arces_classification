@@ -5,6 +5,7 @@ from haikunator import Haikunator
 from global_config import logger, cfg, model_cfg
 import numpy as np
 from haikunator import Haikunator
+from types import SimpleNamespace
 from src.Utils_torch import *
 from src.BeamDataset import BeamDataset
 from src.Models_torch import get_model
@@ -31,6 +32,49 @@ try:
     from pytorch_lightning.loggers import WandbLogger
 except ImportError:
     wandb_available = False
+
+
+def _namespace_from_dict(data):
+    ns = SimpleNamespace()
+    for key, value in data.items():
+        if isinstance(value, dict):
+            setattr(ns, key, _namespace_from_dict(value))
+        else:
+            setattr(ns, key, value)
+    return ns
+
+
+def _merge_namespace(target, updates):
+    for key, value in updates.items():
+        if isinstance(value, dict):
+            current = getattr(target, key, None)
+            if current is None or not hasattr(current, "__dict__"):
+                setattr(target, key, _namespace_from_dict(value))
+            else:
+                _merge_namespace(current, value)
+        else:
+            setattr(target, key, value)
+
+
+def apply_checkpoint_runtime_overrides(checkpoint):
+    cfg_dict = checkpoint.get("cfg")
+    if isinstance(cfg_dict, dict):
+        model_name = cfg_dict.get("model_name")
+        if not model_name and isinstance(cfg_dict.get("model"), dict):
+            model_name = cfg_dict["model"].get("model_name")
+        if model_name:
+            cfg.model_name = str(model_name)
+        logger.info("Applied runtime cfg overrides from checkpoint.cfg")
+
+    model_cfg_dict = checkpoint.get("model_cfg")
+    if isinstance(model_cfg_dict, dict):
+        # Prevent stale local defaults from leaking into checkpoint reconstruction.
+        for key in ("dilations",):
+            if key not in model_cfg_dict and hasattr(model_cfg, key):
+                setattr(model_cfg, key, None)
+        _merge_namespace(model_cfg, model_cfg_dict)
+        logger.info("Applied runtime model_cfg overrides from checkpoint.model_cfg")
+
 
 if __name__ == "__main__":
     if cfg.data.debug:
@@ -66,6 +110,7 @@ if __name__ == "__main__":
     data_module = BeamModule(transforms_by_sample, transforms_by_set, cfg)
     data_module.setup()
     ckpt = torch.load(cfg.pretrained_model_name, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    apply_checkpoint_runtime_overrides(ckpt)
     if "scaler_state" in ckpt:
         scaler.load_state_dict(ckpt["scaler_state"])
     elif scaler.requires_fit:
