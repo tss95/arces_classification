@@ -246,15 +246,18 @@ class ClassifyGBF:
         filtered_events, inventory = self.get_array_picks(starttime, endtime, cfg.live.array)
         print("Number of filtered events: ", len(filtered_events))
         print(f"Inventory: {inventory}")
-        starttimes, endtimes = self.transform_events_to_start_and_end_times(filtered_events)
-        print(f"starttimes: {starttimes}")
+        all_starttimes, all_endtimes = self.transform_events_to_start_and_end_times(filtered_events)
+        print(f"starttimes: {all_starttimes}")
         tracedata, streams = [], []
-        for i, (starttime, endtime) in enumerate(zip(starttimes, endtimes)):
-            traced, stream = self.get_beam(starttime, endtime, filtered_events[i], inventory)
+        starttimes, endtimes = [], []
+        for i, (event_start, event_end) in enumerate(zip(all_starttimes, all_endtimes)):
+            traced, stream = self.get_beam(event_start, event_end, filtered_events[i], inventory)
             # Ignore failed retrievals where a string error message is returned
             if not isinstance(traced, str):
                 tracedata.append(traced)
                 streams.append(stream)
+                starttimes.append(event_start)
+                endtimes.append(event_end)
         return tracedata, streams, starttimes, endtimes
 
     
