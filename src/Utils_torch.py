@@ -335,6 +335,7 @@ def event_mapper(noise_beams_by_year, labels_event_types_by_year, metadata_by_ye
     event_durations = []
     dropped_label_counts = Counter()
     duplicate_event_ids = 0
+    skipped_invalid_window_events = 0
 
     for year in sorted(labels_event_types_by_year.keys()):
         label_path = labels_event_types_by_year[year]
@@ -391,6 +392,15 @@ def event_mapper(noise_beams_by_year, labels_event_types_by_year, metadata_by_ye
             start_index, end_index = process_event_temporal_location(
                 metadata_slice, window, arrival_ids, distance, station, cfg
             )
+            if (
+                start_index is None
+                or end_index is None
+                or not np.isfinite(start_index)
+                or not np.isfinite(end_index)
+                or end_index <= start_index
+            ):
+                skipped_invalid_window_events += 1
+                continue
 
             if event_id in events:
                 duplicate_event_ids += 1
@@ -440,6 +450,11 @@ def event_mapper(noise_beams_by_year, labels_event_types_by_year, metadata_by_ye
         logger.warning(
             "Encountered %s duplicate event ids while mapping labels; latest row wins.",
             duplicate_event_ids,
+        )
+    if skipped_invalid_window_events:
+        logger.warning(
+            "Skipped %s events due to missing/invalid phase window estimates.",
+            skipped_invalid_window_events,
         )
     return events
 

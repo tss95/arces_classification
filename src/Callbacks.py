@@ -274,6 +274,7 @@ class LiveStyleValidationCallback(Callback):
         y_true: List[str] = []
         y_pred: List[str] = []
         trace_lengths: List[int] = []
+        skipped_invalid_event_windows = 0
 
         start = time.time()
         old_level = logger.level
@@ -287,19 +288,45 @@ class LiveStyleValidationCallback(Callback):
                         trace = data[idx]
                         rec = self.val_index_list[idx]
                         truth = str(rec[3])
+                        truth_norm = self._normalize_label(truth).strip().lower()
+                        start_idx = rec[4]
+                        end_idx = rec[5]
+                        is_event_truth = truth_norm not in {"noise", "not existing"}
+                        if is_event_truth:
+                            try:
+                                valid_window = (
+                                    start_idx is not None
+                                    and end_idx is not None
+                                    and np.isfinite(float(start_idx))
+                                    and np.isfinite(float(end_idx))
+                                    and float(end_idx) > float(start_idx)
+                                )
+                            except (TypeError, ValueError):
+                                valid_window = False
+                            if not valid_window:
+                                skipped_invalid_event_windows += 1
+                                continue
                         trace = live_model.extract_production_like_trace(
                             trace,
                             label=truth,
-                            start_idx=rec[4],
-                            end_idx=rec[5],
+                            start_idx=start_idx,
+                            end_idx=end_idx,
                         )
                         trace_lengths.append(int(trace.shape[1]))
                         pred, _, _, _, _ = live_model.predict(trace)
-                        y_true.append(truth)
+                        y_true.append("noise" if truth_norm == "not existing" else truth_norm)
                         y_pred.append(self._normalize_label(pred))
         finally:
             logger.setLevel(old_level)
         elapsed = time.time() - start
+
+        if not y_true:
+            logger.warning(
+                "Live-style validation epoch %d skipped: no valid evaluable samples (skipped_invalid_event_windows=%d).",
+                trainer.current_epoch + 1,
+                skipped_invalid_event_windows,
+            )
+            return
 
         report = classification_report(
             y_true,
@@ -333,9 +360,11 @@ class LiveStyleValidationCallback(Callback):
         payload = {
             "epoch": int(trainer.current_epoch + 1),
             "trace_mode": "event_cropped_v1",
-            "sample_size": len(self.selected_indices),
+            "requested_sample_size": len(self.selected_indices),
+            "sample_size": len(y_true),
+            "skipped_invalid_event_windows": int(skipped_invalid_event_windows),
             "elapsed_seconds": elapsed,
-            "events_per_second": len(self.selected_indices) / elapsed if elapsed > 0 else 0.0,
+            "events_per_second": len(y_true) / elapsed if elapsed > 0 else 0.0,
             "selected_label_distribution": self.selected_label_distribution,
             "trace_length_stats_samples": {
                 "mean": float(np.mean(trace_lengths)),
@@ -367,10 +396,11 @@ class LiveStyleValidationCallback(Callback):
                 plt.close(fig)
 
         logger.info(
-            "Live-style validation epoch %d: acc=%.4f macro_f1=%.4f (%d events, %.2fs).",
+            "Live-style validation epoch %d: acc=%.4f macro_f1=%.4f (%d events evaluated, %d skipped invalid windows, %.2fs).",
             trainer.current_epoch + 1,
             live_metrics["val_live_accuracy"],
             live_metrics["val_live_macro_f1"],
-            len(self.selected_indices),
+            len(y_true),
+            skipped_invalid_event_windows,
             elapsed,
         )

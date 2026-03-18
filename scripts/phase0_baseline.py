@@ -223,6 +223,7 @@ def run_live_style_eval(model, scaler, args: argparse.Namespace) -> Dict[str, ob
     y_true: List[str] = []
     y_pred: List[str] = []
     labels = ["noise", "earthquake", "explosion"]
+    skipped_invalid_event_windows = 0
 
     t0 = time.time()
     old_level = logger.level
@@ -234,18 +235,41 @@ def run_live_style_eval(model, scaler, args: argparse.Namespace) -> Dict[str, ob
                 trace = data[i]
                 rec = index_list[i]
                 truth = str(rec[3])
+                truth_norm = normalize_label(truth).strip().lower()
+                start_idx = rec[4]
+                end_idx = rec[5]
+                is_event_truth = truth_norm not in {"noise", "not existing"}
+                if is_event_truth:
+                    try:
+                        valid_window = (
+                            start_idx is not None
+                            and end_idx is not None
+                            and np.isfinite(float(start_idx))
+                            and np.isfinite(float(end_idx))
+                            and float(end_idx) > float(start_idx)
+                        )
+                    except (TypeError, ValueError):
+                        valid_window = False
+                    if not valid_window:
+                        skipped_invalid_event_windows += 1
+                        continue
                 trace = live_model.extract_production_like_trace(
                     trace,
                     label=truth,
-                    start_idx=rec[4],
-                    end_idx=rec[5],
+                    start_idx=start_idx,
+                    end_idx=end_idx,
                 )
                 pred, _, _, _, _ = live_model.predict(trace)
-                y_true.append(truth)
+                y_true.append("noise" if truth_norm == "not existing" else truth_norm)
                 y_pred.append(normalize_label(pred))
     finally:
         logger.setLevel(old_level)
     elapsed = time.time() - t0
+
+    if not y_true:
+        raise RuntimeError(
+            "No valid evaluable samples remained after skipping invalid event windows."
+        )
 
     cm = confusion_matrix(y_true, y_pred, labels=labels)
     report = classification_report(y_true, y_pred, labels=labels, output_dict=True, zero_division=0)
@@ -255,9 +279,11 @@ def run_live_style_eval(model, scaler, args: argparse.Namespace) -> Dict[str, ob
         chosen_dist[str(index_list[idx][3])] += 1
 
     return {
-        "sample_size": len(selected),
+        "requested_sample_size": len(selected),
+        "sample_size": len(y_true),
+        "skipped_invalid_event_windows": int(skipped_invalid_event_windows),
         "elapsed_seconds": elapsed,
-        "events_per_second": len(selected) / elapsed if elapsed > 0 else 0.0,
+        "events_per_second": len(y_true) / elapsed if elapsed > 0 else 0.0,
         "selected_label_distribution": dict(chosen_dist),
         "labels_order": labels,
         "confusion_matrix": cm.tolist(),
